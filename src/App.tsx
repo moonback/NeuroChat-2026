@@ -71,7 +71,14 @@ export default function App() {
         }
       },
       onInterrupted: () => {
-        stopAudio();
+        // Dynamic threshold: higher when AI is speaking to avoid echo triggering barge-in
+        const threshold = isSpeaking ? 0.15 : 0.08;
+        if (audioLevel > threshold) {
+          console.log(`🗣️ Interruption détectée (${audioLevel.toFixed(2)} > ${threshold})`);
+          stopAudio();
+        } else {
+          console.log(`🔇 Bruit ignoré (${audioLevel.toFixed(2)} <= ${threshold})`);
+        }
       },
       onRecordingStart: (sendInput) => {
         sendInputRef.current = sendInput;
