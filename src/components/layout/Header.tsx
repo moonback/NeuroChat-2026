@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onShowMemory
 }) => {
   return (
-    <nav className="relative z-50 flex items-center justify-between px-6 py-4 sm:px-10 sm:py-6 lg:px-16">
+    <nav className="relative z-50 flex items-center justify-between px-4 py-3 sm:px-10 sm:py-6 lg:px-16">
       {/* Brand / Logo Section */}
       <div className="flex items-center gap-4 group cursor-pointer">
         {/* <motion.div 
@@ -39,13 +39,13 @@ export const Header: React.FC<HeaderProps> = ({
         </motion.div> */}
 
         <div className="flex flex-col">
-          <span className="text-xl lg:text-2xl font-bold tracking-tight text-white leading-none">
+          <span className="text-lg lg:text-2xl font-bold tracking-tight text-white leading-none">
             NeuroChat <span style={{ color: avatar.colors[0] }}>AI</span>
           </span>
-          <div className="flex items-center gap-2 mt-1">
-            <div className={`w-2 h-2 rounded-full ${status !== "idle" ? "bg-green-500 animate-pulse" : "bg-slate-500"}`} />
-            <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500">
-              {status === "idle" ? "Prêt" : status === "connecting" ? "Connexion..." : "En direct"}
+          <div className="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+            <div className={`w-1.5 h-1.5 rounded-full ${status !== "idle" ? "bg-green-500 animate-pulse" : "bg-slate-500"}`} />
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-bold text-slate-500">
+              {status === "idle" ? "Prêt" : status === "connecting" ? "..." : "LIVE"}
             </span>
           </div>
         </div>
@@ -78,10 +78,10 @@ export const Header: React.FC<HeaderProps> = ({
                   />
                 </div>
               ) : (
-                <div className="flex items-center gap-3 bg-white/5 border border-white/10 pl-4 pr-2 py-1.5 rounded-2xl backdrop-blur-md">
+                <div className="flex items-center gap-2 sm:gap-3 bg-white/5 border border-white/10 pl-3 pr-1.5 py-1 sm:pl-4 sm:pr-2 sm:py-1.5 rounded-2xl backdrop-blur-md">
                   <div className="flex flex-col items-end mr-1">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Utilisateur</span>
-                    <span className="text-sm font-bold text-white leading-none">
+                    <span className="hidden sm:inline text-[10px] text-slate-500 font-bold uppercase tracking-wider">Utilisateur</span>
+                    <span className="text-xs sm:text-sm font-bold text-white leading-none">
                       {userName}
                     </span>
                   </div>
@@ -101,10 +101,10 @@ export const Header: React.FC<HeaderProps> = ({
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={onShowMemory}
-                  className="flex items-center gap-2.5 bg-slate-800/80 hover:bg-slate-700 border border-slate-700/50 px-4 py-2.5 rounded-2xl transition-all shadow-xl backdrop-blur-md group"
+                  className="hidden sm:flex items-center gap-2.5 bg-slate-800/80 hover:bg-slate-700 border border-slate-700/50 px-4 py-2.5 rounded-2xl transition-all shadow-xl backdrop-blur-md group"
                 >
                   <Brain className="w-5 h-5 text-purple-400 group-hover:rotate-12 transition-transform" />
-                  <span className="hidden md:inline text-sm font-semibold text-slate-200">Mémoire</span>
+                  <span className="text-sm font-semibold text-slate-200">Mémoire</span>
                 </motion.button>
               )}
             </motion.div>
