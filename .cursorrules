@@ -1,0 +1,57 @@
+{
+  "project_context": {
+    "name": "KidsVoice AI",
+    "description": "A real-time voice assistant app for kids using Gemini Live API, React, and TailwindCSS.",
+    "architecture_focus": "Client-Side SPA with direct external WebSocket connection.",
+    "core_purpose": "Provide an engaging, magical, and realtime voice-based UI for kids."
+  },
+  "stack": [
+    "React 19",
+    "TypeScript",
+    "Vite",
+    "Tailwind CSS v4",
+    "Framer Motion (motion/react)",
+    "Lucide React",
+    "@google/genai SDK",
+    "Web Audio API"
+  ],
+  "conventions": {
+    "naming": {
+      "files": "PascalCase for React components (e.g., `AnimatedCharacter.tsx`), camelCase for utilities/lib files (e.g., `audioPlayer.ts`).",
+      "variables": "camelCase for instances, UPPER_SNAKE_CASE for global constants.",
+      "types_interfaces": "PascalCase for interfaces and types (e.g., `interface AudioConfig`)"
+    },
+    "components": {
+      "structure": "Functional components heavily utilizing React hooks. Use `export function ComponentName() {}` instead of arrow function default exports.",
+      "styles": "Use Tailwind utility classes inline. Do not create `.css` files per component unless absolutely necessary for complex keyframes.",
+      "animations": "Use `motion/react` elements for component mounts, unmounts (`AnimatePresence`), and interactive keyframe variants."
+    },
+    "state_management": {
+      "UI_State": "Use React `useState` and `useEffect`.",
+      "Persistent_References": "Use `useRef` for holding instances of AudioContext, Workers, WebSocket connections, or standard JS classes to avoid re-initializing them across renders."
+    }
+  },
+  "architecture_patterns": {
+    "frontend_structure": {
+      "components": "`src/components` - UI building blocks.",
+      "lib": "`src/lib` - Complex browser APIs or interactions (WebRTC, Audio Processing, AI SDK adapters).",
+      "assets": "`public/` - Media files."
+    },
+    "data_fetching": "All current AI connections are managed client-side using WebSocket (`@google/genai`). Future REST implementation should use `fetch` or a dedicated client like `supabase-js`."
+  },
+  "best_practices": {
+    "error_handling": "Always wrap browser APIs (`getUserMedia`) in `try/catch` and provide a visually distinct error state to the UI.",
+    "audio_lifecycle": "Always cleanly destroy `AudioContext` and close `MediaStream` tracks on unmount (`useEffect` cleanup function).",
+    "type_safety": "Avoid `any`. Strictly type API responses, Event payloads, and Component Props.",
+    "security": "Do not commit `.env` files. Access secrets exclusively via `process.env` in Vite configs securely managed by host deployment."
+  },
+  "workflow": {
+    "new_feature": "Create a branch, isolate logic in `src/lib` if modifying core behaviors, or `src/components` for UI, and write tests for critical path logic.",
+    "prompt_design": "To edit the AI persona, modify `src/lib/systemPrompt.ts` explicitly without changing API configuration code."
+  },
+  "preferences": [
+    "Prefer Tailwind for layouts and colors.",
+    "Prefer Lucide icons for UI symbolism.",
+    "Avoid state redundancy (compute derived states where applicable)."
+  ]
+}
