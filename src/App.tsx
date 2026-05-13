@@ -147,72 +147,58 @@ export default function App() {
             },
             onmessage: (message: any) => {
               console.log("📨 Message reçu:", message);
+              
+              const serverContent = message.serverContent;
+              const modelTurn = serverContent?.modelTurn;
+              const parts = modelTurn?.parts;
 
-              // Capture transcript from user (if available)
-              // Only capture text from the USER (alternating roles: 'assistant' then 'user')
-              const role = message.role;
-              const textPart = message.content?.parts?.find((p: any) => p.text);
-
-              // Check if it's a user message with text
-              if (role === "user" && textPart && textPart.text) {
-                const transcript = textPart.text.trim();
-                console.log("👥 Utilisateur a dit:", transcript);
-
-                // Update current transcript
-                setCurrentTranscript(transcript);
-
-                // Add to conversation history
-                if (userName) {
-                  addConversationTurn(userName, transcript, 'user');
+              // 1. Handle User Transcription
+              if (serverContent?.inputTranscription?.text) {
+                const text = serverContent.inputTranscription.text;
+                setCurrentTranscript(text);
+                if (serverContent.inputTranscription.finished && userName) {
+                  addConversationTurn(userName, "user", text);
                 }
-              } else {
-                console.log("🤖 Réponse de l'assistant ou message non-textuel");
               }
-
-              // Handle assistant response (audio) or end of turn
-              if (message.result?.audio?.data) {
-                console.log("🔊 Audio de réponse reçu ({} bytes)", message.result.audio.data.length);
-                audioPlayer.current?.play(message.result.audio.data);
-              }
-
-              // Handle turn completion
-              if (message.isFinal || message.result?.isFinal) {
-                console.log("🏁 Fin de tour");
-                // Stop speaking timeout and reset state
-                if (speakingTimeoutRef.current) {
-                  clearTimeout(speakingTimeoutRef.current);
+              
+              // 2. Handle Model Response
+              const base64Audio = parts?.find((p: any) => p.inlineData)?.inlineData?.data;
+              if (base64Audio) {
+                // Capture AI response text if available
+                const aiText = parts?.find((p: any) => p.text)?.text;
+                if (aiText && userName && serverContent?.turnComplete) {
+                  addConversationTurn(userName, "assistant", aiText);
                 }
-                setIsSpeaking(false);
-
-                // End of user turn - restart listening
-                console.log("👂 Redémarrage de l'écoute...");
-                setStatus("listening");
-              } else {
-                // Set speaking timeout
-                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-                speakingTimeoutRef.current = setTimeout(() => {
-                  console.log("⏹️ Timeout - arrêt de l'assistant");
-                  sessionRef.current?.close();
-                  setStatus("idle");
-                }, 4000); // 4 seconds timeout
+                
+                audioPlayer.current?.play(base64Audio);
                 setIsSpeaking(true);
+                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+                speakingTimeoutRef.current = setTimeout(() => setIsSpeaking(false), 1500);
+              }
+
+              // 3. Handle Interruptions
+              if (serverContent?.interrupted) {
+                audioPlayer.current?.clearQueue();
+                setIsSpeaking(false);
+                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
               }
             },
             onerror: (error: any) => {
               console.error("❌ Erreur de session:", error);
-              // Stop and reset
               if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
               setStatus("idle");
-              setErrorMsg("Oups ! Une erreur s'est produite.");
+              setErrorMsg("Oups ! Une erreur s'est produite avec la connexion vocale.");
             },
-            onclose: () => {
-              console.log("🚪 Session fermée");
+            onclose: (event: any) => {
+              console.log("🚪 Session fermée", event);
               if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
               setStatus("idle");
+              audioRecorder.current?.stop();
+              sessionRef.current = null;
             }
           },
           config: {
-            systemInstruction: buildSystemPrompt(avatarId, userName),
+            systemInstruction: { parts: [{ text: buildSystemPrompt(avatarId, userName) }] },
             responseModalities: [Modality.AUDIO],
             speechConfig: {
               voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
