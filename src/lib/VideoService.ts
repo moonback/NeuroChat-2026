@@ -12,13 +12,13 @@ export class VideoService {
     this.ctx = this.canvas.getContext('2d')!;
   }
 
-  async start() {
+  async start(facingMode: "user" | "environment" = "user") {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
-          facingMode: "user"
+          facingMode: facingMode
         } 
       });
       

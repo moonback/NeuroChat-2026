@@ -1,4 +1,4 @@
-import { Square, Sparkles, Camera, CameraOff } from "lucide-react";
+import { Square, Sparkles, Camera, CameraOff, RefreshCcw } from "lucide-react";
 import { useState, FormEvent, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
@@ -14,6 +14,7 @@ export default function App() {
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
   const [cameraActive, setCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const videoServiceRef = useRef<VideoService | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
@@ -109,6 +110,21 @@ export default function App() {
     sendInputRef.current = null;
   };
 
+  const toggleCameraFacingMode = async () => {
+    const nextMode = facingMode === "user" ? "environment" : "user";
+    setFacingMode(nextMode);
+    
+    if (videoServiceRef.current && cameraActive) {
+      videoServiceRef.current.stop();
+      try {
+        await videoServiceRef.current.start(nextMode);
+        setVideoStream(videoServiceRef.current.getStream() || null);
+      } catch (err) {
+        console.error("Erreur lors du changement de caméra:", err);
+      }
+    }
+  };
+
   // Manage VideoService reactively based on cameraActive and session status
   useEffect(() => {
     if (status === "listening" && cameraActive && !videoServiceRef.current && sendInputRef.current) {
@@ -117,7 +133,7 @@ export default function App() {
         sendInputRef.current?.(videoBase64, 'video');
       });
 
-      videoServiceRef.current.start()
+      videoServiceRef.current.start(facingMode)
         .then(() => {
           setVideoStream(videoServiceRef.current?.getStream() || null);
         })
@@ -334,7 +350,7 @@ export default function App() {
                         autoPlay
                         muted
                         playsInline
-                        className="w-full h-full object-cover mirror"
+                        className={`w-full h-full object-cover ${facingMode === "user" ? "mirror" : ""}`}
                       />
 
                       {/* Premium Overlay Effects */}
@@ -437,6 +453,16 @@ export default function App() {
               >
                 {cameraActive ? <Camera className="w-6 h-6" /> : <CameraOff className="w-6 h-6" />}
               </button>
+
+              {cameraActive && (
+                <button
+                  onClick={toggleCameraFacingMode}
+                  className="w-14 h-14 flex items-center justify-center rounded-full transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
+                  title="Changer de caméra"
+                >
+                  <RefreshCcw className="w-6 h-6" />
+                </button>
+              )}
 
               <button
                 onClick={handleStopSession}
