@@ -1,32 +1,27 @@
-# NeuroChat AI 🎙️✨
+# NeuroChat AI 🎙️🧠
 
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![Tailwind](https://img.shields.io/badge/Tailwind-v4-38B2AC.svg)](https://tailwindcss.com/)
 [![Gemini](https://img.shields.io/badge/Gemini-Live_API-orange.svg)](https://ai.google.dev/)
+[![Vitest](https://img.shields.io/badge/Tests-Vitest-yellow.svg)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **NeuroChat AI** n'est pas qu'un simple chatbot. C'est un compagnon magique, animé et réactif, conçu pour éveiller la curiosité des enfants à travers une interaction vocale naturelle et immersive.
+> **NeuroChat AI** est un assistant personnel intelligent de nouvelle génération. Conçu pour la productivité et l'accompagnement quotidien, il combine une interface vocale ultra-réactive avec une mémoire conversationnelle persistante pour une expérience fluide et personnalisée.
 
 ---
 
-## 🌟 L'Expérience Magique
+## 🌟 L'Expérience NeuroChat
 
-L'application transforme l'IA en un ami imaginaire tangible. Grâce à l'intégration de **Gemini Live API**, NeuroChat offre une latence ultra-faible permettant une véritable conversation fluide, sans interruption manuelle.
+L'application transforme l'interaction avec l'IA en une conversation naturelle et sans friction. Grâce à l'intégration de **Gemini Live API**, NeuroChat offre une latence ultra-faible permettant une véritable interaction fluide, sans bouton "Push-to-talk".
 
-### 🎭 Compagnons Uniques
-Choisissez parmi une sélection d'avatars animés, chacun possédant sa propre personnalité et son univers visuel :
-- **Robot Cool** 🤖 : High-tech, logique et fasciné par les gadgets.
-- **Maysson le Renard** 🦊 : Malin, protecteur et amoureux de la nature.
-- **Leanna la Fée** 🧚 : Douce, chantante et experte en poussière d'étoiles.
-- **Drago le Dragon** 🐲 : Courageux, drôle et amateur de trésors cachés.
-- **Mistigri l'Espace** 🐱 : Un chat cosmique explorateur de galaxies lointaines.
+### 🎭 Assistant Intelligent
+- **Nova** 🛰️ : Votre assistant principal, proactif et polyvalent. Spécialisé dans l'organisation, la productivité et la gestion du temps.
+- **Personnalité Adaptative** : Le ton et le style de réponse s'adaptent dynamiquement à l'heure de la journée et au contexte de vos échanges.
 
-### 🔊 Réactivité Sonore Dynamique
-Le moteur d'animation est couplé au flux audio en temps réel. Les avatars ne font pas que parler ; ils **réagissent** au volume de la voix de l'enfant (pupilles qui se dilatent, ailes qui battent plus vite, halo lumineux qui pulse).
-
-### 👤 Personnalisation Locale
-- **Mémoire du prénom** : L'IA s'adresse directement à l'enfant pour une relation plus intime.
-- **Persistance** : Les préférences d'avatar et le prénom sont sauvegardés localement (Privacy by design).
+### 🧠 Mémoire & Continuité
+- **Mémoire Persistante** : NeuroChat se souvient des échanges précédents pour offrir des réponses contextuelles et éviter les répétitions.
+- **Analyse du Temps** : Conscience de la date, de l'heure et des périodes de la journée pour une pertinence maximale.
+- **Confidentialité Locale** : Toutes vos données de session et votre historique sont stockés localement dans votre navigateur (Privacy-first).
 
 ---
 
@@ -34,22 +29,23 @@ Le moteur d'animation est couplé au flux audio en temps réel. Les avatars ne f
 
 ### Stack Moderne
 - **Core** : React 19 + TypeScript (Typage strict pour une robustesse maximale).
-- **Style** : Tailwind CSS v4 + Motion (Animations 60fps optimisées).
-- **Moteur IA** : Google GenAI SDK avec streaming PCM 16-bit bidirectionnel.
-- **Architecture Mobile-Ready** : Logique audio abstraite via des interfaces (`IAudioRecorder`, `IAudioPlayer`) facilitant le portage vers React Native.
+- **Style** : Tailwind CSS v4 + Motion (Animations 60fps fluides).
+- **IA** : Google GenAI SDK (Multimodal Live API) avec streaming PCM 16-bit bidirectionnel.
+- **Tests** : Suite complète de tests unitaires avec **Vitest**.
 
 ### Structure du Code
-- `src/lib/AudioService.ts` : Couche d'abstraction pour le multi-plateforme.
-- `src/components/avatars/` : Système modulaire d'avatars SVG animés.
-- `src/lib/systemPrompt.ts` : Générateur dynamique de personnalité injectant le contexte utilisateur.
+- `src/lib/AudioRecorder.ts` : Capture audio haute performance via AudioWorklet.
+- `src/lib/conversationMemory.ts` : Gestionnaire de contexte et de persistance locale.
+- `src/lib/systemPrompt.ts` : Moteur de génération de prompt dynamique.
+- `src/lib/usageLimits.ts` : Système de bien-être numérique et de gestion du temps de repos.
 
 ---
 
-## 🚀 Installation Rapide
+## 🚀 Installation & Développement
 
 1. **Clonage & Installation**
    ```bash
-   git clone https://github.com/votre-username/NeuroChat-ai.git
+   git clone https://github.com/votre-username/NeuroChat.git
    npm install
    ```
 
@@ -59,23 +55,41 @@ Le moteur d'animation est couplé au flux audio en temps réel. Les avatars ne f
    VITE_GEMINI_API_KEY=votre_cle_gemini_ici
    ```
 
-3. **Décollage**
+3. **Lancement**
    ```bash
    npm run dev
    ```
 
 ---
 
+## 🧪 Tests
+
+NeuroChat inclut une suite de tests rigoureuse pour garantir la stabilité de ses systèmes critiques (mémoire, limites, prompts).
+
+- **Lancer tous les tests** :
+  ```bash
+  npm test
+  ```
+- **Mode Watch (développement)** :
+  ```bash
+  npm run test:watch
+  ```
+- **Interface UI Vitest** :
+  ```bash
+  npm run test:ui
+  ```
+
+---
+
 ## 🛡️ Sécurité & Confidentialité
 
-- **Zéro Stockage Serveur** : Toutes les données de personnalisation restent dans le navigateur de l'utilisateur.
-- **Filtres de Sécurité** : Le prompt système est rigoureusement conçu pour éviter les sujets sensibles et protéger l'innocence de l'enfant.
-- **Pas d'infos privées** : L'IA est instruite pour ne jamais demander de données sensibles (adresse, nom de famille).
+- **Privacy by Design** : Aucune donnée n'est envoyée à un serveur tiers (hormis l'API Gemini). Votre historique reste sur votre machine.
+- **Digital Well-being** : Système intégré de limite de temps d'utilisation et de mode repos nocturne.
 
 ---
 
-## 🗺️ Vision & Futur
-Consultez notre [ROADMAP.md](ROADMAP.md) pour découvrir les prochaines étapes, incluant l'intégration de la vision (Gemini Multimodal) et le déploiement sur les stores mobiles.
+## 🗺️ Vision & Roadmap
+Consultez notre [ROADMAP.md](ROADMAP.md) pour découvrir les prochaines étapes, incluant l'intégration RAG (Long Term Memory) et les outils de productivité (Agenda, Email).
 
 ---
-*Développé avec ❤️ pour la prochaine génération d'explorateurs.*
+*Développé pour repousser les limites de l'assistance personnelle IA.*
