@@ -147,7 +147,7 @@ export default function App() {
             },
             onmessage: (message: any) => {
               console.log("📨 Message reçu:", message);
-              
+
               const serverContent = message.serverContent;
               const modelTurn = serverContent?.modelTurn;
               const parts = modelTurn?.parts;
@@ -160,7 +160,7 @@ export default function App() {
                   addConversationTurn(userName, "user", text);
                 }
               }
-              
+
               // 2. Handle Model Response
               const base64Audio = parts?.find((p: any) => p.inlineData)?.inlineData?.data;
               if (base64Audio) {
@@ -169,7 +169,7 @@ export default function App() {
                 if (aiText && userName && serverContent?.turnComplete) {
                   addConversationTurn(userName, "assistant", aiText);
                 }
-                
+
                 audioPlayer.current?.play(base64Audio);
                 setIsSpeaking(true);
                 if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
@@ -198,7 +198,7 @@ export default function App() {
             }
           },
           config: {
-            systemInstruction: { parts: [{ text: buildSystemPrompt(avatarId, userName) }] },
+            systemInstruction: { parts: [{ text: buildSystemPrompt(avatarId, { userName }) }] },
             responseModalities: [Modality.AUDIO],
             speechConfig: {
               voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
