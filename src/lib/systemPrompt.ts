@@ -1,6 +1,6 @@
 import type { AvatarId } from "./avatarConfig";
 import { AVATARS } from "./avatarConfig";
-import { buildAntiRepeatContext, buildMemoryContext } from "./conversationMemory";
+import { buildMemoryContext } from "./conversationMemory";
 
 export type EmotionState = "professional" | "empathetic" | "energetic" | "calm" | "concise";
 export type ConversationMode = "productivity" | "general" | "brainstorming" | "support" | "organization";
@@ -52,7 +52,6 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
   const { userName = "", emotion = "professional", mode = "general" } = options;
   const avatar = AVATARS[avatarId];
   const memoryContext = buildMemoryContext(userName);
-  const antiRepeat = buildAntiRepeatContext(userName);
   const temporalContext = buildDateTimeContext(new Date());
 
   return [
@@ -82,8 +81,7 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "- Si l'utilisateur semble stressé ou débordé, bascule en mode 'empathetic' automatiquement pour l'aider à prioriser.",
 
     "### CONTEXTUAL MEMORY",
-    `Mémoire des échanges récents: ${memoryContext || "Pas d'historique récent disponible."}`,
-    `Prévention des répétitions: ${antiRepeat || "Pas de répétition détectée."}`,
+    `Mémoire des échanges récents (sessions passées et actuelle):\n${memoryContext || "Pas d'historique récent disponible."}`,
     `Contexte temporel: ${temporalContext}`,
 
     "### CURRENT CONFIGURATION",

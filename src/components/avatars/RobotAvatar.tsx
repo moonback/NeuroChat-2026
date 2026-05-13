@@ -6,9 +6,14 @@ import type { AvatarProps } from "./AvatarProps";
  * Audio level drives antenna pulse speed, eye glow intensity, and mouth bar height.
  */
 export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps) {
-  // Ensure we have a valid number for calculations to avoid SVG attribute errors
-  const safeAudioLevel = typeof audioLevel === 'number' && !isNaN(audioLevel) ? audioLevel : 0;
+  // Global safety check for audioLevel
+  const safeAudioLevel = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
   const al = status === "listening" ? safeAudioLevel : 0;
+
+  // Helper for safe SVG attribute values
+  const safe = (val: number, min = 0) => {
+    return Number.isFinite(val) ? Math.max(min, val) : min;
+  };
 
   return (
     <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-[0_10px_30px_rgba(79,70,229,0.4)]">
@@ -36,8 +41,11 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps)
           cy="10"
           initial={{ r: 5 }}
           fill={status === "connecting" ? "#EF4444" : "#6366F1"} 
-          animate={{ opacity: [1, 0.3 + al * 0.7, 1], r: [5, 5 + al * 3, 5] }}
-          transition={{ duration: Math.max(0.15, 0.8 - al * 0.6), repeat: Infinity }}
+          animate={{ 
+            opacity: [1, safe(0.3 + al * 0.7), 1], 
+            r: [5, safe(5 + al * 3, 1), 5] 
+          }}
+          transition={{ duration: safe(Math.max(0.15, 0.8 - al * 0.6), 0.1), repeat: Infinity }}
         />
       </motion.g>
 
@@ -68,12 +76,12 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps)
           <>
             {/* Eyes glow brighter with audio */}
             <motion.g animate={{ scaleY: [1, 1, 0.1, 1, 1] }} transition={{ duration: 4, repeat: Infinity }}>
-              <circle cx="-25" cy="0" r="12" fill="url(#eyeGlow)" opacity={0.3 + al * 0.6} />
-              <rect x="-32" y="-7" width="14" height="14" rx="3" fill="#818CF8" opacity={0.7 + al * 0.3} className="drop-shadow-[0_0_8px_rgba(129,140,248,0.8)]" />
+              <circle cx="-25" cy="0" r="12" fill="url(#eyeGlow)" opacity={safe(0.3 + al * 0.6)} />
+              <rect x="-32" y="-7" width="14" height="14" rx="3" fill="#818CF8" opacity={safe(0.7 + al * 0.3)} className="drop-shadow-[0_0_8px_rgba(129,140,248,0.8)]" />
             </motion.g>
             <motion.g animate={{ scaleY: [1, 1, 0.1, 1, 1] }} transition={{ duration: 4, repeat: Infinity }}>
-              <circle cx="25" cy="0" r="12" fill="url(#eyeGlow)" opacity={0.3 + al * 0.6} />
-              <rect x="18" y="-7" width="14" height="14" rx="3" fill="#818CF8" opacity={0.7 + al * 0.3} className="drop-shadow-[0_0_8px_rgba(129,140,248,0.8)]" />
+              <circle cx="25" cy="0" r="12" fill="url(#eyeGlow)" opacity={safe(0.3 + al * 0.6)} />
+              <rect x="18" y="-7" width="14" height="14" rx="3" fill="#818CF8" opacity={safe(0.7 + al * 0.3)} className="drop-shadow-[0_0_8px_rgba(129,140,248,0.8)]" />
             </motion.g>
           </>
         )}
@@ -90,11 +98,11 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps)
         ) : status === "listening" ? (
           <g transform="translate(0, 30)">
             {/* Audio-reactive equalizer bars */}
-            <rect x="-25" y={-2 - al * 8} width="4" height={4 + al * 16} fill="#818CF8" rx="2" opacity={0.4 + al * 0.6} />
-            <rect x="-15" y={-3 - al * 12} width="4" height={6 + al * 24} fill="#818CF8" rx="2" opacity={0.4 + al * 0.6} />
-            <rect x="-5" y={-4 - al * 14} width="4" height={8 + al * 28} fill="#818CF8" rx="2" opacity={0.4 + al * 0.6} />
-            <rect x="5" y={-3 - al * 12} width="4" height={6 + al * 24} fill="#818CF8" rx="2" opacity={0.4 + al * 0.6} />
-            <rect x="15" y={-2 - al * 8} width="4" height={4 + al * 16} fill="#818CF8" rx="2" opacity={0.4 + al * 0.6} />
+            <rect x="-25" y={safe(-2 - al * 8, -50)} width="4" height={safe(4 + al * 16, 1)} fill="#818CF8" rx="2" opacity={safe(0.4 + al * 0.6)} />
+            <rect x="-15" y={safe(-3 - al * 12, -50)} width="4" height={safe(6 + al * 24, 1)} fill="#818CF8" rx="2" opacity={safe(0.4 + al * 0.6)} />
+            <rect x="-5" y={safe(-4 - al * 14, -50)} width="4" height={safe(8 + al * 28, 1)} fill="#818CF8" rx="2" opacity={safe(0.4 + al * 0.6)} />
+            <rect x="5" y={safe(-3 - al * 12, -50)} width="4" height={safe(6 + al * 24, 1)} fill="#818CF8" rx="2" opacity={safe(0.4 + al * 0.6)} />
+            <rect x="15" y={safe(-2 - al * 8, -50)} width="4" height={safe(4 + al * 16, 1)} fill="#818CF8" rx="2" opacity={safe(0.4 + al * 0.6)} />
           </g>
         ) : (
           <rect x="-10" y="32" width="20" height="4" rx="2" fill="#334155" />

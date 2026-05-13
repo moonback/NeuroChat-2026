@@ -1,6 +1,6 @@
 /**
- * Conversation Memory System
- * Stores and retrieves conversation history to give the AI assistant memory
+ * Advanced Conversation Memory System
+ * Handles session tracking, long-term memory summaries, and user preference extraction.
  */
 
 export interface ConversationTurn {
@@ -10,130 +10,180 @@ export interface ConversationTurn {
 }
 
 export interface ConversationSession {
+  id: string;
   userName: string;
   startTime: number;
+  endTime?: number;
   turns: ConversationTurn[];
+  summary?: string;
+  topic?: string;
 }
 
-const STORAGE_KEY = "neurochat_conversation_memory";
-const MAX_TURNS_IN_MEMORY = 20;
-const MAX_SESSIONS = 5;
-const MAX_CONTEXT_TURNS = 8;
-const MAX_RESPONSE_HISTORY = 5;
+export interface UserProfile {
+  name: string;
+  preferences: string[];
+  lastActive: number;
+  totalConversations: number;
+}
 
-export function loadConversationHistory(): ConversationSession[] {
+const STORAGE_KEY = "neurochat_v2_memory";
+const USER_PROFILE_KEY = "neurochat_v2_user_profile";
+const MAX_SESSIONS = 50; // Increased storage for "pro" feel
+const CONTEXT_WINDOW = 10;
+
+/** Load all sessions from storage */
+export function loadAllSessions(): ConversationSession[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
     return JSON.parse(stored);
   } catch (error) {
-    console.error("Failed to load conversation history:", error);
+    console.error("Failed to load memory:", error);
     return [];
   }
 }
 
-function saveConversationHistory(sessions: ConversationSession[]): void {
+/** Save all sessions to storage */
+function saveAllSessions(sessions: ConversationSession[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(-MAX_SESSIONS)));
+    // Keep last N sessions
+    const limited = sessions.slice(-MAX_SESSIONS);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(limited));
   } catch (error) {
-    console.error("Failed to save conversation history:", error);
+    console.error("Failed to save memory:", error);
   }
 }
 
-export function getCurrentSession(userName: string): ConversationSession {
-  const sessions = loadConversationHistory();
-  const today = new Date().setHours(0, 0, 0, 0);
-
-  const lastSession = sessions.find(
-    (s) => s.userName === userName && new Date(s.startTime).setHours(0, 0, 0, 0) === today,
-  );
-
-  return lastSession ?? { userName, startTime: Date.now(), turns: [] };
+/** Get or create user profile */
+export function getUserProfile(userName: string): UserProfile {
+  try {
+    const stored = localStorage.getItem(USER_PROFILE_KEY);
+    if (stored) {
+      const profiles = JSON.parse(stored);
+      if (profiles[userName]) return profiles[userName];
+    }
+  } catch (e) {}
+  
+  return {
+    name: userName,
+    preferences: [],
+    lastActive: Date.now(),
+    totalConversations: 0
+  };
 }
 
+/** Update user profile */
+export function updateUserProfile(profile: UserProfile): void {
+  try {
+    const stored = localStorage.getItem(USER_PROFILE_KEY);
+    const profiles = stored ? JSON.parse(stored) : {};
+    profiles[profile.name] = {
+      ...profile,
+      lastActive: Date.now()
+    };
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profiles));
+  } catch (e) {}
+}
+
+/** Get the current active session or create a new one */
+export function getOrCreateCurrentSession(userName: string): ConversationSession {
+  const sessions = loadAllSessions();
+  const now = Date.now();
+  
+  // Find a session from the last 30 minutes for the same user
+  const recentSession = sessions.find(s => 
+    s.userName === userName && 
+    (now - (s.endTime || s.startTime)) < 30 * 60 * 1000
+  );
+
+  if (recentSession) return recentSession;
+
+  const newSession: ConversationSession = {
+    id: `session_${now}_${Math.random().toString(36).substr(2, 9)}`,
+    userName,
+    startTime: now,
+    turns: []
+  };
+
+  return newSession;
+}
+
+/** Add a turn to the memory */
 export function addConversationTurn(
   userName: string,
   speaker: "user" | "assistant",
-  message: string,
+  message: string
 ): void {
-  const sessions = loadConversationHistory();
-  const today = new Date().setHours(0, 0, 0, 0);
-
-  let index = sessions.findIndex(
-    (s) => s.userName === userName && new Date(s.startTime).setHours(0, 0, 0, 0) === today,
-  );
-
-  if (index < 0) {
-    sessions.push({ userName, startTime: Date.now(), turns: [] });
-    index = sessions.length - 1;
-  }
-
-  sessions[index].turns.push({ timestamp: Date.now(), speaker, message });
-  if (sessions[index].turns.length > MAX_TURNS_IN_MEMORY) {
-    sessions[index].turns = sessions[index].turns.slice(-MAX_TURNS_IN_MEMORY);
-  }
-
-  saveConversationHistory(sessions);
-}
-
-function normalizeForRepeatCheck(text: string): string {
-  return text.toLowerCase().replace(/[!?.,;:]/g, "").replace(/\s+/g, " ").trim();
-}
-
-export function getRecentAssistantMessages(userName: string, limit = MAX_RESPONSE_HISTORY): string[] {
-  if (!userName) return [];
-  const currentSession = getCurrentSession(userName);
-  return currentSession.turns
-    .filter((turn) => turn.speaker === "assistant")
-    .slice(-limit)
-    .map((turn) => turn.message);
-}
-
-export function buildAntiRepeatContext(userName: string): string {
-  const recentMessages = getRecentAssistantMessages(userName);
-  if (recentMessages.length === 0) return "";
-
-  const deduped = Array.from(new Set(recentMessages.map(normalizeForRepeatCheck))).slice(-3);
-  if (deduped.length === 0) return "";
-
-  return `Dernières formulations à éviter de répéter: ${deduped.join(" | ")}. Reformule avec des mots différents.`;
-}
-
-export function buildMemoryContext(userName: string): string {
-  if (!userName) return "";
-
-  const currentSession = getCurrentSession(userName);
-  if (currentSession.turns.length === 0) {
-    return "Première conversation du jour: accueil professionnel, clair et proactif.";
-  }
-
-  const recentTurns = currentSession.turns.slice(-MAX_CONTEXT_TURNS);
-  const memoryLines = recentTurns.map((turn) => `${turn.speaker === "user" ? userName : "Toi"}: ${turn.message}`);
-
-  return `Mémoire courte utile: ${memoryLines.join(" || ")}`;
-}
-
-export function clearConversationHistory(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error("Failed to clear conversation history:", error);
-  }
-}
-
-export function getConversationStats(userName: string): {
-  totalSessions: number;
-  totalTurns: number;
-  lastConversationDate: Date | null;
-} {
-  const sessions = loadConversationHistory();
-  const userSessions = sessions.filter((s) => s.userName === userName);
-  const totalTurns = userSessions.reduce((sum, s) => sum + s.turns.length, 0);
-  const lastSession = userSessions[userSessions.length - 1];
-
-  return {
-    totalSessions: userSessions.length,
-    totalTurns,
-    lastConversationDate: lastSession ? new Date(lastSession.startTime) : null,
+  const sessions = loadAllSessions();
+  const currentSession = getOrCreateCurrentSession(userName);
+  
+  const turn: ConversationTurn = {
+    timestamp: Date.now(),
+    speaker,
+    message
   };
+
+  const sessionIndex = sessions.findIndex(s => s.id === currentSession.id);
+  
+  if (sessionIndex >= 0) {
+    sessions[sessionIndex].turns.push(turn);
+    sessions[sessionIndex].endTime = Date.now();
+    // Simple topic extraction (first user message)
+    if (!sessions[sessionIndex].topic && speaker === "user") {
+      sessions[sessionIndex].topic = message.slice(0, 40) + (message.length > 40 ? "..." : "");
+    }
+  } else {
+    currentSession.turns.push(turn);
+    currentSession.endTime = Date.now();
+    currentSession.topic = speaker === "user" ? message.slice(0, 40) : "Discussion";
+    sessions.push(currentSession);
+    
+    // Update profile stats
+    const profile = getUserProfile(userName);
+    profile.totalConversations += 1;
+    updateUserProfile(profile);
+  }
+
+  saveAllSessions(sessions);
+}
+
+/** Build context for the AI prompt */
+export function buildMemoryContext(userName: string): string {
+  const sessions = loadAllSessions();
+  const userSessions = sessions.filter(s => s.userName === userName).slice(-3); // Last 3 sessions
+  
+  if (userSessions.length === 0) return "C'est votre première interaction avec l'utilisateur aujourd'hui.";
+
+  let context = "Historique récent :\n";
+  userSessions.forEach(session => {
+    const date = new Date(session.startTime).toLocaleDateString();
+    context += `--- Session du ${date} ---\n`;
+    if (session.summary) context += `Résumé : ${session.summary}\n`;
+    
+    const recentTurns = session.turns.slice(-CONTEXT_WINDOW);
+    recentTurns.forEach(t => {
+      context += `${t.speaker === "user" ? userName : "Assistant"}: ${t.message}\n`;
+    });
+  });
+
+  return context;
+}
+
+/** Get stats for the UI */
+export function getConversationStats(userName: string) {
+  const sessions = loadAllSessions().filter(s => s.userName === userName);
+  const profile = getUserProfile(userName);
+  
+  return {
+    totalSessions: profile.totalConversations,
+    totalTurns: sessions.reduce((acc, s) => acc + s.turns.length, 0),
+    lastActive: profile.lastActive,
+    sessions: sessions.reverse() // Newest first for UI
+  };
+}
+
+/** Clear all data */
+export function clearConversationHistory(): void {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(USER_PROFILE_KEY);
 }

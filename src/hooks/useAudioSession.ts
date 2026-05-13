@@ -12,13 +12,16 @@ export function useAudioSession() {
   const audioPlayer = useRef<IAudioPlayer | null>(null);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Ultra-robust audio level handler
   const handleAudioLevel = useCallback((level: number) => {
-    audioLevelRef.current = level;
+    // 1. Force value to be a finite number or 0
+    const safeLevel = Number.isFinite(level) ? Math.max(0, Math.min(1, level)) : 0;
+    
+    audioLevelRef.current = safeLevel;
+
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(() => {
-        // Ensure level is a safe number
-        const safeLevel = typeof audioLevelRef.current === 'number' && !isNaN(audioLevelRef.current) ? audioLevelRef.current : 0;
-        setAudioLevel(safeLevel);
+        setAudioLevel(audioLevelRef.current);
         rafRef.current = null;
       });
     }
@@ -60,7 +63,7 @@ export function useAudioSession() {
 
   return {
     isSpeaking,
-    audioLevel,
+    audioLevel: Number.isFinite(audioLevel) ? audioLevel : 0,
     audioPlayer: audioPlayer.current,
     audioRecorder: audioRecorder.current,
     playAudio,

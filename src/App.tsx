@@ -6,6 +6,7 @@ import { AVATARS, type AvatarId } from "./lib/avatarConfig";
 import { useAudioSession } from "./hooks/useAudioSession";
 import { useConversationMemory } from "./hooks/useConversationMemory";
 import { useGeminiSession } from "./hooks/useGeminiSession";
+import { ConversationVault } from "./components/ConversationVault";
 
 export default function App() {
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
@@ -31,7 +32,9 @@ export default function App() {
     handleWelcomeSubmit,
     handleClearMemory,
     updateUserName,
-    stats,
+    memoryData,
+    selectedSession,
+    setSelectedSessionId,
     addTurn
   } = useConversationMemory();
 
@@ -150,86 +153,17 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Memory Modal */}
-      <AnimatePresence>
-        {showMemoryModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-            onClick={() => setShowMemoryModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 md:p-12 shadow-2xl max-w-md w-full mx-4"
-              style={{ boxShadow: `0 20px 60px ${avatar.colors[0]}33` }}
-            >
-              <div className="text-center mb-6">
-                <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${avatar.accentClass} flex items-center justify-center shadow-lg`}>
-                  <Sparkles className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: avatar.colors[0] }}>
-                  Mémoire de l'Assistant 🧠
-                </h2>
-                <p className="text-slate-400 text-sm">
-                  Statistiques des conversations
-                </p>
-              </div>
-
-              {stats && (
-                <div className="space-y-4 mb-6">
-                  <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
-                    <div className="text-sm text-slate-400 mb-1">Sessions totales</div>
-                    <div className="text-2xl font-bold" style={{ color: avatar.colors[0] }}>
-                      {stats.totalSessions}
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
-                    <div className="text-sm text-slate-400 mb-1">Échanges totaux</div>
-                    <div className="text-2xl font-bold" style={{ color: avatar.colors[0] }}>
-                      {stats.totalTurns}
-                    </div>
-                  </div>
-
-                  {stats.lastConversationDate && (
-                    <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
-                      <div className="text-sm text-slate-400 mb-1">Dernière conversation</div>
-                      <div className="text-lg font-medium text-slate-200">
-                        {stats.lastConversationDate.toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <button
-                  onClick={handleClearMemory}
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 font-bold text-base rounded-2xl shadow-xl hover:scale-105 transition-transform"
-                >
-                  Effacer la mémoire 🗑️
-                </button>
-
-                <button
-                  onClick={() => setShowMemoryModal(false)}
-                  className="w-full py-3 bg-slate-700 hover:bg-slate-600 font-medium text-base rounded-2xl transition-colors"
-                >
-                  Fermer
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Memory Vault (Advanced) */}
+      <ConversationVault
+        isOpen={showMemoryModal}
+        onClose={() => setShowMemoryModal(false)}
+        userName={userName}
+        memoryData={memoryData}
+        selectedSession={selectedSession}
+        onSelectSession={setSelectedSessionId}
+        onClearMemory={handleClearMemory}
+        accentColor={avatar.colors[0]}
+      />
 
       {/* Background Atmosphere — colors adapt to avatar */}
       <div className="absolute inset-0 pointer-events-none">

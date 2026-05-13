@@ -14,16 +14,21 @@ interface Props {
 export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audioLevel = 0 }: Props) {
   const avatar = AVATARS[avatarId];
 
-  // Ensure audioLevel is a valid number and never undefined/NaN
-  const safeAudioLevel = typeof audioLevel === 'number' && !isNaN(audioLevel) ? audioLevel : 0;
+  // Robust audio level handling
+  const safeAudioLevel = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
+
+  // Helper for safe animation values
+  const safe = (val: number, fallback = 0) => {
+    return Number.isFinite(val) ? val : fallback;
+  };
 
   // Body bounce — intensity driven by audioLevel when listening
-  const bounceIntensity = status === "listening" ? Math.max(5, safeAudioLevel * 20) : 0;
+  const bounceIntensity = status === "listening" ? safe(Math.max(5, safeAudioLevel * 20), 5) : 0;
 
   const bodyY = isSpeaking
     ? [0, -10, 0]
     : status === "listening"
-      ? [0, -bounceIntensity, 0]
+      ? [0, safe(-bounceIntensity), 0]
       : status === "connecting"
         ? [0, -2, 0]
         : [0, 5, 0];
@@ -31,7 +36,7 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
   const bodyTransition = isSpeaking
     ? { duration: 0.3, repeat: Infinity }
     : status === "listening"
-      ? { duration: Math.max(0.3, 2 - safeAudioLevel * 1.5), repeat: Infinity, ease: "easeInOut" as const }
+      ? { duration: safe(Math.max(0.3, 2 - safeAudioLevel * 1.5), 0.3), repeat: Infinity, ease: "easeInOut" as const }
       : status === "connecting"
         ? { duration: 0.5, repeat: Infinity, ease: "easeInOut" as const }
         : { duration: 3, repeat: Infinity, ease: "easeInOut" as const };
@@ -46,13 +51,13 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
   const glowScale = isSpeaking
     ? [1, 1.2, 1]
     : status === "listening"
-      ? 1 + safeAudioLevel * 0.4
+      ? safe(1 + safeAudioLevel * 0.4, 1)
       : 1;
 
   const glowOpacity = isSpeaking
     ? 0.8
     : status === "listening"
-      ? 0.3 + safeAudioLevel * 0.5
+      ? safe(0.3 + safeAudioLevel * 0.5, 0.3)
       : 0.3;
 
   return (
