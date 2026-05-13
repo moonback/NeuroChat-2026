@@ -1,252 +1,80 @@
-import { GoogleGenAI, Modality } from "@google/genai";
 import { Square, Sparkles } from "lucide-react";
-import { useState, useRef, useEffect, useCallback, FormEvent } from "react";
+import { useState, FormEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { AudioRecorder } from "./lib/AudioRecorder";
-import { AudioPlayer } from "./lib/AudioPlayer";
-import { IAudioRecorder, IAudioPlayer } from "./lib/AudioService";
-import { buildSystemPrompt } from "./lib/systemPrompt";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
-import { AVATARS, loadSavedAvatar, loadUserName, saveUserName, type AvatarId } from "./lib/avatarConfig";
-import { addConversationTurn, clearConversationHistory, getConversationStats } from "./lib/conversationMemory";
+import { AVATARS, type AvatarId } from "./lib/avatarConfig";
+import { useAudioSession } from "./hooks/useAudioSession";
+import { useConversationMemory } from "./hooks/useConversationMemory";
+import { useGeminiSession } from "./hooks/useGeminiSession";
 
 export default function App() {
-  const [status, setStatus] = useState<"idle" | "connecting" | "listening">("idle");
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [avatarId, setAvatarId] = useState<AvatarId>(loadSavedAvatar);
-  const [userName, setUserName] = useState(loadUserName());
-  const [showWelcomeModal, setShowWelcomeModal] = useState(!loadUserName());
-  const [audioLevel, setAudioLevel] = useState(0);
+  const [avatarId, setAvatarId] = useState<AvatarId>("robot");
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
-  const [showMemoryModal, setShowMemoryModal] = useState(false);
-  const audioLevelRef = useRef(0);
-  const rafRef = useRef<number | null>(null);
-
-  // Throttle audioLevel updates to animation frames for performance
-  const handleAudioLevel = useCallback((level: number) => {
-    audioLevelRef.current = level;
-    if (!rafRef.current) {
-      rafRef.current = requestAnimationFrame(() => {
-        setAudioLevel(audioLevelRef.current);
-        rafRef.current = null;
-      });
-    }
-  }, []);
-  const audioRecorder = useRef<IAudioRecorder | null>(null);
-  const audioPlayer = useRef<IAudioPlayer | null>(null);
-  const sessionRef = useRef<any>(null);
-  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isManualStopRef = useRef(false);
-  const retryCountRef = useRef(0);
-  const maxRetries = 3;
-
+  
   const avatar = AVATARS[avatarId];
 
-  useEffect(() => {
-    audioRecorder.current = new AudioRecorder();
-    audioPlayer.current = new AudioPlayer();
+  // Initialize hooks
+  const { 
+    isSpeaking, 
+    audioLevel, 
+    playAudio, 
+    stopAudio, 
+    startRecording, 
+    stopRecording 
+  } = useAudioSession();
 
-    // Cleanup moved to return
+  const {
+    userName,
+    showWelcomeModal,
+    showMemoryModal,
+    setShowMemoryModal,
+    handleWelcomeSubmit,
+    handleClearMemory,
+    updateUserName,
+    stats,
+    addTurn
+  } = useConversationMemory();
 
-    return () => {
-      audioRecorder.current?.stop();
-      audioPlayer.current?.stop();
-      sessionRef.current?.close();
-      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-      if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
+  const {
+    status,
+    errorMsg,
+    setErrorMsg,
+    startSession,
+    stopSession
+  } = useGeminiSession();
 
-
-  const startSession = async () => {
-
-    setStatus("connecting");
-    setErrorMsg("");
-    isManualStopRef.current = false;
-    retryCountRef.current = 0;
-
-    const attemptConnection = async (): Promise<void> => {
-      try {
-        console.log("🚀 Démarrage de la session...");
-
-        // Request microphone permission FIRST
-        console.log("🎤 Demande de permission microphone...");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        console.log("✅ Permission microphone accordée");
-        // Stop the test stream immediately
-        stream.getTracks().forEach(track => track.stop());
-
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-        audioPlayer.current?.clearQueue();
-
-        console.log("📡 Connexion à Gemini Live...");
-        // Connect and await the session before setting callbacks that rely on it
-        const session = await ai.live.connect({
-          model: "gemini-3.1-flash-live-preview",
-          callbacks: {
-            onopen: () => {
-              console.log("✅ Session ouverte !");
-              setStatus("listening");
-              retryCountRef.current = 0; // Reset retry count on success
-              // Start recording only after the session is ready
-              try {
-                console.log("🎤 Démarrage de l'enregistrement audio...");
-                audioRecorder.current?.start(
-                  (base64Data: string) => {
-                    // Ensure the session is still open before sending
-                    if (sessionRef.current) {
-                      sessionRef.current.sendRealtimeInput({
-                        audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" },
-                      });
-                    }
-                  },
-                  handleAudioLevel,
-                );
-                console.log("✅ Enregistrement audio démarré");
-              } catch (error) {
-                console.error("❌ Erreur lors du démarrage de l'enregistrement:", error);
-              }
-            },
-            onmessage: (message: any) => {
-              console.log("📨 Message reçu:", message);
-
-              const serverContent = message.serverContent;
-              const modelTurn = serverContent?.modelTurn;
-              const parts = modelTurn?.parts;
-
-              // 1. Handle User Transcription
-              if (serverContent?.inputTranscription?.text) {
-                const text = serverContent.inputTranscription.text;
-                setCurrentTranscript(text);
-                if (serverContent.inputTranscription.finished && userName) {
-                  addConversationTurn(userName, "user", text);
-                }
-              }
-
-              // 2. Handle Model Response
-              const base64Audio = parts?.find((p: any) => p.inlineData)?.inlineData?.data;
-              if (base64Audio) {
-                // Capture AI response text if available
-                const aiText = parts?.find((p: any) => p.text)?.text;
-                if (aiText && userName && serverContent?.turnComplete) {
-                  addConversationTurn(userName, "assistant", aiText);
-                }
-
-                audioPlayer.current?.play(base64Audio);
-                setIsSpeaking(true);
-                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-                speakingTimeoutRef.current = setTimeout(() => setIsSpeaking(false), 1500);
-              }
-
-              // 3. Handle Interruptions
-              if (serverContent?.interrupted) {
-                audioPlayer.current?.clearQueue();
-                setIsSpeaking(false);
-                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-              }
-            },
-            onerror: (error: any) => {
-              console.error("❌ Erreur de session:", error);
-              if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-              setStatus("idle");
-              
-              if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
-                retryCountRef.current++;
-                console.log(`🔄 Tentative de reconnexion après erreur (${retryCountRef.current}/${maxRetries})...`);
-                setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
-              } else {
-                setErrorMsg("Oups ! Une erreur de connexion s'est produite.");
-              }
-            },
-            onclose: (event: any) => {
-              console.log("🚪 Session fermée", event);
-              if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-              setStatus("idle");
-              audioRecorder.current?.stop();
-              sessionRef.current = null;
-
-              if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
-                retryCountRef.current++;
-                console.log(`🔄 Reconnexion automatique (${retryCountRef.current}/${maxRetries})...`);
-                setTimeout(() => attemptConnection(), 1500 * retryCountRef.current);
-              }
-            }
-          },
-          config: {
-            systemInstruction: { parts: [{ text: buildSystemPrompt(avatarId, { userName }) }] },
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
-            },
-          },
-        });
-
-        console.log("💾 Session stockée");
-        // Store the active session
-        sessionRef.current = session;
-        retryCountRef.current = 0; // Reset on successful connection completion
-      } catch (err: any) {
-        console.error("💥 Failed to start session:", err);
-        if (err.name === "NotAllowedError") {
-          setErrorMsg("Je n'ai pas la permission d'utiliser le microphone !");
-          setStatus("idle");
-        } else if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
-          retryCountRef.current++;
-          console.log(`🔄 Tentative de reconnexion après échec ${retryCountRef.current}/${maxRetries}...`);
-          setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
-        } else {
-          setErrorMsg(err.message || "Impossible de démarrer.");
-          setStatus("idle");
+  const handleStartSession = async () => {
+    await startSession({
+      avatarId,
+      userName,
+      onAudioResponse: (base64, aiText) => {
+        playAudio(base64);
+        if (aiText && userName) {
+          addTurn(userName, "assistant", aiText);
         }
+      },
+      onTranscription: (text, finished) => {
+        setCurrentTranscript(text);
+        if (finished && userName) {
+          addTurn(userName, "user", text);
+        }
+      },
+      onInterrupted: () => {
+        stopAudio();
+      },
+      onRecordingStart: (sendInput) => {
+        startRecording(sendInput);
+      },
+      onStopRecording: () => {
+        stopRecording();
       }
-    };
-
-    await attemptConnection();
+    });
   };
 
-  const stopSession = () => {
-    isManualStopRef.current = true;
-    // Safely close the session if it exists and is not already closed
-    if (sessionRef.current) {
-      try {
-        sessionRef.current.close();
-      } catch (e) {
-        console.warn("Attempted to close an already closed session", e);
-      }
-      sessionRef.current = null;
-    }
-    audioRecorder.current?.stop();
-    audioPlayer.current?.clearQueue();
-    setStatus("idle");
-    setIsSpeaking(false);
-    setAudioLevel(0);
-    if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+  const handleStopSession = () => {
+    stopSession(stopRecording);
+    stopAudio();
   };
-
-  const handleWelcomeSubmit = (name: string) => {
-    setUserName(name);
-    saveUserName(name);
-    setShowWelcomeModal(false);
-  };
-
-  const handleClearMemory = () => {
-    if (window.confirm("Êtes-vous sûr de vouloir effacer toute la mémoire des conversations ? Cette action est irréversible.")) {
-      clearConversationHistory();
-      setShowMemoryModal(false);
-      alert("La mémoire a été effacée avec succès !");
-    }
-  };
-
-  const conversationStats = userName ? getConversationStats(userName) : null;
 
   return (
     <div className="min-h-screen bg-[#020408] text-white flex flex-col font-sans relative overflow-hidden">
@@ -352,27 +180,27 @@ export default function App() {
                 </p>
               </div>
 
-              {conversationStats && (
+              {stats && (
                 <div className="space-y-4 mb-6">
                   <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
                     <div className="text-sm text-slate-400 mb-1">Sessions totales</div>
                     <div className="text-2xl font-bold" style={{ color: avatar.colors[0] }}>
-                      {conversationStats.totalSessions}
+                      {stats.totalSessions}
                     </div>
                   </div>
 
                   <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
                     <div className="text-sm text-slate-400 mb-1">Échanges totaux</div>
                     <div className="text-2xl font-bold" style={{ color: avatar.colors[0] }}>
-                      {conversationStats.totalTurns}
+                      {stats.totalTurns}
                     </div>
                   </div>
 
-                  {conversationStats.lastConversationDate && (
+                  {stats.lastConversationDate && (
                     <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
                       <div className="text-sm text-slate-400 mb-1">Dernière conversation</div>
                       <div className="text-lg font-medium text-slate-200">
-                        {conversationStats.lastConversationDate.toLocaleDateString('fr-FR', {
+                        {stats.lastConversationDate.toLocaleDateString('fr-FR', {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric'
@@ -431,15 +259,13 @@ export default function App() {
                     onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === "Enter") {
                         const val = (e.target as HTMLInputElement).value;
-                        setUserName(val);
-                        saveUserName(val);
+                        updateUserName(val);
                       }
                     }}
                     onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                       const val = e.target.value;
                       if (val) {
-                        setUserName(val);
-                        saveUserName(val);
+                        updateUserName(val);
                       }
                     }}
                     placeholder="Tape ici..."
@@ -456,8 +282,7 @@ export default function App() {
                   <span className="text-slate-300">Bonjour, <span className="font-bold" style={{ color: avatar.colors[0] }}>{userName}</span> !</span>
                   <button
                     onClick={() => {
-                      setUserName("");
-                      saveUserName("");
+                      updateUserName("");
                     }}
                     className="text-xs text-slate-500 hover:text-red-400 transition-colors"
                     title="Changer de nom"
@@ -539,7 +364,7 @@ export default function App() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={startSession}
+                onClick={handleStartSession}
                 className="relative rounded-full focus:outline-none focus:ring-4 focus:ring-blue-500/50"
                 title="Clique pour parler !"
                 aria-label="Démarrer la conversation vocale"
@@ -610,7 +435,7 @@ export default function App() {
           >
             <div className="flex items-center gap-8 bg-slate-900/60 backdrop-blur-xl border border-white/10 p-2 rounded-[40px] shadow-2xl">
               <button
-                onClick={stopSession}
+                onClick={handleStopSession}
                 className="px-12 py-5 bg-white text-black font-bold text-lg rounded-[32px] shadow-xl hover:scale-105 transition-transform flex gap-3 items-center focus:outline-none focus:ring-4 focus:ring-white/50"
                 aria-label="Arrêter la conversation"
               >

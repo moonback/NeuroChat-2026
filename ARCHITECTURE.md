@@ -33,8 +33,8 @@ graph TD;
 Le frontend est conçu pour être rapide, réactif et très visuel pour une expérience utilisateur premium.
 
 - **Composants clés** : L'interface est majoritairement gérée dans `App.tsx` qui centralise l'état (`status`: idle, connecting, listening). Le visuel est délégué à de petits composants comme `AnimatedCharacter.tsx`.
-- **Gestionnaire d'état** : L'état global est géré via des hooks React classiques (`useState` pour l'interface utilisateur, `useRef` pour persister les instances audio sans déclencher de re-renders).
-- **Animations** : `motion/react` est préféré à la transition CSS classique (Tailwind) pour son contrôle granulaire (keyframes, ressorts 'spring', etc).
+- **Gestionnaire d'état** : L'état est distribué dans des hooks personnalisés (`useGeminiSession`, `useAudioSession`, `useConversationMemory`) pour séparer les préoccupations (S.O.L.I.D). `App.tsx` ne gère plus que la composition de l'interface.
+- **Animations** : `motion/react` est utilisé pour des animations 60fps fluides et réactives aux états de l'IA.
 
 ## ⚙️ Les Modules Techniques (Lib)
 

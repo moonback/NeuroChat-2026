@@ -6,7 +6,9 @@ import type { AvatarProps } from "./AvatarProps";
  * Audio level drives antenna pulse speed, eye glow intensity, and mouth bar height.
  */
 export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps) {
-  const al = status === "listening" ? audioLevel : 0;
+  // Ensure we have a valid number for calculations to avoid SVG attribute errors
+  const safeAudioLevel = typeof audioLevel === 'number' && !isNaN(audioLevel) ? audioLevel : 0;
+  const al = status === "listening" ? safeAudioLevel : 0;
 
   return (
     <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-[0_10px_30px_rgba(79,70,229,0.4)]">
