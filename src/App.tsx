@@ -366,10 +366,23 @@ export default function App() {
                 <AnimatePresence>
                   {cameraActive && videoStream && (
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      drag
+                      dragConstraints={{ left: -window.innerWidth + 160, right: 0, top: -window.innerHeight + 240, bottom: 0 }}
+                      dragElastic={0.1}
+                      whileDrag={{ scale: 1.05, rotate: 1, boxShadow: "0 25px 60px rgba(0,0,0,0.6)" }}
+                      initial={{ opacity: 0, scale: 0.5, y: 20, rotate: -2 }}
+                      animate={{ 
+                        opacity: 1, 
+                        scale: 1, 
+                        y: 0, 
+                        rotate: 0,
+                        borderColor: isSpeaking ? "rgba(96, 165, 250, 0.6)" : "rgba(255, 255, 255, 0.2)",
+                        boxShadow: isSpeaking 
+                          ? "0 0 30px rgba(96, 165, 250, 0.3), 0 25px 60px rgba(0,0,0,0.5)" 
+                          : "0 0 0px rgba(96, 165, 250, 0), 0 25px 60px rgba(0,0,0,0.5)"
+                      }}
                       exit={{ opacity: 0, scale: 0.5, y: 20 }}
-                      className="absolute -bottom-4 -right-4 w-32 h-24 sm:w-40 sm:h-30 bg-slate-900 rounded-2xl border-2 border-white/10 overflow-hidden shadow-2xl z-30 group"
+                      className="absolute -bottom-4 -right-4 w-40 h-30 sm:w-56 sm:h-42 bg-slate-900/80 backdrop-blur-md rounded-3xl border border-white/20 overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] z-30 group cursor-grab active:cursor-grabbing"
                     >
                       <video
                         ref={videoPreviewRef}
@@ -378,11 +391,32 @@ export default function App() {
                         playsInline
                         className="w-full h-full object-cover mirror"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
-                      <div className="absolute bottom-1 right-2 flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest">LIVE</span>
+                      
+                      {/* Premium Overlay Effects */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
+                      
+                      {/* Scanning Animation Line */}
+                      <motion.div 
+                        animate={{ top: ["0%", "100%", "0%"] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                        className="absolute left-0 right-0 h-[2px] bg-blue-400/30 blur-[1px] z-10 pointer-events-none"
+                      />
+
+                      {/* UI Elements inside PiP */}
+                      <div className="absolute top-2 left-3 flex items-center gap-1.5 px-2 py-0.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/10">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                        <span className="text-[10px] font-bold text-white/90 uppercase tracking-tighter">Vision Active</span>
                       </div>
+
+                      <div className="absolute bottom-2 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[9px] text-white/60">Déplace-moi</span>
+                      </div>
+
+                      {/* Corner Accents */}
+                      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-blue-400/50 rounded-tl-sm" />
+                      <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-blue-400/50 rounded-tr-sm" />
+                      <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-blue-400/50 rounded-bl-sm" />
+                      <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-blue-400/50 rounded-br-sm" />
                     </motion.div>
                   )}
                 </AnimatePresence>
