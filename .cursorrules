@@ -1,6 +1,6 @@
 {
   "project_context": {
-    "name": "KidsVoice AI",
+    "name": "NeuroChat AI",
     "description": "A real-time voice assistant app for kids using Gemini Live API, React, and TailwindCSS.",
     "architecture_focus": "Client-Side SPA with direct external WebSocket connection.",
     "core_purpose": "Provide an engaging, magical, and realtime voice-based UI for kids."

@@ -190,4 +190,4 @@ console.log(`${stats.totalTurns} échanges au total`);
 
 **Dernière mise à jour** : 2026-05-13  
 **Version** : 1.0.0  
-**Auteur** : Équipe KidsVoice AI
+**Auteur** : Équipe NeuroChat AI

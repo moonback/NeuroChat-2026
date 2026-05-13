@@ -33,18 +33,18 @@ describe('usageLimits', () => {
 
     it('should NOT restrict when daily limit of 30 is reached (removed)', () => {
       const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem('kidsvoice-usage', JSON.stringify({ date: today, minutes: 30 }));
+      localStorage.setItem('NeuroChat-usage', JSON.stringify({ date: today, minutes: 30 }));
       localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify({ date: today, minutes: 30 }));
-      
+
       const status = getUsageStatus();
       expect(status.isRestricted).toBe(false);
     });
 
     it('should reset usage for a new day', () => {
       const yesterday = new Date('2026-05-12').toISOString().split('T')[0];
-      localStorage.setItem('kidsvoice-usage', JSON.stringify({ date: yesterday, minutes: 30 }));
+      localStorage.setItem('NeuroChat-usage', JSON.stringify({ date: yesterday, minutes: 30 }));
       localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify({ date: yesterday, minutes: 30 }));
-      
+
       const status = getUsageStatus();
       expect(status.isRestricted).toBe(false);
     });
@@ -58,11 +58,11 @@ describe('usageLimits', () => {
 
     it('should accumulate usage', () => {
       const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem('kidsvoice-usage', JSON.stringify({ date: today, minutes: 5 }));
+      localStorage.setItem('NeuroChat-usage', JSON.stringify({ date: today, minutes: 5 }));
       localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify({ date: today, minutes: 5 }));
-      
+
       trackUsage(300); // 5 more minutes
-      
+
       const calls = (localStorage.setItem as any).mock.calls;
       const lastCall = calls[calls.length - 1];
       const savedData = JSON.parse(lastCall[1]);
@@ -79,18 +79,18 @@ describe('usageLimits', () => {
 
     it('should return remaining minutes after usage', () => {
       const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem('kidsvoice-usage', JSON.stringify({ date: today, minutes: 10 }));
+      localStorage.setItem('NeuroChat-usage', JSON.stringify({ date: today, minutes: 10 }));
       localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify({ date: today, minutes: 10 }));
-      
+
       const remaining = getRemainingMinutes();
       expect(remaining).toBe(1430);
     });
 
     it('should not return negative minutes', () => {
       const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem('kidsvoice-usage', JSON.stringify({ date: today, minutes: 35 }));
+      localStorage.setItem('NeuroChat-usage', JSON.stringify({ date: today, minutes: 35 }));
       localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify({ date: today, minutes: 35 }));
-      
+
       const remaining = getRemainingMinutes();
       expect(remaining).toBe(0);
     });

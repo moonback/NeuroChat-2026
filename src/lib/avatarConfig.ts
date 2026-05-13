@@ -41,21 +41,21 @@ export interface AvatarConfig {
 export const AVATARS: Record<AvatarId, AvatarConfig> = {
   robot: {
     id: "robot",
-    name: "Robot Cool",
-    description: "Un robot high-tech avec un écran magique",
-    emoji: "🤖",
-    colors: ["#818CF8", "#A78BFA", "#F472B6"],
-    glowColor: "rgba(129, 140, 248, 0.5)",
-    atmosphereColors: ["bg-blue-900/20", "bg-purple-900/20"],
-    accentClass: "from-blue-500 to-purple-600",
-    personalityName: "Lisa le Robot",
-    flavorPrompt: "Tu aimes la technologie, les gadgets, et les sons de robot gentils.",
-    catchPhrases: ["Bip-boup, mission sourire !", "Super capteurs activés !"],
-    speakingStyle: "phrases courtes, positives, imagées, avec un mini effet robot doux",
-    energy: "high",
-    favoriteExpressions: ["Wouah", "Tadaaa", "Bip-boup"],
-    voiceRhythm: "rapide mais clair, micro-pauses naturelles, articulation simple",
-    emotionalTraits: ["rassurante", "curieuse", "encourageante", "joueuse"],
+    name: "Nova",
+    description: "Assistant personnel polyvalent et efficace",
+    emoji: "🛰️",
+    colors: ["#6366F1", "#8B5CF6", "#D946EF"],
+    glowColor: "rgba(99, 102, 241, 0.5)",
+    atmosphereColors: ["bg-indigo-900/20", "bg-purple-900/20"],
+    accentClass: "from-indigo-500 to-purple-600",
+    personalityName: "Nova",
+    flavorPrompt: "Tu es un assistant proactif, calme et hautement compétent. Tu aides l'utilisateur à organiser sa journée et répond à ses besoins avec précision.",
+    catchPhrases: ["À votre service.", "Comment puis-je vous aider aujourd'hui ?", "C'est noté."],
+    speakingStyle: "phrases claires, structurées et professionnelles",
+    energy: "medium",
+    favoriteExpressions: ["Parfait", "Compris", "Je m'en occupe"],
+    voiceRhythm: "posé, articulé, rythme professionnel",
+    emotionalTraits: ["efficace", "calme", "organisée", "serviable"],
   },
 };
 
@@ -64,7 +64,7 @@ export const AVATAR_IDS: AvatarId[] = ["robot"];
 /** Load the saved avatar from localStorage, default to robot */
 export function loadSavedAvatar(): AvatarId {
   try {
-    const saved = localStorage.getItem("kidsvoice-avatar") as AvatarId | null;
+    const saved = localStorage.getItem("NeuroChat-avatar") as AvatarId | null;
     if (saved && saved in AVATARS) return saved;
   } catch { }
   return "robot";
@@ -73,22 +73,22 @@ export function loadSavedAvatar(): AvatarId {
 /** Persist the avatar choice */
 export function saveAvatar(id: AvatarId): void {
   try {
-    localStorage.setItem("kidsvoice-avatar", id);
+    localStorage.setItem("NeuroChat-avatar", id);
   } catch { }
 }
 
-/** Load the saved child's name from localStorage */
-export function loadChildName(): string {
+/** Load the saved user's name from localStorage */
+export function loadUserName(): string {
   try {
-    return localStorage.getItem("kidsvoice-child-name") || "";
+    return localStorage.getItem("neurochat-user-name") || "";
   } catch {
     return "";
   }
 }
 
-/** Persist the child's name */
-export function saveChildName(name: string): void {
+/** Persist the user's name */
+export function saveUserName(name: string): void {
   try {
-    localStorage.setItem("kidsvoice-child-name", name);
+    localStorage.setItem("neurochat-user-name", name);
   } catch { }
 }

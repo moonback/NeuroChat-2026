@@ -1,6 +1,6 @@
 # Guide de Contribution 🤝
 
-Merci de l'intérêt que vous portez au projet **KidsVoice AI** ! Que vous souhaitiez corriger un bug, ajouter des animations à l'avatar ou améliorer l'architecture vers un backend persistant, nous sommes heureux de votre aide.
+Merci de l'intérêt que vous portez au projet **NeuroChat AI** ! Que vous souhaitiez corriger un bug, ajouter des animations à l'avatar ou améliorer l'architecture vers un backend persistant, nous sommes heureux de votre aide.
 
 ## Avant de contribuer
 
@@ -12,8 +12,8 @@ Merci de l'intérêt que vous portez au projet **KidsVoice AI** ! Que vous souha
 1. **Faites un "Fork"** du projet sur votre propre compte GitHub.
 2. **Clonez** votre fork localement :
    ```bash
-   git clone https://github.com/votre-compte/kidsvoice-ai.git
-   cd kidsvoice-ai
+   git clone https://github.com/votre-compte/NeuroChat-ai.git
+   cd NeuroChat-ai
    ```
 3. **Créez une branche dédiée** pour votre nouvelle fonctionnalité ou correction :
    ```bash

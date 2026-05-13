@@ -1,6 +1,6 @@
 # Architecture du Système 🏗️
 
-Ce document décrit l'architecture de **KidsVoice AI**.
+Ce document décrit l'architecture de **NeuroChat AI**.
 
 Actuellement, l'application est un **produit Client-Side (SPA - Single Page Application)** en architecture Serverless qui dialogue directement avec une API tierce (Google API).
 

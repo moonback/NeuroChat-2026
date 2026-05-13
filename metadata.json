@@ -1,5 +1,5 @@
 {
-  "name": "KidsVoice AI",
+  "name": "NeuroChat AI",
   "description": "A real-time voice assistant app for kids using Gemini Live API.",
   "requestFramePermissions": [
     "microphone"

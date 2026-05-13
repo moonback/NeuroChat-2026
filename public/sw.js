@@ -1,4 +1,4 @@
-const CACHE_NAME = "kidsvoice-ai-v1";
+const CACHE_NAME = "NeuroChat-ai-v1";
 const APP_SHELL = ["/", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

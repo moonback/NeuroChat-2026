@@ -1,17 +1,17 @@
-# KidsVoice AI 🎙️✨
+# NeuroChat AI 🎙️✨
 
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![Tailwind](https://img.shields.io/badge/Tailwind-v4-38B2AC.svg)](https://tailwindcss.com/)
 [![Gemini](https://img.shields.io/badge/Gemini-Live_API-orange.svg)](https://ai.google.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **KidsVoice AI** n'est pas qu'un simple chatbot. C'est un compagnon magique, animé et réactif, conçu pour éveiller la curiosité des enfants à travers une interaction vocale naturelle et immersive.
+> **NeuroChat AI** n'est pas qu'un simple chatbot. C'est un compagnon magique, animé et réactif, conçu pour éveiller la curiosité des enfants à travers une interaction vocale naturelle et immersive.
 
 ---
 
 ## 🌟 L'Expérience Magique
 
-L'application transforme l'IA en un ami imaginaire tangible. Grâce à l'intégration de **Gemini Live API**, KidsVoice offre une latence ultra-faible permettant une véritable conversation fluide, sans interruption manuelle.
+L'application transforme l'IA en un ami imaginaire tangible. Grâce à l'intégration de **Gemini Live API**, NeuroChat offre une latence ultra-faible permettant une véritable conversation fluide, sans interruption manuelle.
 
 ### 🎭 Compagnons Uniques
 Choisissez parmi une sélection d'avatars animés, chacun possédant sa propre personnalité et son univers visuel :
@@ -49,7 +49,7 @@ Le moteur d'animation est couplé au flux audio en temps réel. Les avatars ne f
 
 1. **Clonage & Installation**
    ```bash
-   git clone https://github.com/votre-username/kidsvoice-ai.git
+   git clone https://github.com/votre-username/NeuroChat-ai.git
    npm install
    ```
 

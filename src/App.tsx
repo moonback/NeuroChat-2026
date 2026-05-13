@@ -9,7 +9,7 @@ import { buildSystemPrompt } from "./lib/systemPrompt";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
 import { CompactTimeWidget } from "./components/CompactTimeWidget";
 import { TimeRemainingWidget } from "./components/TimeRemainingWidget";
-import { AVATARS, loadSavedAvatar, loadChildName, saveChildName, type AvatarId } from "./lib/avatarConfig";
+import { AVATARS, loadSavedAvatar, loadUserName, saveUserName, type AvatarId } from "./lib/avatarConfig";
 import { getUsageStatus, trackUsage, type UsageStatus } from "./lib/usageLimits";
 import { addConversationTurn, clearConversationHistory, getConversationStats } from "./lib/conversationMemory";
 
@@ -18,8 +18,8 @@ export default function App() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [avatarId, setAvatarId] = useState<AvatarId>(loadSavedAvatar);
-  const [childName, setChildName] = useState(loadChildName());
-  const [showWelcomeModal, setShowWelcomeModal] = useState(!loadChildName());
+  const [userName, setUserName] = useState(loadUserName());
+  const [showWelcomeModal, setShowWelcomeModal] = useState(!loadUserName());
   const [showTimeWidget, setShowTimeWidget] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [usageStatus, setUsageStatus] = useState<UsageStatus>(getUsageStatus());
@@ -100,7 +100,7 @@ export default function App() {
     const attemptConnection = async (): Promise<void> => {
       try {
         console.log("🚀 Démarrage de la session...");
-        
+
         // Request microphone permission FIRST
         console.log("🎤 Demande de permission microphone...");
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -113,7 +113,7 @@ export default function App() {
         console.log("✅ Permission microphone accordée");
         // Stop the test stream immediately
         stream.getTracks().forEach(track => track.stop());
-        
+
         const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
         audioPlayer.current?.clearQueue();
 
@@ -147,88 +147,76 @@ export default function App() {
             },
             onmessage: (message: any) => {
               console.log("📨 Message reçu:", message);
-              
+
               // Capture transcript from user (if available)
-              const userTranscript = message.serverContent?.turnComplete;
-              if (userTranscript && childName) {
-                const userText = message.serverContent?.modelTurn?.parts?.find(
-                  (p: any) => p.text
-                )?.text;
-                if (userText) {
-                  setCurrentTranscript(userText);
+              // Only capture text from the USER (alternating roles: 'assistant' then 'user')
+              const role = message.role;
+              const textPart = message.content?.parts?.find((p: any) => p.text);
+
+              // Check if it's a user message with text
+              if (role === "user" && textPart && textPart.text) {
+                const transcript = textPart.text.trim();
+                console.log("👥 Utilisateur a dit:", transcript);
+
+                // Update current transcript
+                setCurrentTranscript(transcript);
+
+                // Add to conversation history
+                if (userName) {
+                  addConversationTurn(userName, transcript, 'user');
                 }
-              }
-              
-              const base64Audio =
-                message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-              if (base64Audio) {
-                // Capture AI response text if available
-                const aiText = message.serverContent?.modelTurn?.parts?.find(
-                  (p: any) => p.text
-                )?.text;
-                
-                if (aiText && childName) {
-                  // Save the conversation turn
-                  if (currentTranscript) {
-                    addConversationTurn(childName, "child", currentTranscript);
-                    setCurrentTranscript("");
-                  }
-                  addConversationTurn(childName, "companion", aiText);
-                }
-                
-                audioPlayer.current?.play(base64Audio);
-                setIsSpeaking(true);
-                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-                speakingTimeoutRef.current = setTimeout(() => setIsSpeaking(false), 1500);
-              }
-              if (message.serverContent?.interrupted) {
-                audioPlayer.current?.clearQueue();
-                setIsSpeaking(false);
-                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
-              }
-            },
-            onclose: (event: any) => {
-              console.log("🔴 Session fermée");
-              console.log("Code de fermeture:", event?.code);
-              console.log("Raison:", event?.reason);
-              
-              // Show error message if there's a reason
-              if (event?.reason) {
-                setErrorMsg(event.reason);
-              }
-              
-              // Attempt reconnection if not manually closed
-              if (event?.code !== 1000 && retryCount < maxRetries) {
-                retryCount++;
-                console.log(`🔄 Tentative de reconnexion ${retryCount}/${maxRetries}...`);
-                setTimeout(() => attemptConnection(), 2000 * retryCount);
               } else {
-                setStatus("idle");
-                audioRecorder.current?.stop();
-                sessionRef.current = null;
+                console.log("🤖 Réponse de l'assistant ou message non-textuel");
+              }
+
+              // Handle assistant response (audio) or end of turn
+              if (message.result?.audio?.data) {
+                console.log("🔊 Audio de réponse reçu ({} bytes)", message.result.audio.data.length);
+                audioPlayer.current?.play(message.result.audio.data);
+              }
+
+              // Handle turn completion
+              if (message.isFinal || message.result?.isFinal) {
+                console.log("🏁 Fin de tour");
+                // Stop speaking timeout and reset state
+                if (speakingTimeoutRef.current) {
+                  clearTimeout(speakingTimeoutRef.current);
+                }
+                setIsSpeaking(false);
+
+                // End of user turn - restart listening
+                console.log("👂 Redémarrage de l'écoute...");
+                setStatus("listening");
+              } else {
+                // Set speaking timeout
+                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+                speakingTimeoutRef.current = setTimeout(() => {
+                  console.log("⏹️ Timeout - arrêt de l'assistant");
+                  sessionRef.current?.close();
+                  setStatus("idle");
+                }, 4000); // 4 seconds timeout
+                setIsSpeaking(true);
               }
             },
             onerror: (error: any) => {
-              console.error("❌ Live API Error", error);
-              console.error("Error details:", JSON.stringify(error, null, 2));
-              setErrorMsg("Une erreur avec la connexion vocale s'est produite.");
-              
-              // Attempt reconnection on error
-              if (retryCount < maxRetries) {
-                retryCount++;
-                console.log(`🔄 Tentative de reconnexion après erreur ${retryCount}/${maxRetries}...`);
-                setTimeout(() => attemptConnection(), 2000 * retryCount);
-              } else {
-                stopSession();
-              }
+              console.error("❌ Erreur de session:", error);
+              // Stop and reset
+              if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+              setStatus("idle");
+              setErrorMsg("Oups ! Une erreur s'est produite.");
             },
+            onclose: () => {
+              console.log("🚪 Session fermée");
+              if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+              setStatus("idle");
+            }
           },
           config: {
+            systemInstruction: buildSystemPrompt(avatarId, userName),
             responseModalities: [Modality.AUDIO],
             speechConfig: {
               voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
             },
-            systemInstruction: buildSystemPrompt(avatarId, childName),
           },
         });
 
@@ -273,8 +261,8 @@ export default function App() {
   };
 
   const handleWelcomeSubmit = (name: string) => {
-    setChildName(name);
-    saveChildName(name);
+    setUserName(name);
+    saveUserName(name);
     setShowWelcomeModal(false);
   };
 
@@ -286,7 +274,7 @@ export default function App() {
     }
   };
 
-  const conversationStats = childName ? getConversationStats(childName) : null;
+  const conversationStats = userName ? getConversationStats(userName) : null;
 
   return (
     <div className="min-h-screen bg-[#020408] text-white flex flex-col font-sans relative overflow-hidden">
@@ -340,16 +328,16 @@ export default function App() {
                     required
                     autoFocus
                     placeholder="Ex: Marie"
-                    aria-label="Prénom de l'enfant"
+                    aria-label="Votre prénom"
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-2xl text-white placeholder:text-slate-500 focus:outline-none focus:border-slate-500 transition-colors"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  aria-label="Commencer l'aventure"
+                  aria-label="Démarrer l'assistant"
                   className="w-full py-3.5 sm:py-4 bg-gradient-to-r font-bold text-base sm:text-lg rounded-2xl shadow-xl hover:scale-105 transition-transform"
-                  style={{ 
+                  style={{
                     background: `linear-gradient(135deg, ${avatar.colors[0]}, ${avatar.colors[1]})`,
                     boxShadow: `0 10px 30px ${avatar.colors[0]}44`
                   }}
@@ -385,7 +373,7 @@ export default function App() {
                   <Sparkles className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: avatar.colors[0] }}>
-                  Mémoire du Compagnon 🧠
+                  Mémoire de l'Assistant 🧠
                 </h2>
                 <p className="text-slate-400 text-sm">
                   Statistiques des conversations
@@ -400,14 +388,14 @@ export default function App() {
                       {conversationStats.totalSessions}
                     </div>
                   </div>
-                  
+
                   <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
                     <div className="text-sm text-slate-400 mb-1">Échanges totaux</div>
                     <div className="text-2xl font-bold" style={{ color: avatar.colors[0] }}>
                       {conversationStats.totalTurns}
                     </div>
                   </div>
-                  
+
                   {conversationStats.lastConversationDate && (
                     <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
                       <div className="text-sm text-slate-400 mb-1">Dernière conversation</div>
@@ -430,7 +418,7 @@ export default function App() {
                 >
                   Effacer la mémoire 🗑️
                 </button>
-                
+
                 <button
                   onClick={() => setShowMemoryModal(false)}
                   className="w-full py-3 bg-slate-700 hover:bg-slate-600 font-medium text-base rounded-2xl transition-colors"
@@ -456,48 +444,48 @@ export default function App() {
           <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${avatar.accentClass} flex items-center justify-center shadow-lg`} style={{ boxShadow: `0 4px 14px ${avatar.colors[0]}33` }}>
             <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <span className="text-base sm:text-lg lg:text-xl font-semibold tracking-tight">KidsVoice <span style={{ color: avatar.colors[0] }}>AI</span></span>
+          <span className="text-base sm:text-lg lg:text-xl font-semibold tracking-tight">NeuroChat <span style={{ color: avatar.colors[0] }}>AI</span></span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm font-medium text-slate-400 flex-wrap justify-end">
-          
-          {/* Child Name Input / Greeting — only when idle */}
+
+          {/* User Name Input / Greeting — only when idle */}
           {status === "idle" && (
             <div className="flex items-center gap-2">
-              {!childName ? (
+              {!userName ? (
                 <div className="flex items-center gap-2 bg-slate-800/30 px-3 py-1.5 rounded-full border border-slate-700/30 focus-within:border-slate-500 transition-colors">
-                  <span className="text-xs uppercase tracking-wider font-bold opacity-50">Ton Prénom :</span>
+                  <span className="text-xs uppercase tracking-wider font-bold opacity-50">Votre Prénom :</span>
                   <input
                     type="text"
                     onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === "Enter") {
                         const val = (e.target as HTMLInputElement).value;
-                        setChildName(val);
-                        saveChildName(val);
+                        setUserName(val);
+                        saveUserName(val);
                       }
                     }}
                     onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                       const val = e.target.value;
                       if (val) {
-                        setChildName(val);
-                        saveChildName(val);
+                        setUserName(val);
+                        saveUserName(val);
                       }
                     }}
                     placeholder="Tape ici..."
-                    aria-label="Ton prénom"
+                    aria-label="Votre prénom"
                     className="bg-transparent border-none outline-none text-slate-200 w-24 sm:w-32 placeholder:text-slate-600"
                   />
                 </div>
               ) : (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="flex items-center gap-3 bg-slate-800/30 px-4 py-1.5 rounded-full border border-slate-700/30"
                 >
-                  <span className="text-slate-300">Salut, <span className="font-bold" style={{ color: avatar.colors[0] }}>{childName}</span> !</span>
-                  <button 
+                  <span className="text-slate-300">Bonjour, <span className="font-bold" style={{ color: avatar.colors[0] }}>{userName}</span> !</span>
+                  <button
                     onClick={() => {
-                      setChildName("");
-                      saveChildName("");
+                      setUserName("");
+                      saveUserName("");
                     }}
                     className="text-xs text-slate-500 hover:text-red-400 transition-colors"
                     title="Changer de nom"
@@ -508,17 +496,14 @@ export default function App() {
               )}
             </div>
           )}
-          <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-slate-700/50">
-            <div className={`w-2 h-2 rounded-full ${usageStatus.isRestricted ? "bg-amber-400" : "bg-green-400"}`}></div>
-            <span>{usageStatus.isRestricted ? "Mode Repos" : "En ligne"}</span>
-          </div>
-          
-          {/* Memory Button - Only visible when idle and child name is set */}
-          {status === "idle" && childName && (
+
+
+          {/* Memory Button - Only visible when idle and user name is set */}
+          {status === "idle" && userName && (
             <button
               onClick={() => setShowMemoryModal(true)}
               className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-slate-700/50 hover:border-slate-500 transition-colors"
-              title="Voir la mémoire du compagnon"
+              title="Voir la mémoire de l'assistant"
             >
               <span>🧠</span>
               <span className="hidden sm:inline">Mémoire</span>
@@ -551,7 +536,7 @@ export default function App() {
 
       {/* Main Interaction Area */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 md:px-10 lg:px-20">
-        
+
 
         {/* Toggle Widget Button */}
         {/* {status === "idle" && !usageStatus.isRestricted && (
@@ -572,7 +557,7 @@ export default function App() {
             </motion.div>
           </motion.button>
         )} */}
-        
+
         {/* Error Messages */}
         <div className="absolute top-10 inset-x-0 flex justify-center w-full z-30 pointer-events-none px-4">
           <AnimatePresence mode="wait">
@@ -615,7 +600,7 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-          
+
           {/* Main Controls inside Orb */}
           <div className="relative z-20 flex items-center justify-center">
             {status === "idle" ? (
@@ -638,9 +623,9 @@ export default function App() {
         {/* Live Text / Status Preview */}
         <div className="w-full max-w-2xl text-center space-y-4">
           <h1 className="text-3xl font-medium text-slate-100">
-            Votre assistant IA personnel
+            NeuroChat : Votre Assistant Intelligent
           </h1>
-          
+
           <div className="h-10">
             <AnimatePresence mode="wait">
               {status === "idle" && (
@@ -681,18 +666,18 @@ export default function App() {
           </div>
         </div>
       </main>
-      
+
       {/* Footer Controls (Visible during conversation) */}
       <AnimatePresence>
         {(status === "listening" || status === "connecting") && (
-          <motion.footer 
+          <motion.footer
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             className="relative z-10 px-10 py-12 flex justify-center items-end"
           >
             <div className="flex items-center gap-8 bg-slate-900/60 backdrop-blur-xl border border-white/10 p-2 rounded-[40px] shadow-2xl">
-              <button 
+              <button
                 onClick={stopSession}
                 className="px-12 py-5 bg-white text-black font-bold text-lg rounded-[32px] shadow-xl hover:scale-105 transition-transform flex gap-3 items-center focus:outline-none focus:ring-4 focus:ring-white/50"
                 aria-label="Arrêter la conversation"

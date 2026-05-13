@@ -39,7 +39,7 @@ export function getUsageStatus(): UsageStatus {
  */
 export function trackUsage(seconds: number) {
   const today = new Date().toISOString().split('T')[0];
-  const storedData = localStorage.getItem('kidsvoice-usage');
+  const storedData = localStorage.getItem('NeuroChat-usage');
   let usage = storedData ? JSON.parse(storedData) : { date: today, minutes: 0 };
 
   if (usage.date !== today) {
@@ -48,7 +48,7 @@ export function trackUsage(seconds: number) {
 
   // Convert seconds to minutes for storage
   usage.minutes += seconds / 60;
-  localStorage.setItem('kidsvoice-usage', JSON.stringify(usage));
+  localStorage.setItem('NeuroChat-usage', JSON.stringify(usage));
 }
 
 /**
@@ -56,9 +56,9 @@ export function trackUsage(seconds: number) {
  */
 export function getRemainingMinutes(): number {
   const today = new Date().toISOString().split('T')[0];
-  const storedData = localStorage.getItem('kidsvoice-usage');
+  const storedData = localStorage.getItem('NeuroChat-usage');
   let usage = storedData ? JSON.parse(storedData) : { date: today, minutes: 0 };
-  
+
   if (usage.date !== today) return DAILY_LIMIT_MINUTES;
   return Math.max(0, Math.floor(DAILY_LIMIT_MINUTES - usage.minutes));
 }

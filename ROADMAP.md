@@ -1,4 +1,4 @@
-# 🗺️ ROADMAP - KidsVoice AI
+# 🗺️ ROADMAP - NeuroChat AI
 
 **Vision** : Créer un assistant vocal magique et sécurisé pour les enfants, déployable sur web et mobile, avec une expérience immersive et éducative.
 
@@ -322,7 +322,7 @@
 ---
 
 **Dernière mise à jour** : 2026-05-13  
-**Maintenu par** : Équipe KidsVoice AI  
+**Maintenu par** : Équipe NeuroChat AI  
 **Contact** : [À définir]
 
 ---
