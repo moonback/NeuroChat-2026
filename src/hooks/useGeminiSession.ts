@@ -9,8 +9,9 @@ interface SessionOptions {
   onAudioResponse: (base64: string, aiText?: string) => void;
   onTranscription: (text: string, finished: boolean) => void;
   onInterrupted: () => void;
-  onRecordingStart: (sendInput: (base64: string) => void) => void;
+  onRecordingStart: (sendInput: (base64: string, type: 'audio' | 'video') => void) => void;
   onStopRecording: () => void;
+  enableVideo?: boolean;
 }
 
 export function useGeminiSession() {
@@ -36,7 +37,7 @@ export function useGeminiSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onInterrupted, onRecordingStart, onStopRecording } = options;
+    const { avatarId, userName, onAudioResponse, onTranscription, onInterrupted, onRecordingStart, onStopRecording, enableVideo } = options;
     
     setStatus("connecting");
     setErrorMsg("");
@@ -66,11 +67,17 @@ export function useGeminiSession() {
               console.log("✅ Session ouverte !");
               setStatus("listening");
               retryCountRef.current = 0;
-              onRecordingStart((base64Data: string) => {
+              onRecordingStart((base64Data: string, type: 'audio' | 'video' = 'audio') => {
                 if (sessionRef.current) {
-                  sessionRef.current.sendRealtimeInput({
-                    audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" },
-                  });
+                  if (type === 'audio') {
+                    sessionRef.current.sendRealtimeInput({
+                      audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" },
+                    });
+                  } else {
+                    sessionRef.current.sendRealtimeInput({
+                      video: { data: base64Data, mimeType: "image/jpeg" },
+                    });
+                  }
                 }
               });
             },

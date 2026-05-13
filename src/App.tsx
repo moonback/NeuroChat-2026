@@ -1,5 +1,5 @@
-import { Square, Sparkles } from "lucide-react";
-import { useState, FormEvent } from "react";
+import { Square, Sparkles, Camera, CameraOff } from "lucide-react";
+import { useState, FormEvent, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
 import { AVATARS, type AvatarId } from "./lib/avatarConfig";
@@ -7,10 +7,16 @@ import { useAudioSession } from "./hooks/useAudioSession";
 import { useConversationMemory } from "./hooks/useConversationMemory";
 import { useGeminiSession } from "./hooks/useGeminiSession";
 import { ConversationVault } from "./components/ConversationVault";
+import { VideoService } from "./lib/VideoService";
 
 export default function App() {
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
+  const [cameraActive, setCameraActive] = useState(false);
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const videoServiceRef = useRef<VideoService | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
   
   const avatar = AVATARS[avatarId];
 
@@ -50,6 +56,7 @@ export default function App() {
     await startSession({
       avatarId,
       userName,
+      enableVideo: cameraActive,
       onAudioResponse: (base64, aiText) => {
         playAudio(base64);
         if (aiText && userName) {
@@ -66,18 +73,64 @@ export default function App() {
         stopAudio();
       },
       onRecordingStart: (sendInput) => {
-        startRecording(sendInput);
+        sendInputRef.current = sendInput;
+        startRecording((audioBase64) => sendInput(audioBase64, 'audio'));
       },
       onStopRecording: () => {
         stopRecording();
+        sendInputRef.current = null;
+        if (videoServiceRef.current) {
+          videoServiceRef.current.stop();
+          videoServiceRef.current = null;
+          setVideoStream(null);
+        }
       }
     });
   };
 
   const handleStopSession = () => {
-    stopSession(stopRecording);
+    stopSession(() => {
+      stopRecording();
+      if (videoServiceRef.current) {
+        videoServiceRef.current.stop();
+        videoServiceRef.current = null;
+        setVideoStream(null);
+      }
+    });
     stopAudio();
+    sendInputRef.current = null;
   };
+
+  // Manage VideoService reactively based on cameraActive and session status
+  useEffect(() => {
+    if (status === "listening" && cameraActive && !videoServiceRef.current && sendInputRef.current) {
+      console.log("🎥 Activation de la caméra...");
+      videoServiceRef.current = new VideoService((videoBase64) => {
+        sendInputRef.current?.(videoBase64, 'video');
+      });
+      
+      videoServiceRef.current.start()
+        .then(() => {
+          setVideoStream(videoServiceRef.current?.getStream() || null);
+        })
+        .catch(err => {
+          console.error("Erreur caméra:", err);
+          setErrorMsg("Impossible d'accéder à la caméra.");
+          setCameraActive(false);
+        });
+    } else if ((!cameraActive || status !== "listening") && videoServiceRef.current) {
+      console.log("🛑 Désactivation de la caméra...");
+      videoServiceRef.current.stop();
+      videoServiceRef.current = null;
+      setVideoStream(null);
+    }
+  }, [cameraActive, status]);
+
+  useEffect(() => {
+    if (videoPreviewRef.current && videoStream) {
+      videoPreviewRef.current.srcObject = videoStream;
+    }
+  }, [videoStream]);
 
   return (
     <div className="min-h-screen bg-[#020408] text-white flex flex-col font-sans relative overflow-hidden">
@@ -306,7 +359,34 @@ export default function App() {
                 <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
               </motion.button>
             ) : (
-              <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
+              <div className="relative">
+                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
+                
+                {/* Video PiP Preview */}
+                <AnimatePresence>
+                  {cameraActive && videoStream && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.5, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.5, y: 20 }}
+                      className="absolute -bottom-4 -right-4 w-32 h-24 sm:w-40 sm:h-30 bg-slate-900 rounded-2xl border-2 border-white/10 overflow-hidden shadow-2xl z-30 group"
+                    >
+                      <video
+                        ref={videoPreviewRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover mirror"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                      <div className="absolute bottom-1 right-2 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest">LIVE</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
           </div>
         </div>
@@ -367,10 +447,22 @@ export default function App() {
             exit={{ opacity: 0, y: 50 }}
             className="relative z-10 px-10 py-12 flex justify-center items-end"
           >
-            <div className="flex items-center gap-8 bg-slate-900/60 backdrop-blur-xl border border-white/10 p-2 rounded-[40px] shadow-2xl">
+            <div className="flex items-center gap-4 bg-slate-900/60 backdrop-blur-xl border border-white/10 p-2 rounded-[40px] shadow-2xl">
+              <button
+                onClick={() => setCameraActive(!cameraActive)}
+                className={`w-14 h-14 flex items-center justify-center rounded-full transition-all ${
+                  cameraActive 
+                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
+                    : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
+                }`}
+                title={cameraActive ? "Désactiver la caméra" : "Activer la caméra"}
+              >
+                {cameraActive ? <Camera className="w-6 h-6" /> : <CameraOff className="w-6 h-6" />}
+              </button>
+
               <button
                 onClick={handleStopSession}
-                className="px-12 py-5 bg-white text-black font-bold text-lg rounded-[32px] shadow-xl hover:scale-105 transition-transform flex gap-3 items-center focus:outline-none focus:ring-4 focus:ring-white/50"
+                className="px-10 py-4 bg-white text-black font-bold text-lg rounded-[32px] shadow-xl hover:scale-105 transition-transform flex gap-3 items-center focus:outline-none focus:ring-4 focus:ring-white/50"
                 aria-label="Arrêter la conversation"
               >
                 <Square className="w-5 h-5" fill="currentColor" />
