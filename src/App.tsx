@@ -8,6 +8,7 @@ import { useConversationMemory } from "./hooks/useConversationMemory";
 import { useGeminiSession } from "./hooks/useGeminiSession";
 import { ConversationVault } from "./components/ConversationVault";
 import { VideoService } from "./lib/VideoService";
+import { Header } from "./components/layout/Header";
 
 export default function App() {
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
@@ -17,17 +18,17 @@ export default function App() {
   const videoServiceRef = useRef<VideoService | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
-  
+
   const avatar = AVATARS[avatarId];
 
   // Initialize hooks
-  const { 
-    isSpeaking, 
-    audioLevel, 
-    playAudio, 
-    stopAudio, 
-    startRecording, 
-    stopRecording 
+  const {
+    isSpeaking,
+    audioLevel,
+    playAudio,
+    stopAudio,
+    startRecording,
+    stopRecording
   } = useAudioSession();
 
   const {
@@ -108,7 +109,7 @@ export default function App() {
       videoServiceRef.current = new VideoService((videoBase64) => {
         sendInputRef.current?.(videoBase64, 'video');
       });
-      
+
       videoServiceRef.current.start()
         .then(() => {
           setVideoStream(videoServiceRef.current?.getStream() || null);
@@ -155,7 +156,7 @@ export default function App() {
                   <Sparkles className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: avatar.colors[0] }}>
-                  Bienvenue ! 🎉
+                  Bienvenue !
                 </h2>
                 <p className="text-slate-400 text-sm">
                   Dis-moi qui tu es pour commencer l'aventure
@@ -225,76 +226,13 @@ export default function App() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(66,133,244,0.05)_0%,transparent_70%)]"></div>
       </div>
 
-      {/* Header Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-8">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${avatar.accentClass} flex items-center justify-center shadow-lg`} style={{ boxShadow: `0 4px 14px ${avatar.colors[0]}33` }}>
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-base sm:text-lg lg:text-xl font-semibold tracking-tight">NeuroChat <span style={{ color: avatar.colors[0] }}>AI</span></span>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm font-medium text-slate-400 flex-wrap justify-end">
-
-          {/* User Name Input / Greeting — only when idle */}
-          {status === "idle" && (
-            <div className="flex items-center gap-2">
-              {!userName ? (
-                <div className="flex items-center gap-2 bg-slate-800/30 px-3 py-1.5 rounded-full border border-slate-700/30 focus-within:border-slate-500 transition-colors">
-                  <span className="text-xs uppercase tracking-wider font-bold opacity-50">Votre Prénom :</span>
-                  <input
-                    type="text"
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === "Enter") {
-                        const val = (e.target as HTMLInputElement).value;
-                        updateUserName(val);
-                      }
-                    }}
-                    onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-                      const val = e.target.value;
-                      if (val) {
-                        updateUserName(val);
-                      }
-                    }}
-                    placeholder="Tape ici..."
-                    aria-label="Votre prénom"
-                    className="bg-transparent border-none outline-none text-slate-200 w-24 sm:w-32 placeholder:text-slate-600"
-                  />
-                </div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-3 bg-slate-800/30 px-4 py-1.5 rounded-full border border-slate-700/30"
-                >
-                  <span className="text-slate-300">Bonjour, <span className="font-bold" style={{ color: avatar.colors[0] }}>{userName}</span> !</span>
-                  <button
-                    onClick={() => {
-                      updateUserName("");
-                    }}
-                    className="text-xs text-slate-500 hover:text-red-400 transition-colors"
-                    title="Changer de nom"
-                  >
-                    (Changer)
-                  </button>
-                </motion.div>
-              )}
-            </div>
-          )}
-
-
-          {/* Memory Button - Only visible when idle and user name is set */}
-          {status === "idle" && userName && (
-            <button
-              onClick={() => setShowMemoryModal(true)}
-              className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-slate-700/50 hover:border-slate-500 transition-colors"
-              title="Voir la mémoire de l'assistant"
-            >
-              <span>🧠</span>
-              <span className="hidden sm:inline">Mémoire</span>
-            </button>
-          )}
-        </div>
-      </nav>
+      <Header 
+        avatar={avatar}
+        status={status}
+        userName={userName}
+        updateUserName={updateUserName}
+        onShowMemory={() => setShowMemoryModal(true)}
+      />
 
 
       {/* Main Interaction Area */}
@@ -361,7 +299,7 @@ export default function App() {
             ) : (
               <div className="relative">
                 <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
-                
+
                 {/* Video PiP Preview */}
                 <AnimatePresence>
                   {cameraActive && videoStream && (
@@ -371,14 +309,14 @@ export default function App() {
                       dragElastic={0.1}
                       whileDrag={{ scale: 1.05, rotate: 1, boxShadow: "0 25px 60px rgba(0,0,0,0.6)" }}
                       initial={{ opacity: 0, scale: 0.5, y: 20, rotate: -2 }}
-                      animate={{ 
-                        opacity: 1, 
-                        scale: 1, 
-                        y: 0, 
+                      animate={{
+                        opacity: 1,
+                        scale: 1,
+                        y: 0,
                         rotate: 0,
                         borderColor: isSpeaking ? "rgba(96, 165, 250, 0.6)" : "rgba(255, 255, 255, 0.2)",
-                        boxShadow: isSpeaking 
-                          ? "0 0 30px rgba(96, 165, 250, 0.3), 0 25px 60px rgba(0,0,0,0.5)" 
+                        boxShadow: isSpeaking
+                          ? "0 0 30px rgba(96, 165, 250, 0.3), 0 25px 60px rgba(0,0,0,0.5)"
                           : "0 0 0px rgba(96, 165, 250, 0), 0 25px 60px rgba(0,0,0,0.5)"
                       }}
                       exit={{ opacity: 0, scale: 0.5, y: 20 }}
@@ -391,12 +329,12 @@ export default function App() {
                         playsInline
                         className="w-full h-full object-cover mirror"
                       />
-                      
+
                       {/* Premium Overlay Effects */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
-                      
+
                       {/* Scanning Animation Line */}
-                      <motion.div 
+                      <motion.div
                         animate={{ top: ["0%", "100%", "0%"] }}
                         transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                         className="absolute left-0 right-0 h-[2px] bg-blue-400/30 blur-[1px] z-10 pointer-events-none"
@@ -484,11 +422,10 @@ export default function App() {
             <div className="flex items-center gap-4 bg-slate-900/60 backdrop-blur-xl border border-white/10 p-2 rounded-[40px] shadow-2xl">
               <button
                 onClick={() => setCameraActive(!cameraActive)}
-                className={`w-14 h-14 flex items-center justify-center rounded-full transition-all ${
-                  cameraActive 
-                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" 
+                className={`w-14 h-14 flex items-center justify-center rounded-full transition-all ${cameraActive
+                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                     : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
-                }`}
+                  }`}
                 title={cameraActive ? "Désactiver la caméra" : "Activer la caméra"}
               >
                 {cameraActive ? <Camera className="w-6 h-6" /> : <CameraOff className="w-6 h-6" />}
