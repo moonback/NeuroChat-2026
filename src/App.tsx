@@ -44,6 +44,9 @@ export default function App() {
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const usageTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isManualStopRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const maxRetries = 3;
 
   const avatar = AVATARS[avatarId];
 
@@ -93,9 +96,8 @@ export default function App() {
 
     setStatus("connecting");
     setErrorMsg("");
-
-    let retryCount = 0;
-    const maxRetries = 3;
+    isManualStopRef.current = false;
+    retryCountRef.current = 0;
 
     const attemptConnection = async (): Promise<void> => {
       try {
@@ -125,7 +127,7 @@ export default function App() {
             onopen: () => {
               console.log("✅ Session ouverte !");
               setStatus("listening");
-              retryCount = 0; // Reset retry count on success
+              retryCountRef.current = 0; // Reset retry count on success
               // Start recording only after the session is ready
               try {
                 console.log("🎤 Démarrage de l'enregistrement audio...");
@@ -187,7 +189,14 @@ export default function App() {
               console.error("❌ Erreur de session:", error);
               if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
               setStatus("idle");
-              setErrorMsg("Oups ! Une erreur s'est produite avec la connexion vocale.");
+              
+              if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
+                retryCountRef.current++;
+                console.log(`🔄 Tentative de reconnexion après erreur (${retryCountRef.current}/${maxRetries})...`);
+                setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
+              } else {
+                setErrorMsg("Oups ! Une erreur de connexion s'est produite.");
+              }
             },
             onclose: (event: any) => {
               console.log("🚪 Session fermée", event);
@@ -195,6 +204,12 @@ export default function App() {
               setStatus("idle");
               audioRecorder.current?.stop();
               sessionRef.current = null;
+
+              if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
+                retryCountRef.current++;
+                console.log(`🔄 Reconnexion automatique (${retryCountRef.current}/${maxRetries})...`);
+                setTimeout(() => attemptConnection(), 1500 * retryCountRef.current);
+              }
             }
           },
           config: {
@@ -209,15 +224,16 @@ export default function App() {
         console.log("💾 Session stockée");
         // Store the active session
         sessionRef.current = session;
+        retryCountRef.current = 0; // Reset on successful connection completion
       } catch (err: any) {
         console.error("💥 Failed to start session:", err);
         if (err.name === "NotAllowedError") {
           setErrorMsg("Je n'ai pas la permission d'utiliser le microphone !");
           setStatus("idle");
-        } else if (retryCount < maxRetries) {
-          retryCount++;
-          console.log(`🔄 Tentative de reconnexion après échec ${retryCount}/${maxRetries}...`);
-          setTimeout(() => attemptConnection(), 2000 * retryCount);
+        } else if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
+          retryCountRef.current++;
+          console.log(`🔄 Tentative de reconnexion après échec ${retryCountRef.current}/${maxRetries}...`);
+          setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
         } else {
           setErrorMsg(err.message || "Impossible de démarrer.");
           setStatus("idle");
@@ -229,6 +245,7 @@ export default function App() {
   };
 
   const stopSession = () => {
+    isManualStopRef.current = true;
     // Safely close the session if it exists and is not already closed
     if (sessionRef.current) {
       try {

@@ -22,6 +22,19 @@ export class AudioRecorder implements IAudioRecorder {
       this.audioContext = new AudioContext({ sampleRate: 16000 });
       this.source = this.audioContext.createMediaStreamSource(this.stream);
       
+      // Add a BiquadFilter to cut off high-frequency noise (human speech is mostly below 4kHz)
+      const filter = this.audioContext.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 4000;
+      
+      // Add a DynamicsCompressor to normalize volume levels and reduce background hum
+      const compressor = this.audioContext.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-50, this.audioContext.currentTime);
+      compressor.knee.setValueAtTime(40, this.audioContext.currentTime);
+      compressor.ratio.setValueAtTime(12, this.audioContext.currentTime);
+      compressor.attack.setValueAtTime(0, this.audioContext.currentTime);
+      compressor.release.setValueAtTime(0.25, this.audioContext.currentTime);
+
       // 4096 buffer size is a reasonable trade-off between latency and smoothness
       this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
 
@@ -45,7 +58,10 @@ export class AudioRecorder implements IAudioRecorder {
         onAudioData(base64);
       };
 
-      this.source.connect(this.processor);
+      // Connect nodes: Source -> Filter -> Compressor -> Processor -> Destination
+      this.source.connect(filter);
+      filter.connect(compressor);
+      compressor.connect(this.processor);
       this.processor.connect(this.audioContext.destination);
     } catch (error) {
       console.error("Error starting audio recording:", error);
