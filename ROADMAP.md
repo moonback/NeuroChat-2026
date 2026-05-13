@@ -11,7 +11,6 @@
 - ✅ **Gemini Live API** : Intégration WebSocket pour une conversation sans latence.
 - ✅ **Avatar Nova** : Assistant proactif avec animations réactives au flux audio.
 - ✅ **Mémoire Conversationnelle** : Système de stockage local (localStorage) avec gestion du contexte.
-- ✅ **Bien-être numérique** : Limites d'utilisation quotidiennes et mode repos nocturne.
 - ✅ **Prompt Dynamique** : Système de personnalité proactif optimisé pour la synthèse vocale (TTS).
 - ✅ **Suite de Tests** : Couverture des systèmes critiques (Vitest).
 

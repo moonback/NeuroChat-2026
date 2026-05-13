@@ -142,7 +142,7 @@ return () => {
 <input 
   type="text" 
   placeholder="Ex: Marie"
-  aria-label="Prénom de l'enfant"
+  aria-label="Prénom"
 />
 
 // Avant
@@ -163,40 +163,12 @@ return () => {
 
 ---
 
-### 6. ✅ Widget de Temps Restant
-**Nouveaux composants créés :**
-
-#### `CompactTimeWidget` (Widget compact pour la navigation)
-- ✅ Affichage circulaire avec progression
-- ✅ Indicateur visuel de couleur (vert → orange → rouge)
-- ✅ Animation de pulsation en mode critique
-- ✅ Mise à jour automatique toutes les 30 secondes
-- ✅ Tooltip informatif au survol
-
-#### `TimeRemainingWidget` (Widget détaillé)
-- ✅ Barre de progression animée
-- ✅ Affichage du temps en minutes (entier)
-- ✅ Messages contextuels selon le temps restant
-- ✅ Emojis adaptatifs (✨ → ⏰ → ⚠️)
-- ✅ Alerte visuelle quand < 10 minutes
-- ✅ Design cohérent avec le thème de l'avatar
-
-**Fonctionnalités :**
-- ✅ Bouton toggle pour afficher/masquer le widget détaillé
-- ✅ Widget compact toujours visible dans la navigation
-- ✅ Calcul précis du temps restant (arrondi à l'entier)
-- ✅ Couleurs adaptatives selon l'état :
-  - Vert : > 10 minutes
-  - Orange : 5-10 minutes
-  - Rouge : < 5 minutes
-
-**Fichiers créés :**
-- `src/components/TimeRemainingWidget.tsx` - Widget détaillé
-- `src/components/CompactTimeWidget.tsx` - Widget compact
-- `src/lib/usageLimits.ts` - Correction pour retourner des entiers
-
-**Fichiers modifiés :**
-- `src/App.tsx` - Intégration des widgets
+### 6. ✅ Pivot Professionnel & Simplification
+**Changements majeurs :**
+- ✅ Suppression du système de limites d'utilisation (Usage Limits)
+- ✅ Retrait des widgets de temps restant (`CompactTimeWidget`, `TimeRemainingWidget`)
+- ✅ Mise à jour de la personnalité de l'IA (Nova) pour un ton professionnel et proactif
+- ✅ Nettoyage du code et suppression des dépendances obsolètes
 
 ---
 
@@ -216,7 +188,7 @@ return () => {
 
 ### Expérience Utilisateur
 - ✅ Reconnexion automatique en cas de problème réseau
-- ✅ Feedback visuel du temps restant
+- ✅ Mémoire persistante locale
 - ✅ Messages d'erreur clairs et informatifs
 - ✅ Accessibilité améliorée (ARIA, focus visible)
 - ✅ Interface responsive et intuitive

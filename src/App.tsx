@@ -7,10 +7,7 @@ import { AudioPlayer } from "./lib/AudioPlayer";
 import { IAudioRecorder, IAudioPlayer } from "./lib/AudioService";
 import { buildSystemPrompt } from "./lib/systemPrompt";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
-import { CompactTimeWidget } from "./components/CompactTimeWidget";
-import { TimeRemainingWidget } from "./components/TimeRemainingWidget";
 import { AVATARS, loadSavedAvatar, loadUserName, saveUserName, type AvatarId } from "./lib/avatarConfig";
-import { getUsageStatus, trackUsage, type UsageStatus } from "./lib/usageLimits";
 import { addConversationTurn, clearConversationHistory, getConversationStats } from "./lib/conversationMemory";
 
 export default function App() {
@@ -20,9 +17,7 @@ export default function App() {
   const [avatarId, setAvatarId] = useState<AvatarId>(loadSavedAvatar);
   const [userName, setUserName] = useState(loadUserName());
   const [showWelcomeModal, setShowWelcomeModal] = useState(!loadUserName());
-  const [showTimeWidget, setShowTimeWidget] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [usageStatus, setUsageStatus] = useState<UsageStatus>(getUsageStatus());
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const audioLevelRef = useRef(0);
@@ -43,7 +38,6 @@ export default function App() {
   const sessionRef = useRef<any>(null);
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const usageTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isManualStopRef = useRef(false);
   const retryCountRef = useRef(0);
   const maxRetries = 3;
@@ -54,45 +48,20 @@ export default function App() {
     audioRecorder.current = new AudioRecorder();
     audioPlayer.current = new AudioPlayer();
 
-    // Check usage status every minute
-    statusIntervalRef.current = setInterval(() => {
-      const status = getUsageStatus();
-      setUsageStatus(status);
-      if (status.isRestricted && sessionRef.current) {
-        stopSession();
-      }
-    }, 60000);
+    // Cleanup moved to return
 
     return () => {
       audioRecorder.current?.stop();
       audioPlayer.current?.stop();
       sessionRef.current?.close();
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-      if (usageTimerRef.current) clearInterval(usageTimerRef.current);
       if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
-  // Usage tracking effect
-  useEffect(() => {
-    if (status === "listening" || isSpeaking) {
-      usageTimerRef.current = setInterval(() => {
-        trackUsage(10); // track 10 seconds
-      }, 10000);
-    }
-    return () => {
-      if (usageTimerRef.current) clearInterval(usageTimerRef.current);
-    };
-  }, [status, isSpeaking]);
 
   const startSession = async () => {
-    const statusCheck = getUsageStatus();
-    if (statusCheck.isRestricted) {
-      setUsageStatus(statusCheck);
-      setErrorMsg(statusCheck.message);
-      return;
-    }
 
     setStatus("connecting");
     setErrorMsg("");
@@ -515,51 +484,11 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Rest Mode Overlay */}
-      <AnimatePresence>
-        {usageStatus.isRestricted && status === "idle" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-20 sm:bottom-24 md:bottom-32 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-4 sm:px-6"
-          >
-            <div className="bg-amber-900/40 border border-amber-500/30 backdrop-blur-xl p-6 rounded-[32px] text-center shadow-2xl">
-              <span className="text-3xl mb-3 block">{usageStatus.reason === "night" ? "🌙" : "⏳"}</span>
-              <h3 className="text-xl font-bold text-amber-200 mb-2">
-                {usageStatus.reason === "night" ? "C'est l'heure de dormir" : "Pause nécessaire"}
-              </h3>
-              <p className="text-amber-100/80 text-sm leading-relaxed">
-                {usageStatus.message}
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Main Interaction Area */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 md:px-10 lg:px-20">
 
 
-        {/* Toggle Widget Button */}
-        {/* {status === "idle" && !usageStatus.isRestricted && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            onClick={() => setShowTimeWidget(!showTimeWidget)}
-            className="fixed top-32 right-6 z-20 w-12 h-12 bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-            style={{ boxShadow: `0 4px 14px ${avatar.colors[0]}33` }}
-            aria-label={showTimeWidget ? "Masquer le widget de temps" : "Afficher le widget de temps"}
-            title={showTimeWidget ? "Masquer" : "Voir le temps restant"}
-          >
-            <motion.div
-              animate={{ rotate: showTimeWidget ? 180 : 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Sparkles className="w-5 h-5" style={{ color: avatar.colors[0] }} />
-            </motion.div>
-          </motion.button>
-        )} */}
 
         {/* Error Messages */}
         <div className="absolute top-10 inset-x-0 flex justify-center w-full z-30 pointer-events-none px-4">
@@ -615,10 +544,10 @@ export default function App() {
                 title="Clique pour parler !"
                 aria-label="Démarrer la conversation vocale"
               >
-                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} isRestricted={usageStatus.isRestricted} />
+                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
               </motion.button>
             ) : (
-              <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} isRestricted={usageStatus.isRestricted} />
+              <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
             )}
           </div>
         </div>

@@ -9,11 +9,9 @@ interface Props {
   avatarId?: AvatarId;
   /** Normalized 0-1 audio level from the microphone */
   audioLevel?: number;
-  /** Whether usage is currently restricted */
-  isRestricted?: boolean;
 }
 
-export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audioLevel = 0, isRestricted = false }: Props) {
+export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audioLevel = 0 }: Props) {
   const avatar = AVATARS[avatarId];
 
   // Body bounce — intensity driven by audioLevel when listening
@@ -37,7 +35,7 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
 
   /** Render the appropriate avatar SVG */
   function renderAvatar() {
-    const props = { status: isRestricted ? ("connecting" as const) : status, isSpeaking, audioLevel };
+    const props = { status, isSpeaking, audioLevel };
     return <RobotAvatar {...props} />;
   }
 

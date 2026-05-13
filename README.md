@@ -37,7 +37,6 @@ L'application transforme l'interaction avec l'IA en une conversation naturelle e
 - `src/lib/AudioRecorder.ts` : Capture audio haute performance via AudioWorklet.
 - `src/lib/conversationMemory.ts` : Gestionnaire de contexte et de persistance locale.
 - `src/lib/systemPrompt.ts` : Moteur de génération de prompt dynamique.
-- `src/lib/usageLimits.ts` : Système de bien-être numérique et de gestion du temps de repos.
 
 ---
 
@@ -64,7 +63,7 @@ L'application transforme l'interaction avec l'IA en une conversation naturelle e
 
 ## 🧪 Tests
 
-NeuroChat inclut une suite de tests rigoureuse pour garantir la stabilité de ses systèmes critiques (mémoire, limites, prompts).
+NeuroChat inclut une suite de tests rigoureuse pour garantir la stabilité de ses systèmes critiques (mémoire, prompts).
 
 - **Lancer tous les tests** :
   ```bash
@@ -81,10 +80,7 @@ NeuroChat inclut une suite de tests rigoureuse pour garantir la stabilité de se
 
 ---
 
-## 🛡️ Sécurité & Confidentialité
-
 - **Privacy by Design** : Aucune donnée n'est envoyée à un serveur tiers (hormis l'API Gemini). Votre historique reste sur votre machine.
-- **Digital Well-being** : Système intégré de limite de temps d'utilisation et de mode repos nocturne.
 
 ---
 

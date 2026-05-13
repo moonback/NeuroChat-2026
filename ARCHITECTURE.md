@@ -8,7 +8,7 @@ Actuellement, l'application est un **produit Client-Side (SPA - Single Page Appl
 
 ```mermaid
 graph TD;
-    Client[Navigateur Web / Enfant] 
+    Client[Navigateur Web / Utilisateur] 
     Client -- Microphone (PCM 16-bit) --> AudioRecorder
     AudioRecorder -- Flux Base64 (WebSocket) --> Gemini[Google Gemini Live API]
     Gemini -- Réponse (Texte + PCM 24kHz) --> AudioPlayer
@@ -30,7 +30,7 @@ graph TD;
 
 ## 🖥️ Le Frontend (React + Vite)
 
-Le frontend est conçu pour être rapide, réactif et très visuel pour capter l'attention des enfants.
+Le frontend est conçu pour être rapide, réactif et très visuel pour une expérience utilisateur premium.
 
 - **Composants clés** : L'interface est majoritairement gérée dans `App.tsx` qui centralise l'état (`status`: idle, connecting, listening). Le visuel est délégué à de petits composants comme `AnimatedCharacter.tsx`.
 - **Gestionnaire d'état** : L'état global est géré via des hooks React classiques (`useState` pour l'interface utilisateur, `useRef` pour persister les instances audio sans déclencher de re-renders).
@@ -52,7 +52,7 @@ L'architecture isole les complexités des API Web (Audio et WebSocket) dans des 
    - Gère les interruptions de l'utilisateur (annulation du stream et reset d'AudioContext).
 
 3. **`systemPrompt.ts`** :
-   - Isole la personnalité de l'IH (Assistant enfant). Facilement éditable par des game designers ou concepteurs pédagogiques.
+   - Isole la personnalité de l'IA (Assistant quotidien). Facilement éditable pour ajuster le ton et les capacités.
 
 ## 📡 Le Backend (Google Live API)
 
