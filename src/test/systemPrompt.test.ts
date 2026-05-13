@@ -12,12 +12,12 @@ describe('systemPrompt', () => {
     it('should include child name when provided', () => {
       const prompt = buildSystemPrompt('robot', 'Marie');
       expect(prompt).toContain('Marie');
-      expect(prompt).toContain('Prénom enfant');
+      expect(prompt).toContain('Prénom: Marie');
     });
 
     it('should handle missing child name', () => {
       const prompt = buildSystemPrompt('robot', '');
-      expect(prompt).toContain('Prénom enfant inconnu');
+      expect(prompt).toContain('Prénom inconnu');
     });
 
     it('should include safety guidelines', () => {
@@ -37,11 +37,6 @@ describe('systemPrompt', () => {
       expect(prompt).toContain('mini question');
     });
 
-    it('should include well-being guidelines', () => {
-      const prompt = buildSystemPrompt('robot');
-      expect(prompt).toContain('SCREEN TIME MANAGEMENT');
-      expect(prompt).toContain('pause yeux');
-    });
 
     it('should include date and time context', () => {
       const prompt = buildSystemPrompt('robot', 'Marie');

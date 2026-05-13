@@ -31,15 +31,13 @@ describe('usageLimits', () => {
       expect(status.reason).toBe('night');
     });
 
-    it('should restrict when daily limit is reached', () => {
+    it('should NOT restrict when daily limit of 30 is reached (removed)', () => {
       const today = new Date().toISOString().split('T')[0];
       localStorage.setItem('kidsvoice-usage', JSON.stringify({ date: today, minutes: 30 }));
       localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify({ date: today, minutes: 30 }));
       
       const status = getUsageStatus();
-      expect(status.isRestricted).toBe(true);
-      expect(status.reason).toBe('limit');
-      expect(status.message).toContain('pause');
+      expect(status.isRestricted).toBe(false);
     });
 
     it('should reset usage for a new day', () => {
@@ -73,10 +71,10 @@ describe('usageLimits', () => {
   });
 
   describe('getRemainingMinutes', () => {
-    it('should return full limit for new day', () => {
+    it('should return full limit (1440) for new day', () => {
       localStorage.getItem = vi.fn().mockReturnValue(null);
       const remaining = getRemainingMinutes();
-      expect(remaining).toBe(30);
+      expect(remaining).toBe(1440);
     });
 
     it('should return remaining minutes after usage', () => {
@@ -85,7 +83,7 @@ describe('usageLimits', () => {
       localStorage.getItem = vi.fn().mockReturnValue(JSON.stringify({ date: today, minutes: 10 }));
       
       const remaining = getRemainingMinutes();
-      expect(remaining).toBe(20);
+      expect(remaining).toBe(1430);
     });
 
     it('should not return negative minutes', () => {

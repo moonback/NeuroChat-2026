@@ -9,7 +9,7 @@ export interface UsageStatus {
 }
 
 // Configuration
-const DAILY_LIMIT_MINUTES = 30; // Maximum usage per day
+const DAILY_LIMIT_MINUTES = 1440; // Practically no limit (24 hours)
 const NIGHT_HOUR_START = 20;    // 8 PM
 const NIGHT_HOUR_END = 7;       // 7 AM
 
@@ -29,24 +29,7 @@ export function getUsageStatus(): UsageStatus {
     };
   }
 
-  // 2. Daily limit check
-  const today = now.toISOString().split('T')[0];
-  const storedData = localStorage.getItem('kidsvoice-usage');
-  let usage = storedData ? JSON.parse(storedData) : { date: today, minutes: 0 };
-
-  // Reset if it's a new day
-  if (usage.date !== today) {
-    usage = { date: today, minutes: 0 };
-    localStorage.setItem('kidsvoice-usage', JSON.stringify(usage));
-  }
-
-  if (usage.minutes >= DAILY_LIMIT_MINUTES) {
-    return {
-      isRestricted: true,
-      reason: "limit",
-      message: "Tu as beaucoup discuté aujourd'hui ! Tes amis magiques ont besoin d'une petite pause. À demain ! 🌳"
-    };
-  }
+  // Daily limit check removed as per user request
 
   return { isRestricted: false, reason: null, message: "" };
 }

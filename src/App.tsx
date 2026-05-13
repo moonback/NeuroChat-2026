@@ -19,7 +19,6 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState("");
   const [avatarId, setAvatarId] = useState<AvatarId>(loadSavedAvatar);
   const [childName, setChildName] = useState(loadChildName());
-  const [childAge, setChildAge] = useState(localStorage.getItem("childAge") || "");
   const [showWelcomeModal, setShowWelcomeModal] = useState(!loadChildName());
   const [showTimeWidget, setShowTimeWidget] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -273,11 +272,9 @@ export default function App() {
     if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
   };
 
-  const handleWelcomeSubmit = (name: string, age: string) => {
+  const handleWelcomeSubmit = (name: string) => {
     setChildName(name);
-    setChildAge(age);
     saveChildName(name);
-    localStorage.setItem("childAge", age);
     setShowWelcomeModal(false);
   };
 
@@ -326,9 +323,8 @@ export default function App() {
                   e.preventDefault();
                   const formData = new FormData(e.currentTarget);
                   const name = formData.get("name") as string;
-                  const age = formData.get("age") as string;
-                  if (name && age) {
-                    handleWelcomeSubmit(name, age);
+                  if (name) {
+                    handleWelcomeSubmit(name);
                   }
                 }}
                 className="space-y-6"
@@ -345,23 +341,6 @@ export default function App() {
                     autoFocus
                     placeholder="Ex: Marie"
                     aria-label="Prénom de l'enfant"
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-2xl text-white placeholder:text-slate-500 focus:outline-none focus:border-slate-500 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="age" className="block text-sm font-medium text-slate-300 mb-2">
-                    Ton âge
-                  </label>
-                  <input
-                    type="number"
-                    id="age"
-                    name="age"
-                    required
-                    min="3"
-                    max="18"
-                    placeholder="Ex: 8"
-                    aria-label="Âge de l'enfant"
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-2xl text-white placeholder:text-slate-500 focus:outline-none focus:border-slate-500 transition-colors"
                   />
                 </div>
@@ -480,10 +459,6 @@ export default function App() {
           <span className="text-base sm:text-lg lg:text-xl font-semibold tracking-tight">KidsVoice <span style={{ color: avatar.colors[0] }}>AI</span></span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 text-xs sm:text-sm font-medium text-slate-400 flex-wrap justify-end">
-          {/* Compact Time Widget */}
-          {status === "idle" && !usageStatus.isRestricted && (
-            <CompactTimeWidget accentColor={avatar.colors[0]} />
-          )}
           
           {/* Child Name Input / Greeting — only when idle */}
           {status === "idle" && (
@@ -577,19 +552,6 @@ export default function App() {
       {/* Main Interaction Area */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 md:px-10 lg:px-20">
         
-        {/* Time Remaining Widget - Floating on the side */}
-        <AnimatePresence>
-          {showTimeWidget && status === "idle" && !usageStatus.isRestricted && (
-            <motion.div
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 100 }}
-              className="fixed top-20 right-3 sm:top-24 sm:right-4 md:top-32 md:right-6 z-30 w-[min(16rem,calc(100vw-1.5rem))]"
-            >
-              <TimeRemainingWidget accentColor={avatar.colors[0]} />
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Toggle Widget Button */}
         {/* {status === "idle" && !usageStatus.isRestricted && (
