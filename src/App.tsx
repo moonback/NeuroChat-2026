@@ -105,7 +105,7 @@ export default function App() {
         videoServiceRef.current = null;
         setVideoStream(null);
       }
-    });
+    }, userName ?? undefined);
     stopAudio();
     sendInputRef.current = null;
   };

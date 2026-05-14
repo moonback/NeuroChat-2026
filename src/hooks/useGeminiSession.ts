@@ -2,6 +2,17 @@ import { useState, useRef, useCallback } from "react";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { buildSystemPrompt } from "../lib/systemPrompt";
 import { AvatarId } from "../lib/avatarConfig";
+import { retrieveRelevantContext } from "../lib/ragSearch";
+import {
+  loadAllSessions,
+  getOrCreateCurrentSession,
+} from "../lib/conversationMemory";
+import {
+  getOrGenerateCurrentWeekSummary,
+  generateSessionSummary,
+  formatWeeklySummaryForPrompt,
+  loadWeeklySummaries,
+} from "../lib/conversationSummary";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -22,7 +33,7 @@ export function useGeminiSession() {
   const retryCountRef = useRef(0);
   const maxRetries = 3;
 
-  const stopSession = useCallback((onStopRecording?: () => void) => {
+  const stopSession = useCallback((onStopRecording?: () => void, userName?: string) => {
     isManualStopRef.current = true;
     if (sessionRef.current) {
       try {
@@ -34,6 +45,40 @@ export function useGeminiSession() {
     }
     if (onStopRecording) onStopRecording();
     setStatus("idle");
+
+    // Fire-and-forget: generate session summary and refresh weekly summary
+    if (userName) {
+      const sessions = loadAllSessions().filter((s) => s.userName === userName);
+      const currentSession = sessions[sessions.length - 1];
+
+      if (currentSession) {
+        generateSessionSummary(currentSession, userName)
+          .then((summary) => {
+            if (summary) {
+              // Persist summary back onto the session in localStorage
+              const allSessions = loadAllSessions();
+              const idx = allSessions.findIndex((s) => s.id === currentSession.id);
+              if (idx >= 0) {
+                allSessions[idx].summary = summary;
+                try {
+                  localStorage.setItem(
+                    "neurochat_v2_memory",
+                    JSON.stringify(allSessions.slice(-50))
+                  );
+                } catch {}
+              }
+              // Regenerate weekly summary with the new session data
+              return getOrGenerateCurrentWeekSummary(
+                loadAllSessions().filter((s) => s.userName === userName),
+                userName
+              );
+            }
+          })
+          .catch((err) =>
+            console.warn("[Summary] Post-session summary failed:", err)
+          );
+      }
+    }
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
@@ -57,6 +102,36 @@ export function useGeminiSession() {
           },
         });
         stream.getTracks().forEach(track => track.stop());
+
+        // ── RAG: retrieve semantically relevant context from full history ──
+        let ragContext: string | undefined;
+        let weeklySummary: string | undefined;
+
+        if (userName) {
+          // Run RAG retrieval and weekly summary fetch in parallel
+          const [ragResult, weeklyResult] = await Promise.allSettled([
+            retrieveRelevantContext(
+              "résumé de nos conversations précédentes, sujets importants, préférences",
+              userName,
+              6,
+              0.55
+            ),
+            getOrGenerateCurrentWeekSummary(
+              loadAllSessions().filter((s) => s.userName === userName),
+              userName
+            ),
+          ]);
+
+          if (ragResult.status === "fulfilled" && ragResult.value.hasContext) {
+            ragContext = ragResult.value.contextBlock;
+            console.log(`🔍 RAG: ${ragResult.value.entries.length} entrées pertinentes injectées.`);
+          }
+
+          if (weeklyResult.status === "fulfilled" && weeklyResult.value) {
+            weeklySummary = formatWeeklySummaryForPrompt(weeklyResult.value);
+            console.log(`📋 Synthèse hebdomadaire injectée (${weeklyResult.value.weekId}).`);
+          }
+        }
 
         const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
         
@@ -125,7 +200,15 @@ export function useGeminiSession() {
             }
           },
           config: {
-            systemInstruction: { parts: [{ text: buildSystemPrompt(avatarId, { userName }) }] },
+            systemInstruction: {
+              parts: [{
+                text: buildSystemPrompt(avatarId, {
+                  userName: userName ?? undefined,
+                  ragContext,
+                  weeklySummary,
+                }),
+              }],
+            },
             responseModalities: [Modality.AUDIO],
             speechConfig: {
               voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },

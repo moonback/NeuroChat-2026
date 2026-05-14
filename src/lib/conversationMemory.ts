@@ -1,7 +1,15 @@
 /**
  * Advanced Conversation Memory System
  * Handles session tracking, long-term memory summaries, and user preference extraction.
+ *
+ * RAG integration: each turn is asynchronously embedded and stored in the
+ * vector store (vectorStore.ts) for semantic retrieval at query time.
+ *
+ * Summary integration: session and weekly summaries are generated via
+ * conversationSummary.ts and stored alongside session data.
  */
+import { embedAndStore, clearAllVectors } from "./vectorStore";
+import { clearWeeklySummaries } from "./conversationSummary";
 
 export interface ConversationTurn {
   timestamp: number;
@@ -132,6 +140,13 @@ export function addConversationTurn(
     if (!sessions[sessionIndex].topic && speaker === "user") {
       sessions[sessionIndex].topic = message.slice(0, 40) + (message.length > 40 ? "..." : "");
     }
+    // RAG: embed and store the turn asynchronously (fire-and-forget)
+    embedAndStore(message, {
+      sessionId: sessions[sessionIndex].id,
+      userName,
+      speaker,
+      timestamp: turn.timestamp,
+    });
   } else {
     currentSession.turns.push(turn);
     currentSession.endTime = Date.now();
@@ -142,6 +157,14 @@ export function addConversationTurn(
     const profile = getUserProfile(userName);
     profile.totalConversations += 1;
     updateUserProfile(profile);
+
+    // RAG: embed and store the turn asynchronously (fire-and-forget)
+    embedAndStore(message, {
+      sessionId: currentSession.id,
+      userName,
+      speaker,
+      timestamp: turn.timestamp,
+    });
   }
 
   saveAllSessions(sessions);
@@ -182,8 +205,10 @@ export function getConversationStats(userName: string) {
   };
 }
 
-/** Clear all data */
+/** Clear all data (sessions + vector store + weekly summaries) */
 export function clearConversationHistory(): void {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(USER_PROFILE_KEY);
+  clearAllVectors();
+  clearWeeklySummaries();
 }
