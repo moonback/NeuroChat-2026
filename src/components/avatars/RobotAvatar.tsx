@@ -1,251 +1,221 @@
-import { useEffect, useRef, useState } from "react";
-import type { AvatarProps } from "./AvatarProps";
-
 /**
- * Robot Avatar — Metallic high-tech robot with LED eyes and oscilloscope mouth.
- *
- * Improvements over v1:
- * - Native rAF loop replaces framer-motion static keyframes → 60fps audio reactivity
- * - Natural eye blinking via randomised useEffect interval
- * - Dynamic accent colour per status (idle → violet, listening → cyan, connecting → red)
- * - Halo/glow radial that pulses with audioLevel
- * - Scan-line sweep on the face panel
- * - Eye specular highlights (glass-like realism)
- * - Mouth bars centred vertically (no longer growing only downward)
- * - Antenna glow ring (blurred halo behind the LED)
- * - Improved rivets with double-circle detail
- * - Bottom shadow ellipse to ground the robot
- * - Serial number label UNIT-001
- * - Connecting-mode eyes animate width instead of staying static
+ * RobotAvatar - Premium Cinematic AI Assistant Avatar
+ * 
+ * A next-generation robot avatar with:
+ * - Modular component architecture
+ * - Optimized 60fps performance with minimal React reconciliation
+ * - Smoothed audio interpolation
+ * - Advanced visual effects (metallic textures, glass reflections, bloom, glitch)
+ * - Intelligent state-based behaviors
+ * - Natural micro-animations (breathing, eye saccades, blinking)
+ * - Premium sci-fi aesthetic
  */
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import type { AvatarProps } from "./AvatarProps";
+import type { AnimationState, AudioReactivity } from "./RobotAvatar.types";
+import {
+  lerp,
+  getStatusTheme,
+  applyAudioCurve,
+  calculateEyeSaccade,
+  calculateBreathingMotion,
+  calculateGlitchEffect,
+} from "./RobotAvatar.utils";
+import { RobotShell } from "./RobotShell";
+import { RobotFaceScreen } from "./RobotFaceScreen";
+import { RobotEyes } from "./RobotEyes";
+import { RobotMouth } from "./RobotMouth";
+import { RobotAntenna } from "./RobotAntenna";
+import { RobotHalo } from "./RobotHalo";
+import { RobotEffects } from "./RobotEffects";
+
 export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps) {
-  const safeAl = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
-  const al = status === "listening" ? safeAl : 0;
+  // Normalize and clamp audio input
+  const safeAudioLevel = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
+  
+  // Animation state refs (avoid React reconciliation)
+  const animStateRef = useRef<AnimationState>({
+    time: 0,
+    smoothedAudio: 0,
+    blinking: false,
+    eyeOffsetX: 0,
+    eyeOffsetY: 0,
+    headTiltX: 0,
+    headTiltY: 0,
+    breathPhase: 0,
+    scanProgress: 0,
+    glitchActive: false,
+  });
 
-  // ── rAF tick ──────────────────────────────────────────────────────────────
-  const tickRef = useRef(0);
-  const [, forceUpdate] = useState(0);
-  useEffect(() => {
-    let raf: number;
-    const loop = () => {
-      tickRef.current++;
-      forceUpdate((n) => n + 1);
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  // ── Blink ─────────────────────────────────────────────────────────────────
+  const lastFrameTimeRef = useRef<number>(0);
   const [blinking, setBlinking] = useState(false);
+  const [, forceUpdate] = useState(0);
+
+  // Get theme for current status
+  const theme = getStatusTheme(status);
+
+  // Natural blinking with randomized intervals
   useEffect(() => {
-    const schedule = () => {
-      const delay = 2500 + Math.random() * 2500;
-      return setTimeout(() => {
+    const scheduleNextBlink = (): number => {
+      const delay = 2000 + Math.random() * 3000; // 2-5 seconds
+      return window.setTimeout(() => {
         setBlinking(true);
         setTimeout(() => {
           setBlinking(false);
-          timerRef.current = schedule();
-        }, 140);
+          timerRef.current = scheduleNextBlink();
+        }, 120 + Math.random() * 60); // 120-180ms blink duration
       }, delay);
     };
-    const timerRef = { current: schedule() };
+
+    const timerRef = { current: scheduleNextBlink() };
     return () => clearTimeout(timerRef.current);
   }, []);
 
-  // ── Derived values ────────────────────────────────────────────────────────
-  const t = tickRef.current * 0.04;
+  // Main animation loop with optimized RAF
+  useEffect(() => {
+    let rafId: number;
+    let frameCount = 0;
 
-  const antPulse = 0.5 + 0.5 * Math.sin(t * (1 + al * 3));
-  const antR = 5 + antPulse * (2 + al * 3);
-  const antAngle = status === "listening" ? Math.sin(t * 2) * 3 : 0;
+    const animate = (timestamp: number) => {
+      const deltaTime = lastFrameTimeRef.current ? timestamp - lastFrameTimeRef.current : 16;
+      lastFrameTimeRef.current = timestamp;
 
-  const eyeScaleY = blinking ? 0.07 : 1;
-  const scanY = ((t * 12) % 90);
+      const state = animStateRef.current;
+      
+      // Update time
+      state.time = timestamp;
 
-  const accentColor =
-    status === "connecting" ? "#ef4444"
-    : status === "listening" ? "#22d3ee"
-    : "#818cf8";
-  const accentGlow = status === "listening" ? "#06b6d4" : "#6366f1";
+      // Smooth audio interpolation (low-pass filter)
+      const targetAudio = applyAudioCurve(safeAudioLevel, 1.2);
+      state.smoothedAudio = lerp(state.smoothedAudio, targetAudio, 0.15);
 
-  // Mouth bars — centred vertically, animated via rAF
-  const BAR_CONFIGS = [
-    { x: -25, baseH: 20 },
-    { x: -15, baseH: 24 },
-    { x:  -5, baseH: 30 },
-    { x:   5, baseH: 24 },
-    { x:  15, baseH: 20 },
-  ] as const;
+      // Eye micro-saccades (subtle intelligent movement)
+      if (status !== "connecting" && frameCount % 3 === 0) {
+        const saccade = calculateEyeSaccade(timestamp, 0.8);
+        state.eyeOffsetX = lerp(state.eyeOffsetX, saccade.x, 0.1);
+        state.eyeOffsetY = lerp(state.eyeOffsetY, saccade.y, 0.1);
+      }
 
-  const bars = BAR_CONFIGS.map((bar, i) => {
-    const phase = i * 0.9;
-    let scaleY: number;
-    if (isSpeaking) {
-      scaleY = 0.3 + 0.7 * Math.abs(Math.sin(t * 6 + phase));
-    } else if (status === "listening") {
-      scaleY = 0.15 + al * 0.85 * Math.abs(Math.sin(t * 4 + phase));
-    } else {
-      scaleY = 0.15;
-    }
-    const h = bar.baseH * scaleY;
-    const barColor = isSpeaking ? "#f472b6" : status === "listening" ? accentColor : "#334155";
-    const opacity = isSpeaking ? 0.6 + scaleY * 0.4 : status === "listening" ? 0.4 + al * 0.6 : 0.3;
-    return { x: bar.x, h, barColor, opacity };
-  });
+      // Breathing motion
+      state.breathPhase = timestamp * 0.0008;
 
-  // Connecting-mode eye width pulses
-  const connEyeW = 22 + Math.sin(t * 4) * 4;
-  const connEyeW2 = 22 + Math.cos(t * 4) * 4;
+      // Scan line progress
+      state.scanProgress += deltaTime * 0.08 * theme.pulseSpeed;
+      if (state.scanProgress > 85) state.scanProgress = 0;
+
+      // Glitch effect (error state)
+      state.glitchActive = status === "error";
+
+      // Update every 3rd frame to reduce reconciliation overhead
+      frameCount++;
+      if (frameCount % 3 === 0) {
+        forceUpdate((n) => n + 1);
+      }
+
+      rafId = requestAnimationFrame(animate);
+    };
+
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [status, safeAudioLevel, theme.pulseSpeed]);
+
+  // Compute derived animation values
+  const state = animStateRef.current;
+  const breathing = calculateBreathingMotion(state.time);
+  const glitch = calculateGlitchEffect(state.time, state.glitchActive);
+
+  // Audio reactivity parameters
+  const audioReactivity: AudioReactivity = {
+    mouthIntensity: state.smoothedAudio,
+    eyeGlow: state.smoothedAudio * 0.5,
+    haloIntensity: theme.glowIntensity * (1 + state.smoothedAudio * 0.3),
+    antennaPulse: 0.5 + 0.5 * Math.sin(state.time * 0.001 * theme.pulseSpeed) + state.smoothedAudio * 0.4,
+    bodyEnergy: state.smoothedAudio * 0.3,
+  };
+
+  // Antenna rotation (listening mode)
+  const antennaRotation = status === "listening" ? Math.sin(state.time * 0.002) * 4 : 0;
+
+  // Halo pulse phase
+  const haloPulse = state.time * 0.001 * theme.pulseSpeed;
+
+  // Head subtle tilt (parallax-like)
+  const headTiltX = Math.sin(state.time * 0.0005) * 0.5;
+  const headTiltY = Math.cos(state.time * 0.0007) * 0.3;
 
   return (
     <svg
       viewBox="0 0 200 200"
       className="w-full h-full"
-      style={{ filter: "drop-shadow(0 8px 24px rgba(79,70,229,0.45))" }}
+      style={{
+        filter: `drop-shadow(0 10px 30px ${theme.accentColor}40)`,
+      }}
     >
-      <defs>
-        {/* Body gradient */}
-        <linearGradient id="ra-mg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%"   stopColor="#94a3b8" />
-          <stop offset="45%"  stopColor="#64748b" />
-          <stop offset="100%" stopColor="#3d5068" />
-        </linearGradient>
+      <g transform={`translate(${headTiltX}, ${headTiltY})`}>
+        {/* Environmental halo */}
+        <RobotHalo
+          accentColor={theme.accentColor}
+          accentGlow={theme.accentGlow}
+          intensity={audioReactivity.haloIntensity}
+          pulsePhase={haloPulse}
+        />
 
-        {/* Screen gradient */}
-        <linearGradient id="ra-sg" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%"   stopColor="#0f172a" />
-          <stop offset="100%" stopColor="#0a0f1e" />
-        </linearGradient>
+        {/* Antenna with reactive pulse */}
+        <RobotAntenna
+          accentColor={theme.accentColor}
+          accentGlow={theme.accentGlow}
+          pulseIntensity={audioReactivity.antennaPulse}
+          rotationAngle={antennaRotation}
+          time={state.time}
+        />
 
-        {/* Eye gradient — updates with accent */}
-        <linearGradient id="ra-egl" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%"   stopColor={accentColor} stopOpacity={0.9} />
-          <stop offset="100%" stopColor={accentGlow}   stopOpacity={0.3} />
-        </linearGradient>
+        {/* Metallic shell with breathing */}
+        <RobotShell
+          accentColor={theme.accentColor}
+          glowIntensity={theme.glowIntensity}
+          breathScale={breathing.scale}
+          breathOffsetY={breathing.offsetY}
+        />
 
-        {/* Halo */}
-        <radialGradient id="ra-halo" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stopColor={accentColor} stopOpacity={0.18 * (1 + al)} />
-          <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
-        </radialGradient>
+        {/* OLED face screen */}
+        <RobotFaceScreen
+          accentColor={theme.accentColor}
+          scanProgress={state.scanProgress}
+          status={status}
+          glowIntensity={theme.glowIntensity}
+        />
 
-        {/* Blur for antenna glow ring */}
-        <filter id="ra-blur">
-          <feGaussianBlur stdDeviation="2" />
-        </filter>
+        {/* Intelligent LED eyes */}
+        <RobotEyes
+          status={status}
+          eyeColor={theme.eyeColor}
+          accentGlow={theme.accentGlow}
+          blinking={blinking}
+          eyeOffsetX={state.eyeOffsetX}
+          eyeOffsetY={state.eyeOffsetY}
+          audioReactivity={audioReactivity.eyeGlow}
+          time={state.time}
+        />
 
-        {/* Screen clip */}
-        <clipPath id="ra-sc">
-          <rect x="50" y="55" width="100" height="85" rx="12" />
-        </clipPath>
-      </defs>
+        {/* Oscilloscope mouth visualizer */}
+        <RobotMouth
+          status={status}
+          isSpeaking={isSpeaking}
+          mouthColor={theme.mouthColor}
+          audioReactivity={audioReactivity.mouthIntensity}
+          time={state.time}
+        />
 
-      {/* ── Halo ── */}
-      <ellipse cx="100" cy="110" rx="70" ry="60" fill="url(#ra-halo)" opacity={0.6 + al * 0.4} />
-
-      {/* ── Antenna ── */}
-      <g transform={`rotate(${antAngle}, 100, 35)`}>
-        <rect x="98" y="10" width="4" height="28" fill="#334155" rx="2" />
-        {/* Glow ring (blurred) */}
-        <circle cx="100" cy="10" r={antR * 1.8} fill={accentColor} opacity={0.08} filter="url(#ra-blur)" />
-        {/* LED */}
-        <circle cx="100" cy="10" r={antR} fill={accentColor} opacity={0.3 + antPulse * 0.7} />
+        {/* Cinematic effects (glitch, chromatic aberration) */}
+        <RobotEffects
+          status={status}
+          glitchActive={glitch.offsetX !== 0}
+          glitchOffsetX={glitch.offsetX}
+          glitchOffsetY={glitch.offsetY}
+          chromaticIntensity={glitch.chromatic}
+        />
       </g>
-
-      {/* ── Side bolts ── */}
-      <rect x="26" y="83" width="9" height="28" rx="4" fill="#475569" />
-      <rect x="165" y="83" width="9" height="28" rx="4" fill="#475569" />
-      <rect x="24" y="90" width="4" height="8" rx="2" fill="#334155" />
-      <rect x="172" y="90" width="4" height="8" rx="2" fill="#334155" />
-
-      {/* ── Head shell ── */}
-      <rect x="35" y="35" width="130" height="130" rx="28" fill="url(#ra-mg)" />
-      {/* Top highlight bevel */}
-      <rect x="38" y="38" width="124" height="60" rx="20" fill="white" opacity={0.06} />
-
-      {/* ── Face screen ── */}
-      <rect x="50" y="55" width="100" height="85" rx="12" fill="url(#ra-sg)" />
-      <rect x="50" y="55" width="100" height="85" rx="12" fill="none" stroke={accentColor} strokeWidth={0.8} strokeOpacity={0.4} />
-
-      {/* Horizontal scan lines */}
-      {[0,1,2,3,4,5].map((i) => (
-        <line key={i} x1="50" y1={58 + i * 12} x2="150" y2={58 + i * 12}
-          stroke="#818cf8" strokeWidth={0.5} opacity={0.04 + (i % 2) * 0.02}
-          clipPath="url(#ra-sc)" />
-      ))}
-
-      {/* Animated scan sweep */}
-      <rect
-        x="50" y={55 + scanY} width="100" height="3"
-        fill={accentColor}
-        opacity={status === "connecting" ? 0.12 : 0.06}
-        clipPath="url(#ra-sc)"
-      />
-
-      {/* ── Eyes & Mouth ── */}
-      <g transform="translate(100, 90)">
-
-        {/* Eyes */}
-        {status === "connecting" ? (
-          <g>
-            <rect x={-38} y={-4} width={connEyeW} height={4} fill={accentColor} rx={2} opacity={0.8} />
-            <rect x={16}  y={-4} width={connEyeW2} height={4} fill={accentColor} rx={2} opacity={0.8} />
-          </g>
-        ) : (
-          <g transform={`scale(1, ${eyeScaleY})`}>
-            {/* Left eye */}
-            <rect x={-34} y={-9} width={16} height={16} rx={4} fill="url(#ra-egl)" opacity={0.7 + al * 0.3} />
-            <rect x={-30} y={-5} width={6}  height={4}  rx={1} fill="white" opacity={0.4} />
-            <circle cx={-26} cy={2} r={3} fill="white" opacity={0.15} />
-            {/* Right eye */}
-            <rect x={18} y={-9} width={16} height={16} rx={4} fill="url(#ra-egl)" opacity={0.7 + al * 0.3} />
-            <rect x={22} y={-5} width={6}  height={4}  rx={1} fill="white" opacity={0.4} />
-            <circle cx={26} cy={2} r={3} fill="white" opacity={0.15} />
-          </g>
-        )}
-
-        {/* Mouth bars — centred on y=30 */}
-        <g transform="translate(0, 30)">
-          {bars.map((bar) => (
-            <rect
-              key={bar.x}
-              x={bar.x - 2}
-              y={-bar.h / 2}
-              width={4}
-              height={bar.h}
-              fill={bar.barColor}
-              rx={2}
-              opacity={bar.opacity}
-            />
-          ))}
-        </g>
-      </g>
-
-      {/* ── Decorative details ── */}
-      {/* Top reflection */}
-      <path d="M 50 40 Q 100 34 150 40" stroke="white" strokeWidth={1.5} opacity={0.12} fill="none" />
-      {/* Bottom shadow */}
-      <path d="M 55 165 Q 100 172 145 165" stroke="black" strokeWidth={1.5} opacity={0.2} fill="none" />
-
-      {/* Rivets (double circle) */}
-      {([
-        [44, 44], [156, 44], [44, 156], [156, 156]
-      ] as [number, number][]).map(([cx, cy]) => (
-        <g key={`${cx}-${cy}`}>
-          <circle cx={cx} cy={cy} r={3}   fill="#1e293b" />
-          <circle cx={cx} cy={cy} r={1.5} fill="#475569" />
-        </g>
-      ))}
-
-      {/* Serial number */}
-      <text
-        x="100" y="196"
-        textAnchor="middle"
-        style={{ font: "600 7px monospace", fill: "#475569", letterSpacing: "0.15em" }}
-      >
-        UNIT-001
-      </text>
     </svg>
   );
 }
