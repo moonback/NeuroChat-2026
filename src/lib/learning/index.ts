@@ -61,3 +61,9 @@ export {
 export {
   ImprovementValidator,
 } from './improvementValidator';
+
+
+// Export prompt version management
+export {
+  PromptVersionManager,
+} from './promptVersionManager';
