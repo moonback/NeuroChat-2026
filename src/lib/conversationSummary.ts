@@ -1,0 +1,279 @@
+/**
+ * Conversation Summary System
+ *
+ * Generates AI-powered summaries of individual sessions and weekly digests
+ * using the Gemini text generation API.
+ *
+ * All summaries are stored in localStorage alongside the session data and
+ * injected into the system prompt to give the assistant long-term awareness.
+ */
+
+import { GoogleGenAI } from "@google/genai";
+import { ConversationSession, ConversationTurn } from "./conversationMemory";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface WeeklySummary {
+  /** ISO week identifier: "2026-W20" */
+  weekId: string;
+  /** Human-readable date range: "12–18 mai 2026" */
+  dateRange: string;
+  /** AI-generated summary text */
+  text: string;
+  /** Key topics extracted from the week */
+  topics: string[];
+  /** Timestamp of generation */
+  generatedAt: number;
+  /** Number of sessions included */
+  sessionCount: number;
+  /** Total turns included */
+  turnCount: number;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const WEEKLY_SUMMARIES_KEY = "neurochat_v2_weekly_summaries";
+const SUMMARY_MODEL = "gemini-2.0-flash";
+/** Minimum turns in a session before we bother summarising it */
+const MIN_TURNS_FOR_SUMMARY = 4;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Return an ISO week string like "2026-W20" for a given date */
+export function getWeekId(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(
+    ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+  );
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+/** Format a date range string for a week */
+function formatWeekRange(weekId: string): string {
+  const [year, week] = weekId.split("-W").map(Number);
+  // Monday of that ISO week
+  const jan4 = new Date(year, 0, 4);
+  const monday = new Date(jan4);
+  monday.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1 + (week - 1) * 7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  return `${fmt(monday)} – ${fmt(sunday)} ${year}`;
+}
+
+/** Format a session's turns into a readable transcript */
+function formatTranscript(
+  turns: ConversationTurn[],
+  userName: string
+): string {
+  return turns
+    .map((t) => {
+      const speaker = t.speaker === "user" ? userName : "Assistant";
+      return `${speaker}: ${t.message}`;
+    })
+    .join("\n");
+}
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+
+export function loadWeeklySummaries(): WeeklySummary[] {
+  try {
+    const raw = localStorage.getItem(WEEKLY_SUMMARIES_KEY);
+    return raw ? (JSON.parse(raw) as WeeklySummary[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveWeeklySummaries(summaries: WeeklySummary[]): void {
+  try {
+    // Keep last 12 weeks
+    const limited = summaries.slice(-12);
+    localStorage.setItem(WEEKLY_SUMMARIES_KEY, JSON.stringify(limited));
+  } catch (e) {
+    console.error("[Summary] Failed to save weekly summaries:", e);
+  }
+}
+
+export function getWeeklySummary(weekId: string): WeeklySummary | null {
+  return loadWeeklySummaries().find((s) => s.weekId === weekId) ?? null;
+}
+
+export function clearWeeklySummaries(): void {
+  localStorage.removeItem(WEEKLY_SUMMARIES_KEY);
+}
+
+// ─── AI Generation ────────────────────────────────────────────────────────────
+
+/**
+ * Generate a short summary for a single session and store it on the session object.
+ * Returns the summary text, or null if generation failed or was skipped.
+ */
+export async function generateSessionSummary(
+  session: ConversationSession,
+  userName: string
+): Promise<string | null> {
+  if (session.turns.length < MIN_TURNS_FOR_SUMMARY) return null;
+
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const transcript = formatTranscript(session.turns, userName);
+  const date = new Date(session.startTime).toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const prompt = [
+    `Tu es un assistant qui résume des conversations. Voici une conversation du ${date} entre ${userName} et son assistant NeuroChat.`,
+    "",
+    "CONVERSATION :",
+    transcript,
+    "",
+    "Génère un résumé factuel en 2-3 phrases maximum en français. Mentionne les sujets principaux abordés et toute action ou décision notable. Sois concis et objectif. Ne commence pas par 'Dans cette conversation'.",
+  ].join("\n");
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: SUMMARY_MODEL,
+      contents: prompt,
+    });
+    return response.text?.trim() ?? null;
+  } catch (err) {
+    console.error("[Summary] Session summary generation failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Generate (or regenerate) the weekly summary for the given week.
+ * Aggregates all sessions from that week for the given user.
+ *
+ * @param sessions  All sessions for the user (filtered internally by week)
+ * @param userName  The user's name
+ * @param weekId    ISO week string (default: current week)
+ */
+export async function generateWeeklySummary(
+  sessions: ConversationSession[],
+  userName: string,
+  weekId?: string
+): Promise<WeeklySummary | null> {
+  const targetWeek = weekId ?? getWeekId(new Date());
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  // Filter sessions belonging to this week
+  const weekSessions = sessions.filter(
+    (s) => getWeekId(new Date(s.startTime)) === targetWeek
+  );
+
+  if (weekSessions.length === 0) return null;
+
+  const totalTurns = weekSessions.reduce((n, s) => n + s.turns.length, 0);
+  if (totalTurns < MIN_TURNS_FOR_SUMMARY) return null;
+
+  // Build a condensed multi-session transcript
+  const transcriptParts = weekSessions.map((s) => {
+    const date = new Date(s.startTime).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+    const lines = formatTranscript(s.turns.slice(-20), userName); // cap per session
+    return `--- ${date} ---\n${lines}`;
+  });
+
+  const fullTranscript = transcriptParts.join("\n\n");
+  const dateRange = formatWeekRange(targetWeek);
+
+  const prompt = [
+    `Tu es un assistant personnel de ${userName}. Voici un résumé de toutes les conversations de la semaine du ${dateRange}.`,
+    "",
+    "CONVERSATIONS DE LA SEMAINE :",
+    fullTranscript,
+    "",
+    "Génère une synthèse hebdomadaire structurée en français avec :",
+    "1. Un résumé global en 3-4 phrases (sujets principaux, humeur générale, accomplissements)",
+    "2. Une liste de 3-5 sujets/thèmes clés sous forme de mots-clés courts (séparés par des virgules)",
+    "",
+    'Réponds UNIQUEMENT au format JSON suivant (sans markdown) :',
+    '{"summary": "...", "topics": ["...", "...", "..."]}',
+  ].join("\n");
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: SUMMARY_MODEL,
+      contents: prompt,
+    });
+
+    const raw = response.text?.trim() ?? "";
+    // Strip potential markdown code fences
+    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    const parsed = JSON.parse(jsonStr) as { summary: string; topics: string[] };
+
+    const weeklySummary: WeeklySummary = {
+      weekId: targetWeek,
+      dateRange,
+      text: parsed.summary,
+      topics: parsed.topics ?? [],
+      generatedAt: Date.now(),
+      sessionCount: weekSessions.length,
+      turnCount: totalTurns,
+    };
+
+    // Persist
+    const existing = loadWeeklySummaries().filter((s) => s.weekId !== targetWeek);
+    saveWeeklySummaries([...existing, weeklySummary]);
+
+    return weeklySummary;
+  } catch (err) {
+    console.error("[Summary] Weekly summary generation failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Get the most recent weekly summary for a user, generating it if needed.
+ * This is the main entry point called from the session hook.
+ */
+export async function getOrGenerateCurrentWeekSummary(
+  sessions: ConversationSession[],
+  userName: string
+): Promise<WeeklySummary | null> {
+  const currentWeek = getWeekId(new Date());
+  const existing = getWeeklySummary(currentWeek);
+
+  // Regenerate if stale (older than 1 hour) or missing
+  const isStale =
+    !existing || Date.now() - existing.generatedAt > 60 * 60 * 1000;
+
+  if (isStale) {
+    return generateWeeklySummary(sessions, userName, currentWeek);
+  }
+
+  return existing;
+}
+
+/**
+ * Format a weekly summary into a prompt-ready context block.
+ */
+export function formatWeeklySummaryForPrompt(summary: WeeklySummary): string {
+  return [
+    "### SYNTHÈSE HEBDOMADAIRE",
+    `Semaine du ${summary.dateRange} (${summary.sessionCount} session${summary.sessionCount > 1 ? "s" : ""}, ${summary.turnCount} échanges) :`,
+    summary.text,
+    summary.topics.length > 0
+      ? `Thèmes clés : ${summary.topics.join(", ")}.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
