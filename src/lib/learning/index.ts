@@ -49,3 +49,9 @@ export {
 export {
   FeedbackCollector,
 } from './feedbackCollector';
+
+
+// Export performance analysis
+export {
+  PerformanceAnalyzer,
+} from './performanceAnalyzer';
