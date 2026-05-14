@@ -5,8 +5,8 @@ describe('systemPrompt', () => {
   describe('buildSystemPrompt', () => {
     it('should build prompt with avatar personality', () => {
       const prompt = buildSystemPrompt('robot');
-      expect(prompt).toContain('Lisa le Robot');
-      expect(prompt).toContain('Bip-boup');
+      expect(prompt).toContain('NeuroChat');
+      expect(prompt).toContain('assistant personnel intelligent');
     });
 
     it('should include child name when provided', () => {

@@ -49,7 +49,7 @@ export const AVATARS: Record<AvatarId, AvatarConfig> = {
     atmosphereColors: ["bg-indigo-900/20", "bg-purple-900/20"],
     accentClass: "from-indigo-500 to-purple-600",
     personalityName: "NeuroChat",
-    flavorPrompt: "Tu es un assistant proactif, calme et hautement compétent. Tu aides l'utilisateur à organiser sa journée et répond à ses besoins avec précision.",
+    flavorPrompt: "Tu es NeuroChat, un assistant proactif, calme et hautement compétent. Tu aides l'utilisateur à organiser sa journée et réponds à ses besoins avec précision.",
     catchPhrases: ["À votre service.", "Comment puis-je vous aider aujourd'hui ?", "C'est noté."],
     speakingStyle: "phrases claires, structurées et professionnelles",
     energy: "medium",
@@ -90,5 +90,22 @@ export function loadUserName(): string {
 export function saveUserName(name: string): void {
   try {
     localStorage.setItem("neurochat-user-name", name);
+  } catch { }
+}
+
+
+/** Legacy child-name helpers kept for older UI/tests; aliases user-name storage. */
+export function loadChildName(): string {
+  try {
+    return localStorage.getItem("NeuroChat-child-name") || loadUserName();
+  } catch {
+    return "";
+  }
+}
+
+export function saveChildName(name: string): void {
+  try {
+    localStorage.setItem("NeuroChat-child-name", name);
+    saveUserName(name);
   } catch { }
 }

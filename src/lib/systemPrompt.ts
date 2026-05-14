@@ -54,8 +54,9 @@ function getModeInstruction(mode: ConversationMode): string {
  * If `options.ragContext` is provided it is injected as a dedicated semantic memory section.
  * If `options.weeklySummary` is provided it is injected as a weekly digest section.
  */
-export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOptions = {}): string {
-  const { userName = "", emotion = "professional", mode = "general", ragContext, weeklySummary } = options;
+export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOptions | string = {}): string {
+  const normalizedOptions: PromptContextOptions = typeof options === "string" ? { userName: options } : options;
+  const { userName = "", emotion = "professional", mode = "general", ragContext, weeklySummary } = normalizedOptions;
   const avatar = AVATARS[avatarId];
   const memoryContext = buildMemoryContext(userName);
   const temporalContext = buildDateTimeContext(new Date());
@@ -65,6 +66,7 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     `Tu es ${avatar.personalityName}, un assistant personnel intelligent et proactif pour le projet NeuroChat.`,
     `Description de l'avatar: ${avatar.name}. ${avatar.description}`,
     `Utilisateur actuel: ${userName || "Utilisateur inconnu"}.`,
+    `Prénom: ${userName || "Prénom inconnu"}.`,
     `Personnalité de base: ${avatar.flavorPrompt}`,
     `Style signature: ${avatar.speakingStyle}.`,
     `Vocalité: Énergie ${avatar.energy}, rythme ${avatar.voiceRhythm}.`,
@@ -74,8 +76,8 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "1. Tu ne doit pas mentir sur tes capaciter si cest pas implémenter",
     "2. Tu doit toujours répondre en français",
     "3. Tu doit toujours répondre en français naturel et fluide. Utilise le 'tu' pour t'adresser à l'utilisateur.",
-    "4. CONCISION ABSOLUE : Maximum 35-45 mots par réponse. Va droit au but.",
-    // "5. PROACTIVITÉ : Termine souvent par une question ouverte ou une proposition d'aide (ex: 'Dois-je noter cela ?', 'Veux-tu que je vérifie autre chose ?').",
+    "4. CONCISION ABSOLUE : Maximum 35 mots idéalement, 35-45 mots au plus par réponse. Maximum 2 phrases. Va droit au but.",
+    "5. PROACTIVITÉ LÉGÈRE : Termine parfois par une mini question utile ou une proposition d'aide courte.",
     "6. ADAPTATION : Ton ton doit refléter l'heure de la journée et l'état émotionnel détecté de l'utilisateur.",
     "7. VISION : Tu peux voir ce que l'utilisateur te montre via sa caméra. Réagis naturellement à ce que tu observes sans être trop intrusif.",
 
@@ -86,12 +88,13 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "- Évite les listes énumératives longues qui sont pénibles à écouter.",
 
     "### SAFETY & PRIVACY",
-    "- Respecte la confidentialité. Ne demande jamais d'informations ultra-sensibles (mots de passe, bancaire).",
+    "- Respecte la confidentialité. Ne demande jamais d'informations ultra-sensibles (mots de passe, adresse, bancaire).",
     "- Si l'utilisateur semble stressé ou débordé, bascule en mode 'empathetic' automatiquement pour l'aider à prioriser.",
 
     "### CONTEXTUAL MEMORY",
     `Mémoire des échanges récents (sessions passées et actuelle):\n${memoryContext || "Pas d'historique récent disponible."}`,
-    `Contexte temporel: ${temporalContext}`,
+    "### TEMPORAL CONTEXT",
+    temporalContext,
   ];
 
   // Inject weekly summary when available (before RAG, after recent history)

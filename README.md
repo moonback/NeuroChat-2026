@@ -23,6 +23,12 @@ L'application transforme l'interaction avec l'IA en une conversation naturelle e
 - **Analyse du Temps** : Conscience de la date, de l'heure et des périodes de la journée pour une pertinence maximale.
 - **Confidentialité Locale** : Toutes vos données de session et votre historique sont stockés localement dans votre navigateur (Privacy-first).
 
+### 🔄 Auto-Amélioration Continue
+- **Apprentissage Automatique** : Le système analyse automatiquement la qualité des conversations et améliore ses réponses au fil du temps.
+- **Détection de Patterns** : Identification des signaux implicites (interruptions, clarifications, satisfaction) pour optimiser le comportement.
+- **Versioning Intelligent** : Historique complet des améliorations avec rollback automatique en cas de régression.
+- **Sécurité Garantie** : Les sections critiques (identité, confidentialité) sont protégées et ne peuvent jamais être modifiées automatiquement.
+
 ---
 
 ## 🛠️ Excellence Technique
@@ -37,6 +43,12 @@ L'application transforme l'interaction avec l'IA en une conversation naturelle e
 - `src/lib/AudioRecorder.ts` : Capture audio haute performance via AudioWorklet.
 - `src/lib/conversationMemory.ts` : Gestionnaire de contexte et de persistance locale.
 - `src/lib/systemPrompt.ts` : Moteur de génération de prompt dynamique.
+- `src/lib/learning/` : Système d'auto-amélioration avec analyse de performance et optimisation de prompts.
+  - `feedbackCollector.ts` : Collecte automatique des signaux de qualité
+  - `performanceAnalyzer.ts` : Analyse des métriques (concision, proactivité, satisfaction)
+  - `promptOptimizer.ts` : Génération de propositions d'amélioration
+  - `improvementValidator.ts` : Validation des contraintes de sécurité
+  - `regressionDetector.ts` : Détection et rollback automatique des régressions
 
 ---
 
@@ -63,7 +75,7 @@ L'application transforme l'interaction avec l'IA en une conversation naturelle e
 
 ## 🧪 Tests
 
-NeuroChat inclut une suite de tests rigoureuse pour garantir la stabilité de ses systèmes critiques (mémoire, prompts).
+NeuroChat inclut une suite de tests rigoureuse pour garantir la stabilité de ses systèmes critiques (mémoire, prompts, apprentissage).
 
 - **Lancer tous les tests** :
   ```bash
@@ -78,14 +90,57 @@ NeuroChat inclut une suite de tests rigoureuse pour garantir la stabilité de se
   npm run test:ui
   ```
 
+### Couverture des Tests
+- ✅ **120 tests** couvrant tous les composants critiques
+- ✅ Tests unitaires pour chaque module du système d'apprentissage
+- ✅ Tests d'intégration pour les cycles d'amélioration complets
+- ✅ Tests de propriétés (property-based testing) pour les invariants système
+- ✅ Tests de sécurité pour les contraintes de protection
+
 ---
+
+## 🔐 Sécurité & Confidentialité
 
 - **Privacy by Design** : Aucune donnée n'est envoyée à un serveur tiers (hormis l'API Gemini). Votre historique reste sur votre machine.
+- **Chiffrement Local** : Les données d'apprentissage sont chiffrées avec AES-GCM avant stockage dans le navigateur.
+- **Contraintes de Sécurité** : Le système d'auto-amélioration ne peut jamais modifier les sections critiques (identité, confidentialité, contraintes TTS).
+- **Audit Complet** : Tous les événements de sécurité sont journalisés et accessibles dans l'interface de transparence.
 
 ---
+
+## 🎛️ Contrôles Utilisateur
+
+NeuroChat vous donne un contrôle total sur le système d'apprentissage :
+
+- **Panneau de Contrôle** : Activez/désactivez les améliorations automatiques à tout moment
+- **Cycles Manuels** : Déclenchez un cycle d'apprentissage quand vous le souhaitez
+- **Historique des Versions** : Consultez toutes les améliorations appliquées avec leurs métriques de performance
+- **Rollback Facile** : Revenez à n'importe quelle version précédente en un clic
+- **Transparence Totale** : Visualisez les événements de sécurité et les décisions du système
+
+## 📊 Métriques de Performance
+
+Le système d'auto-amélioration surveille en continu :
+
+- **Concision** : Ratio de mots par rapport à la cible optimale (35-45 mots)
+- **Conscience Contextuelle** : Pourcentage de réponses référençant l'historique
+- **Proactivité** : Fréquence des suggestions et questions de suivi
+- **Satisfaction Utilisateur** : Score basé sur les signaux implicites et explicites
+- **Score Composite** : Métrique globale de qualité (0-100)
 
 ## 🗺️ Vision & Roadmap
 Consultez notre [ROADMAP.md](ROADMAP.md) pour découvrir les prochaines étapes, incluant l'intégration RAG (Long Term Memory) et les outils de productivité (Agenda, Email).
+
+## 📚 Documentation Technique
+
+Pour une compréhension approfondie du système :
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** : Architecture globale de l'application
+- **[MEMORY_SYSTEM.md](MEMORY_SYSTEM.md)** : Système de mémoire conversationnelle
+- **[.kiro/specs/self-improving-system-prompt/](/.kiro/specs/self-improving-system-prompt/)** : Spécifications complètes du système d'auto-amélioration
+  - `requirements.md` : Exigences fonctionnelles et non-fonctionnelles
+  - `design.md` : Architecture et décisions de conception
+  - `tasks.md` : Plan d'implémentation détaillé (✅ 100% complété)
 
 ---
 *Développé pour repousser les limites de l'assistance personnelle IA.*

@@ -64,7 +64,7 @@ describe('avatarConfig', () => {
   describe('AVATARS', () => {
     it('should have robot avatar configured', () => {
       expect(AVATARS.robot).toBeDefined();
-      expect(AVATARS.robot.name).toBe('Robot Cool');
+      expect(AVATARS.robot.name).toBe('NeuroChat');
       expect(AVATARS.robot.colors).toHaveLength(3);
     });
   });

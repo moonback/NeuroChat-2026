@@ -10,10 +10,13 @@
  */
 import { embedAndStore, clearAllVectors } from "./vectorStore";
 import { clearWeeklySummaries } from "./conversationSummary";
+import { FeedbackCollector } from "./learning/feedbackCollector";
+import { getLearningStorage } from "./learning/storage";
+import { runLearningCycleForUser } from "./learning/learningCycleRunner";
 
 export interface ConversationTurn {
   timestamp: number;
-  speaker: "user" | "assistant";
+  speaker: "user" | "assistant" | "child" | "companion";
   message: string;
 }
 
@@ -35,9 +38,57 @@ export interface UserProfile {
 }
 
 const STORAGE_KEY = "neurochat_v2_memory";
+const LEGACY_MAX_TURNS_IN_MEMORY = 20;
 const USER_PROFILE_KEY = "neurochat_v2_user_profile";
+const LEARNING_TURN_COUNTS_KEY = "neurochat_learning_turn_counts";
 const MAX_SESSIONS = 50; // Increased storage for "pro" feel
 const CONTEXT_WINDOW = 10;
+const feedbackCollectors = new Map<string, FeedbackCollector>();
+
+
+export type AutomaticLearningRunner = (userName: string) => Promise<unknown>;
+
+let automaticLearningRunner: AutomaticLearningRunner = (userName) => runLearningCycleForUser(userName);
+
+export function setAutomaticLearningRunnerForTesting(runner: AutomaticLearningRunner): void {
+  automaticLearningRunner = runner;
+}
+
+export function resetAutomaticLearningRunnerForTesting(): void {
+  automaticLearningRunner = (userName) => runLearningCycleForUser(userName);
+}
+
+export function shouldTriggerLearningCycle(turnCount: number, triggerAfterTurns: number): boolean {
+  return triggerAfterTurns > 0 && turnCount > 0 && turnCount % triggerAfterTurns === 0;
+}
+
+function incrementLearningTurnCount(userName: string): number {
+  try {
+    const stored = localStorage.getItem(LEARNING_TURN_COUNTS_KEY);
+    const counts = stored ? JSON.parse(stored) as Record<string, number> : {};
+    const nextCount = (counts[userName] ?? 0) + 1;
+    counts[userName] = nextCount;
+    localStorage.setItem(LEARNING_TURN_COUNTS_KEY, JSON.stringify(counts));
+    return nextCount;
+  } catch {
+    return 0;
+  }
+}
+
+async function maybeTriggerAutomaticLearning(userName: string, turnCount: number): Promise<void> {
+  const learningData = await getLearningStorage(userName).load();
+  if (!learningData.config.enabled) return;
+  if (!shouldTriggerLearningCycle(turnCount, learningData.config.triggerAfterTurns)) return;
+
+  await automaticLearningRunner(userName);
+}
+
+function getFeedbackCollector(userName: string): FeedbackCollector {
+  if (!feedbackCollectors.has(userName)) {
+    feedbackCollectors.set(userName, new FeedbackCollector(userName));
+  }
+  return feedbackCollectors.get(userName)!;
+}
 
 /** Load all sessions from storage */
 export function loadAllSessions(): ConversationSession[] {
@@ -119,7 +170,7 @@ export function getOrCreateCurrentSession(userName: string): ConversationSession
 /** Add a turn to the memory */
 export function addConversationTurn(
   userName: string,
-  speaker: "user" | "assistant",
+  speaker: "user" | "assistant" | "child" | "companion",
   message: string
 ): void {
   const sessions = loadAllSessions();
@@ -137,20 +188,20 @@ export function addConversationTurn(
     sessions[sessionIndex].turns.push(turn);
     sessions[sessionIndex].endTime = Date.now();
     // Simple topic extraction (first user message)
-    if (!sessions[sessionIndex].topic && speaker === "user") {
+    if (!sessions[sessionIndex].topic && (speaker === "user" || speaker === "child")) {
       sessions[sessionIndex].topic = message.slice(0, 40) + (message.length > 40 ? "..." : "");
     }
     // RAG: embed and store the turn asynchronously (fire-and-forget)
     embedAndStore(message, {
       sessionId: sessions[sessionIndex].id,
       userName,
-      speaker,
+      speaker: speaker === "child" ? "user" : speaker === "companion" ? "assistant" : speaker,
       timestamp: turn.timestamp,
     });
   } else {
     currentSession.turns.push(turn);
     currentSession.endTime = Date.now();
-    currentSession.topic = speaker === "user" ? message.slice(0, 40) : "Discussion";
+    currentSession.topic = (speaker === "user" || speaker === "child") ? message.slice(0, 40) : "Discussion";
     sessions.push(currentSession);
     
     // Update profile stats
@@ -162,12 +213,28 @@ export function addConversationTurn(
     embedAndStore(message, {
       sessionId: currentSession.id,
       userName,
-      speaker,
+      speaker: speaker === "child" ? "user" : speaker === "companion" ? "assistant" : speaker,
       timestamp: turn.timestamp,
     });
   }
 
+  const updatedSession = sessions.find(s => s.id === (sessionIndex >= 0 ? sessions[sessionIndex].id : currentSession.id));
+  if (updatedSession && updatedSession.turns.length > LEGACY_MAX_TURNS_IN_MEMORY) {
+    updatedSession.turns = updatedSession.turns.slice(-LEGACY_MAX_TURNS_IN_MEMORY);
+  }
+  const previousTurns = updatedSession ? updatedSession.turns.slice(0, -1) : [];
+  const addedTurnIndex = updatedSession ? updatedSession.turns.length - 1 : 0;
+  void getFeedbackCollector(userName).collectFromTurn(
+    (updatedSession?.id ?? currentSession.id),
+    addedTurnIndex,
+    turn,
+    previousTurns
+  );
+
   saveAllSessions(sessions);
+
+  const learningTurnCount = incrementLearningTurnCount(userName);
+  void maybeTriggerAutomaticLearning(userName, learningTurnCount);
 }
 
 /** Build context for the AI prompt */
@@ -175,7 +242,7 @@ export function buildMemoryContext(userName: string): string {
   const sessions = loadAllSessions();
   const userSessions = sessions.filter(s => s.userName === userName).slice(-3); // Last 3 sessions
   
-  if (userSessions.length === 0) return "C'est votre première interaction avec l'utilisateur aujourd'hui.";
+  if (userSessions.length === 0) return "C'est votre première conversation avec l'utilisateur aujourd'hui.";
 
   let context = "Historique récent :\n";
   userSessions.forEach(session => {
@@ -185,7 +252,7 @@ export function buildMemoryContext(userName: string): string {
     
     const recentTurns = session.turns.slice(-CONTEXT_WINDOW);
     recentTurns.forEach(t => {
-      context += `${t.speaker === "user" ? userName : "Assistant"}: ${t.message}\n`;
+      context += `${(t.speaker === "user" || t.speaker === "child") ? userName : "Toi"}: ${t.message}\n`;
     });
   });
 
@@ -198,9 +265,10 @@ export function getConversationStats(userName: string) {
   const profile = getUserProfile(userName);
   
   return {
-    totalSessions: profile.totalConversations,
+    totalSessions: sessions.length || profile.totalConversations,
     totalTurns: sessions.reduce((acc, s) => acc + s.turns.length, 0),
     lastActive: profile.lastActive,
+    lastConversationDate: sessions.length ? new Date(Math.max(...sessions.map(s => s.endTime || s.startTime))) : undefined,
     sessions: sessions.reverse() // Newest first for UI
   };
 }
@@ -209,6 +277,26 @@ export function getConversationStats(userName: string) {
 export function clearConversationHistory(): void {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(USER_PROFILE_KEY);
+  localStorage.removeItem(LEARNING_TURN_COUNTS_KEY);
   clearAllVectors();
   clearWeeklySummaries();
+}
+
+
+/** Legacy API aliases retained for child/companion tests and older callers. */
+export function loadConversationHistory(): ConversationSession[] {
+  return loadAllSessions().map(session => ({
+    ...session,
+    childName: session.userName,
+  } as ConversationSession & { childName: string }));
+}
+
+export function getCurrentSession(userName: string): ConversationSession & { childName: string } {
+  const sessions = loadAllSessions();
+  const session = getOrCreateCurrentSession(userName);
+  if (!sessions.some(s => s.id === session.id)) {
+    sessions.push(session);
+    saveAllSessions(sessions);
+  }
+  return { ...session, childName: session.userName };
 }
