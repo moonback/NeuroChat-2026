@@ -120,5 +120,7 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
   return sections.join("\n\n");
 }
 
-/** Legacy constant for backwards compatibility */
-export const SYSTEM_PROMPT = buildSystemPrompt("robot");
+/** Legacy constant for backwards compatibility — lazy to avoid circular init at module load */
+export function getDefaultSystemPrompt(): string {
+  return buildSystemPrompt("robot");
+}

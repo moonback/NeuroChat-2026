@@ -4,7 +4,7 @@
  * Stores text embeddings in localStorage and provides cosine-similarity
  * search over the full conversation history.
  *
- * Embeddings are generated via the Gemini text-embedding-004 model
+ * Embeddings are generated via the Gemini embedding-001 model
  * (already available through @google/genai).
  */
 
@@ -33,8 +33,8 @@ export interface VectorEntry {
 const VECTOR_STORE_KEY = "neurochat_v2_vectors";
 /** Maximum entries kept in the vector store (older ones are pruned) */
 const MAX_VECTOR_ENTRIES = 500;
-/** Gemini embedding model */
-const EMBEDDING_MODEL = "models/text-embedding-004";
+/** Gemini embedding model — gemini-embedding-001 remplace text-embedding-004 (déprécié jan 2026) */
+const EMBEDDING_MODEL = "gemini-embedding-001";
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
@@ -182,7 +182,10 @@ export async function semanticSearch(
   threshold = 0.6
 ): Promise<Array<VectorEntry & { score: number }>> {
   const queryVector = await generateEmbedding(queryText);
-  if (!queryVector) return [];
+  if (!queryVector) {
+    console.warn("[RAG] ⚠️ Embedding indisponible, recherche sémantique ignorée");
+    return [];
+  }
 
   const store = loadVectorStore().filter(
     (e) => e.metadata.userName === userName
