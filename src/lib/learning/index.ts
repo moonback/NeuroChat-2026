@@ -113,3 +113,12 @@ export {
 export type {
   PromptApplicationResult,
 } from './promptApplication';
+
+
+// Export learning cycle runner
+export {
+  runLearningCycleForUser,
+} from './learningCycleRunner';
+export type {
+  LearningCycleRunnerOptions,
+} from './learningCycleRunner';

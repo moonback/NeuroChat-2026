@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { RotateCcw, Sparkles, ToggleLeft, ToggleRight } from 'lucide-react';
 import { getLearningStorage } from '../../lib/learning/storage';
 import { PromptVersionManager } from '../../lib/learning/promptVersionManager';
+import { runLearningCycleForUser } from '../../lib/learning/learningCycleRunner';
 import type { LearningCycleConfig, PromptVersion } from '../../lib/learning/types';
 
 interface PromptControlPanelProps {
@@ -38,8 +39,10 @@ export function PromptControlPanel({ userId, accentColor, onChanged, onManualCyc
   };
 
   const triggerManualCycle = async () => {
+    const status = await runLearningCycleForUser(userId, { manual: true });
     await onManualCycle?.();
-    setMessage('Cycle manuel demandé.');
+    await refresh();
+    setMessage(status.success ? `Cycle manuel terminé: ${status.proposalsApplied} amélioration(s).` : status.errors[0] ?? 'Cycle manuel échoué.');
     onChanged?.();
   };
 
