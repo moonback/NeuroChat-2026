@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Clock, GitBranch, ShieldAlert } from 'lucide-react';
+import { Activity, Clock, GitBranch, ShieldAlert } from 'lucide-react';
 import { PromptVersionManager } from '../../lib/learning/promptVersionManager';
+import { getLearningStorage } from '../../lib/learning/storage';
 import { defaultSecurityLogger, type SecurityEvent } from '../../lib/learning/securityLogger';
-import type { PromptVersionHistory } from '../../lib/learning/types';
+import type { LearningCycleStatus, PromptVersionHistory } from '../../lib/learning/types';
 
 interface PromptVersionDisplayProps {
   userId: string;
@@ -13,14 +14,19 @@ interface PromptVersionDisplayProps {
 export function PromptVersionDisplay({ userId, accentColor, refreshKey = 0 }: PromptVersionDisplayProps) {
   const [history, setHistory] = useState<PromptVersionHistory | null>(null);
   const [events, setEvents] = useState<SecurityEvent[]>([]);
+  const [cycles, setCycles] = useState<LearningCycleStatus[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadHistory() {
-      const loaded = await new PromptVersionManager(userId).getHistory();
+      const [loaded, learningData] = await Promise.all([
+        new PromptVersionManager(userId).getHistory(),
+        getLearningStorage(userId).load(),
+      ]);
       if (!cancelled) {
         setHistory(loaded);
+        setCycles(learningData.cycleHistory.slice(-5).reverse());
         setEvents(defaultSecurityLogger.getEvents(5));
       }
     }
@@ -83,6 +89,36 @@ export function PromptVersionDisplay({ userId, accentColor, refreshKey = 0 }: Pr
                 <p className="mt-1 text-[10px] text-slate-600">{version.appliedProposals.length} amélioration(s) · {new Date(version.timestamp).toLocaleString('fr-FR')}</p>
                 {version.performanceMetrics && (
                   <p className="mt-1 text-[10px] text-slate-500">Score qualité: {Math.round(version.performanceMetrics.compositeQualityScore)}/100 · {version.performanceMetrics.turnCount} tour(s)</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Activity className="w-4 h-4" style={{ color: accentColor }} />
+          <h3 className="text-sm font-bold text-white">Cycles d’apprentissage</h3>
+        </div>
+        {cycles.length === 0 ? (
+          <p className="text-xs text-slate-500 italic">Aucun cycle d’apprentissage enregistré.</p>
+        ) : (
+          <div className="space-y-2">
+            {cycles.map((cycle) => (
+              <div key={cycle.cycleId} className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold text-slate-200">{cycle.phase}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${cycle.success ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
+                    {cycle.success ? 'SUCCÈS' : 'ÉCHEC'}
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {cycle.proposalsGenerated} générée(s) · {cycle.proposalsValidated} validée(s) · {cycle.proposalsApplied} appliquée(s)
+                </p>
+                {cycle.errors.length > 0 && (
+                  <p className="mt-1 text-[10px] text-red-300">{cycle.errors[0]}</p>
                 )}
               </div>
             ))}

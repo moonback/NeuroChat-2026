@@ -4,6 +4,7 @@ import { PromptVersionDisplay } from '../../components/learning/PromptVersionDis
 import { PromptControlPanel } from '../../components/learning/PromptControlPanel';
 import { PromptVersionManager } from '../../lib/learning/promptVersionManager';
 import { defaultSecurityLogger } from '../../lib/learning/securityLogger';
+import { getLearningStorage } from '../../lib/learning/storage';
 
 describe('prompt transparency components', () => {
   beforeEach(() => {
@@ -29,6 +30,17 @@ describe('prompt transparency components', () => {
         individualMetrics: [],
       },
     });
+    await getLearningStorage('ui-user').addCycleStatus({
+      cycleId: 'cycle-1',
+      startTime: Date.now(),
+      endTime: Date.now(),
+      phase: 'completed',
+      proposalsGenerated: 2,
+      proposalsValidated: 1,
+      proposalsApplied: 1,
+      errors: [],
+      success: true,
+    });
     defaultSecurityLogger.logValidationRejection('Blocked immutable change', { targetSection: 'SAFETY & PRIVACY' });
 
     render(<PromptVersionDisplay userId="ui-user" accentColor="#8B5CF6" />);
@@ -37,6 +49,8 @@ describe('prompt transparency components', () => {
     expect(screen.getByText('Improved prompt')).toBeInTheDocument();
     expect(screen.getByText('Blocked immutable change')).toBeInTheDocument();
     expect(screen.getByText('Score qualité: 84/100 · 12 tour(s)')).toBeInTheDocument();
+    expect(screen.getByText('Cycles d’apprentissage')).toBeInTheDocument();
+    expect(screen.getByText('2 générée(s) · 1 validée(s) · 1 appliquée(s)')).toBeInTheDocument();
   });
 
   it('toggles automatic improvements in the control panel', async () => {
