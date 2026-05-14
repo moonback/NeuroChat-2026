@@ -57,7 +57,7 @@ export class LearningCycleOrchestrator {
     }
 
     try {
-      this.analyzer.analyze({
+      const report = this.analyzer.analyze({
         turns: input.turns,
         feedbackSignals: existing.feedback.signals,
         baselineScore: input.baselineScore,
@@ -95,6 +95,7 @@ export class LearningCycleOrchestrator {
         promptText: application.promptText,
         changeDescription: `Applied ${accepted.length} auto-improvements`,
         appliedProposals: accepted.map((p) => p.id),
+        performanceMetrics: report.metrics,
       });
 
       const completed: LearningCycleStatus = {

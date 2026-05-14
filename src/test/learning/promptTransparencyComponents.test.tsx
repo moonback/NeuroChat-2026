@@ -13,7 +13,22 @@ describe('prompt transparency components', () => {
   it('renders prompt version history and security events', async () => {
     const manager = new PromptVersionManager('ui-user');
     await manager.createVersion({ promptText: 'Prompt 1', changeDescription: 'Initial prompt', appliedProposals: [] });
-    await manager.createVersion({ promptText: 'Prompt 2', changeDescription: 'Improved prompt', appliedProposals: ['p1'] });
+    await manager.createVersion({
+      promptText: 'Prompt 2',
+      changeDescription: 'Improved prompt',
+      appliedProposals: ['p1'],
+      performanceMetrics: {
+        concisionRatio: 1,
+        contextAwareness: 80,
+        proactivity: 60,
+        userSatisfaction: 90,
+        compositeQualityScore: 84,
+        turnCount: 12,
+        periodStart: 1,
+        periodEnd: 2,
+        individualMetrics: [],
+      },
+    });
     defaultSecurityLogger.logValidationRejection('Blocked immutable change', { targetSection: 'SAFETY & PRIVACY' });
 
     render(<PromptVersionDisplay userId="ui-user" accentColor="#8B5CF6" />);
@@ -21,6 +36,7 @@ describe('prompt transparency components', () => {
     await waitFor(() => expect(screen.getAllByText('v2').length).toBeGreaterThan(0));
     expect(screen.getByText('Improved prompt')).toBeInTheDocument();
     expect(screen.getByText('Blocked immutable change')).toBeInTheDocument();
+    expect(screen.getByText('Score qualité: 84/100 · 12 tour(s)')).toBeInTheDocument();
   });
 
   it('toggles automatic improvements in the control panel', async () => {

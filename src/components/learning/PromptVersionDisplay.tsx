@@ -81,6 +81,9 @@ export function PromptVersionDisplay({ userId, accentColor, refreshKey = 0 }: Pr
                 </div>
                 <p className="mt-1 text-xs text-slate-400">{version.changeDescription}</p>
                 <p className="mt-1 text-[10px] text-slate-600">{version.appliedProposals.length} amélioration(s) · {new Date(version.timestamp).toLocaleString('fr-FR')}</p>
+                {version.performanceMetrics && (
+                  <p className="mt-1 text-[10px] text-slate-500">Score qualité: {Math.round(version.performanceMetrics.compositeQualityScore)}/100 · {version.performanceMetrics.turnCount} tour(s)</p>
+                )}
               </div>
             ))}
           </div>

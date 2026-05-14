@@ -48,6 +48,8 @@ describe('LearningCycleOrchestrator', () => {
     const history = await new PromptVersionManager('u1').getHistory();
     expect(history.versions[0].promptText).toContain('Amélioration validée: Rester proactif');
     expect(history.versions[0].promptText).not.toContain('# Auto-improvements');
+    expect(history.versions[0].performanceMetrics?.turnCount).toBe(2);
+    expect(history.versions[0].performanceMetrics?.compositeQualityScore).toBeGreaterThanOrEqual(0);
   });
 
   it('fails when validation rejects proposals', async () => {
