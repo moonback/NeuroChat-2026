@@ -55,20 +55,55 @@ export default function App() {
   } = useGeminiSession();
 
   const handleStartSession = async () => {
+    // Accumulateurs pour les textes fragmentés (streaming)
+    const aiTextAccumulator: string[] = [];
+    const userTranscriptParts: string[] = [];
+
     await startSession({
       avatarId,
       userName,
       enableVideo: cameraActive,
       onAudioResponse: (base64, aiText) => {
-        playAudio(base64);
-        if (aiText && userName) {
-          addTurn(userName, "assistant", aiText);
+        if (base64) playAudio(base64);
+        // Accumule les fragments de transcription IA (outputTranscription)
+        if (aiText) {
+          aiTextAccumulator.push(aiText);
         }
       },
       onTranscription: (text, finished) => {
         setCurrentTranscript(text);
+        // Accumule tous les fragments (l'API envoie la phrase mot par mot)
+        if (text.trim()) {
+          userTranscriptParts.push(text);
+        }
+        // Sauvegarde immédiate si finished: true
         if (finished && userName) {
-          addTurn(userName, "user", text);
+          const fullText = userTranscriptParts.join(" ").trim();
+          if (fullText) {
+            console.log(`💾 Sauvegarde tour utilisateur (finished): "${fullText.slice(0, 60)}"`);
+            addTurn(userName, "user", fullText);
+          }
+          userTranscriptParts.length = 0;
+        }
+      },
+      onTurnComplete: () => {
+        // Sauvegarde la transcription utilisateur si elle n'a pas été sauvegardée via finished
+        if (userName && userTranscriptParts.length > 0) {
+          const fullText = userTranscriptParts.join(" ").trim();
+          if (fullText) {
+            console.log(`💾 Sauvegarde tour utilisateur (turnComplete): "${fullText.slice(0, 60)}"`);
+            addTurn(userName, "user", fullText);
+          }
+          userTranscriptParts.length = 0;
+        }
+        // Sauvegarde le tour IA complet
+        if (userName && aiTextAccumulator.length > 0) {
+          const fullText = aiTextAccumulator.join("").trim();
+          if (fullText) {
+            console.log(`💾 Sauvegarde tour IA: "${fullText.slice(0, 60)}"`);
+            addTurn(userName, "assistant", fullText);
+          }
+          aiTextAccumulator.length = 0;
         }
       },
       onInterrupted: () => {

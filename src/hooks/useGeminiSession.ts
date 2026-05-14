@@ -19,6 +19,7 @@ interface SessionOptions {
   userName: string | null;
   onAudioResponse: (base64: string, aiText?: string) => void;
   onTranscription: (text: string, finished: boolean) => void;
+  onTurnComplete: () => void;
   onInterrupted: () => void;
   onRecordingStart: (sendInput: (base64: string, type: 'audio' | 'video') => void) => void;
   onStopRecording: () => void;
@@ -82,7 +83,7 @@ export function useGeminiSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onInterrupted, onRecordingStart, onStopRecording, enableVideo } = options;
+    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo } = options;
     
     setStatus("connecting");
     setErrorMsg("");
@@ -157,22 +158,51 @@ export function useGeminiSession() {
               });
             },
             onmessage: (message: any) => {
-              console.log("📨 Message reçu:", message);
               const serverContent = message.serverContent;
               const modelTurn = serverContent?.modelTurn;
               const parts = modelTurn?.parts;
 
-              if (serverContent?.inputTranscription?.text) {
-                onTranscription(serverContent.inputTranscription.text, serverContent.inputTranscription.finished);
+              // Log COMPLET du message brut pour identifier la structure exacte
+              if (serverContent?.inputTranscription || serverContent?.outputTranscription || serverContent?.turnComplete) {
+                console.log("📨 Message clé — structure complète:", JSON.stringify(message, (key, value) => {
+                  // Tronquer les données binaires (audio base64)
+                  if (key === 'data' && typeof value === 'string' && value.length > 100) return `[base64 ${value.length} chars]`;
+                  return value;
+                }, 2));
               }
 
+              // Transcription utilisateur (entrée) — fragments accumulés dans App.tsx
+              if (serverContent?.inputTranscription?.text) {
+                const transcriptText = serverContent.inputTranscription.text;
+                const isFinished = serverContent.inputTranscription.finished ?? false;
+                console.log(`📝 Transcription utilisateur: "${transcriptText}" (finished: ${isFinished})`);
+                onTranscription(transcriptText, isFinished);
+              }
+
+              // Transcription IA (sortie) — plusieurs noms possibles selon la version du SDK
+              const aiTranscriptText =
+                serverContent?.outputTranscription?.text ??
+                serverContent?.modelTurn?.transcription?.text ??
+                null;
+
+              if (aiTranscriptText) {
+                console.log(`🤖 Transcription IA: "${aiTranscriptText.slice(0, 80)}"`);
+                onAudioResponse("", aiTranscriptText);
+              }
+
+              // Audio IA
               const base64Audio = parts?.find((p: any) => p.inlineData)?.inlineData?.data;
               if (base64Audio) {
-                const aiText = parts?.find((p: any) => p.text)?.text;
-                onAudioResponse(base64Audio, aiText);
+                onAudioResponse(base64Audio, undefined);
+              }
+
+              if (serverContent?.turnComplete) {
+                console.log("✅ Tour IA terminé (turnComplete)");
+                onTurnComplete();
               }
 
               if (serverContent?.interrupted) {
+                console.log("⚡ Interruption détectée");
                 onInterrupted();
               }
             },
@@ -213,6 +243,8 @@ export function useGeminiSession() {
             speechConfig: {
               voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
             },
+            // Active la transcription de la réponse IA pour la sauvegarder en mémoire
+            outputAudioTranscription: {},
           },
         });
 
