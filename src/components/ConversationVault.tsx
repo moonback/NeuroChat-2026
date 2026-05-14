@@ -47,7 +47,12 @@ export function ConversationVault({
   onClearMemory,
   accentColor,
 }: ConversationVaultProps) {
-  console.log(`[ConversationVault] 🏛️ Rendu du Coffre - isOpen: ${isOpen}, userName: ${userName}`);
+  // Early return AVANT tout hook ou log pour éviter les rendus inutiles
+  if (!isOpen) {
+    return null;
+  }
+  
+  console.log(`[ConversationVault] 🏛️ Rendu du Coffre - userName: ${userName}`);
   
   const [activeTab, setActiveTab] = useState<Tab>("sessions");
   const [weeklySummaries, setWeeklySummaries] = useState<WeeklySummary[]>(
@@ -59,11 +64,6 @@ export function ConversationVault({
   );
   const [generatingWeek, setGeneratingWeek] = useState<string | null>(null);
   const [learningRefreshKey, setLearningRefreshKey] = useState(0);
-
-  if (!isOpen) {
-    console.log("[ConversationVault] ❌ Coffre fermé, pas de rendu");
-    return null;
-  }
   
   console.log(`[ConversationVault] 📊 Données de mémoire:`, memoryData);
 

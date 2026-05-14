@@ -8,11 +8,16 @@
  * Summary integration: session and weekly summaries are generated via
  * conversationSummary.ts and stored alongside session data.
  */
+
+console.log("[ConversationMemory] 🔧 Initialisation du module...");
+
 import { embedAndStore, clearAllVectors } from "./vectorStore";
 import { clearWeeklySummaries } from "./conversationSummary";
 import { FeedbackCollector } from "./learning/feedbackCollector";
 import { getLearningStorage } from "./learning/storage";
 import { runLearningCycleForUser } from "./learning/learningCycleRunner";
+
+console.log("[ConversationMemory] ✅ Imports chargés");
 
 export interface ConversationTurn {
   timestamp: number;
@@ -45,17 +50,26 @@ const MAX_SESSIONS = 50; // Increased storage for "pro" feel
 const CONTEXT_WINDOW = 10;
 const feedbackCollectors = new Map<string, FeedbackCollector>();
 
+console.log("[ConversationMemory] ✅ Constantes initialisées");
+
 
 export type AutomaticLearningRunner = (userName: string) => Promise<unknown>;
 
-let automaticLearningRunner: AutomaticLearningRunner = (userName) => runLearningCycleForUser(userName);
+let automaticLearningRunner: AutomaticLearningRunner | null = null;
+
+function getAutomaticLearningRunner(): AutomaticLearningRunner {
+  if (!automaticLearningRunner) {
+    automaticLearningRunner = (userName) => runLearningCycleForUser(userName);
+  }
+  return automaticLearningRunner;
+}
 
 export function setAutomaticLearningRunnerForTesting(runner: AutomaticLearningRunner): void {
   automaticLearningRunner = runner;
 }
 
 export function resetAutomaticLearningRunnerForTesting(): void {
-  automaticLearningRunner = (userName) => runLearningCycleForUser(userName);
+  automaticLearningRunner = null;
 }
 
 export function shouldTriggerLearningCycle(turnCount: number, triggerAfterTurns: number): boolean {
@@ -80,7 +94,7 @@ async function maybeTriggerAutomaticLearning(userName: string, turnCount: number
   if (!learningData.config.enabled) return;
   if (!shouldTriggerLearningCycle(turnCount, learningData.config.triggerAfterTurns)) return;
 
-  await automaticLearningRunner(userName);
+  await getAutomaticLearningRunner()(userName);
 }
 
 function getFeedbackCollector(userName: string): FeedbackCollector {
