@@ -10,14 +10,14 @@ export async function chatWithOpenRouter(messages: OpenRouterMessage[]) {
   }
 
   // Use a free performant model as requested
-  const model = "google/gemini-2.0-flash-lite-preview-02-05:free"; 
+  const model = "minimax/minimax-m2.5:free";
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://neurochat.ai", // Optional, for OpenRouter rankings
+      "HTTP-Referer": "https://neurochatai.vercel.app", // Optional, for OpenRouter rankings
       "X-Title": "NeuroChat", // Optional
     },
     body: JSON.stringify({
