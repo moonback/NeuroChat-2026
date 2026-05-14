@@ -1,4 +1,5 @@
 import type { ImprovementProposal } from './types';
+import { logAutoImprovement, truncateForLog } from './autoImprovementLog';
 
 export interface PromptApplicationResult {
   promptText: string;
@@ -18,18 +19,44 @@ export function applyImprovementProposals(
   const appliedProposals: ImprovementProposal[] = [];
   const skippedProposals: ImprovementProposal[] = [];
 
+  logAutoImprovement("Application", "applyImprovementProposals — entrée", {
+    maxProposals,
+    incomingCount: proposals.length,
+    selectedCount: selected.length,
+    originalLength: originalPrompt.length,
+  });
+
   for (const proposal of selected) {
     const updated = appendToSection(promptText, proposal.targetSection, formatProposalInstruction(proposal));
     if (updated === promptText) {
+      logAutoImprovement("Application", "Proposition ignorée (section inchangée ou doublon)", {
+        id: proposal.id,
+        targetSection: proposal.targetSection,
+        instructionPreview: truncateForLog(formatProposalInstruction(proposal), 200),
+      });
       skippedProposals.push(proposal);
       continue;
     }
 
+    logAutoImprovement("Application", "Proposition appliquée", {
+      id: proposal.id,
+      targetSection: proposal.targetSection,
+      lengthBefore: promptText.length,
+      lengthAfter: updated.length,
+    });
     promptText = updated;
     appliedProposals.push({ ...proposal, status: 'applied' });
   }
 
   skippedProposals.push(...proposals.slice(selected.length));
+
+  logAutoImprovement("Application", "applyImprovementProposals — sortie", {
+    applied: appliedProposals.length,
+    skipped: skippedProposals.length,
+    finalLength: promptText.length,
+    appliedIds: appliedProposals.map((p) => p.id),
+    skippedIds: skippedProposals.map((p) => p.id),
+  });
 
   return {
     promptText,

@@ -25,15 +25,13 @@ export function BrowserWindow({
   const [inputUrl, setInputUrl] = useState(currentUrl);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  console.log("🪟 [BrowserWindow] Rendu:", { isOpen, currentUrl });
-
   useEffect(() => {
     setInputUrl(currentUrl);
-    console.log("🔄 [BrowserWindow] URL mise à jour:", currentUrl);
+    // console.log("🔄 [BrowserWindow] URL mise à jour:", currentUrl);
   }, [currentUrl]);
 
   useEffect(() => {
-    console.log("👁️ [BrowserWindow] État d'ouverture changé:", isOpen);
+    // console.log("👁️ [BrowserWindow] État d'ouverture changé:", isOpen);
   }, [isOpen]);
 
   const handleNavigate = () => {

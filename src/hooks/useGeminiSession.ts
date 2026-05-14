@@ -24,6 +24,7 @@ interface SessionOptions {
   onRecordingStart: (sendInput: (base64: string, type: 'audio' | 'video') => void) => void;
   onStopRecording: () => void;
   enableVideo?: boolean;
+  browserControlEnabled?: boolean;
 }
 
 export function useGeminiSession() {
@@ -83,14 +84,15 @@ export function useGeminiSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo } = options;
+    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo, browserControlEnabled } = options;
     
     setStatus("connecting");
     setErrorMsg("");
     isManualStopRef.current = false;
     retryCountRef.current = 0;
 
-    const attemptConnection = async (): Promise<void> => {
+    return new Promise<boolean>(async (resolve) => {
+      const attemptConnection = async (): Promise<void> => {
       try {
         console.log("🚀 Démarrage de la session...");
         
@@ -164,18 +166,18 @@ export function useGeminiSession() {
 
               // Log COMPLET du message brut pour identifier la structure exacte
               if (serverContent?.inputTranscription || serverContent?.outputTranscription || serverContent?.turnComplete) {
-                console.log("📨 Message clé — structure complète:", JSON.stringify(message, (key, value) => {
-                  // Tronquer les données binaires (audio base64)
-                  if (key === 'data' && typeof value === 'string' && value.length > 100) return `[base64 ${value.length} chars]`;
-                  return value;
-                }, 2));
+                // console.log("📨 Message clé — structure complète:", JSON.stringify(message, (key, value) => {
+                //   // Tronquer les données binaires (audio base64)
+                //   if (key === 'data' && typeof value === 'string' && value.length > 100) return `[base64 ${value.length} chars]`;
+                //   return value;
+                // }, 2));
               }
 
               // Transcription utilisateur (entrée) — fragments accumulés dans App.tsx
               if (serverContent?.inputTranscription?.text) {
                 const transcriptText = serverContent.inputTranscription.text;
                 const isFinished = serverContent.inputTranscription.finished ?? false;
-                console.log(`📝 Transcription utilisateur: "${transcriptText}" (finished: ${isFinished})`);
+                // console.log(`📝 Transcription utilisateur: "${transcriptText}" (finished: ${isFinished})`);
                 onTranscription(transcriptText, isFinished);
               }
 
@@ -186,7 +188,7 @@ export function useGeminiSession() {
                 null;
 
               if (aiTranscriptText) {
-                console.log(`🤖 Transcription IA: "${aiTranscriptText.slice(0, 80)}"`);
+                // console.log(`🤖 Transcription IA: "${aiTranscriptText.slice(0, 80)}"`);
                 onAudioResponse("", aiTranscriptText);
               }
 
@@ -236,6 +238,7 @@ export function useGeminiSession() {
                   userName: userName ?? undefined,
                   ragContext,
                   weeklySummary,
+                  browserControlEnabled,
                 }),
               }],
             },
@@ -250,22 +253,26 @@ export function useGeminiSession() {
 
         sessionRef.current = session;
         retryCountRef.current = 0;
+        resolve(true);
       } catch (err: any) {
         console.error("💥 Failed to start session:", err);
         if (err.name === "NotAllowedError") {
           setErrorMsg("Je n'ai pas la permission d'utiliser le microphone !");
           setStatus("idle");
+          resolve(false);
         } else if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
           retryCountRef.current++;
           setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
         } else {
           setErrorMsg(err.message || "Impossible de démarrer.");
           setStatus("idle");
+          resolve(false);
         }
       }
     };
 
     await attemptConnection();
+    });
   }, []);
 
   return {

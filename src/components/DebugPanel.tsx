@@ -2,7 +2,7 @@
  * DebugPanel - Panneau de débogage pour le contrôle du navigateur
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Bug, X, ChevronDown, ChevronUp, TestTube } from "lucide-react";
 import { testCommandPatterns } from "../lib/commandParser";
@@ -21,44 +21,22 @@ export function DebugPanel() {
   const [logs, setLogs] = useState<DebugLog[]>([]);
   const [filter, setFilter] = useState<string>("all");
 
-  useEffect(() => {
-    // Intercepter les console.log pour capturer les logs
-    const originalLog = console.log;
-    const originalError = console.error;
-    const originalWarn = console.warn;
-
-    console.log = (...args: any[]) => {
-      originalLog(...args);
-      captureLog("info", args);
-    };
-
-    console.error = (...args: any[]) => {
-      originalError(...args);
-      captureLog("error", args);
-    };
-
-    console.warn = (...args: any[]) => {
-      originalWarn(...args);
-      captureLog("warning", args);
-    };
-
-    return () => {
-      console.log = originalLog;
-      console.error = originalError;
-      console.warn = originalWarn;
-    };
-  }, []);
-
-  const captureLog = (level: "info" | "success" | "warning" | "error", args: any[]) => {
+  const captureLog = useCallback((level: "info" | "success" | "warning" | "error", args: any[]) => {
     const message = args[0];
-    
+
+    // Never mirror render-spam lines: they match [BrowserWindow] and cause setState → re-render loops with console patching.
+    if (typeof message === "string" && /\[BrowserWindow\].*Rendu/i.test(message)) {
+      return;
+    }
+
     // Filtrer uniquement les logs liés au contrôle du navigateur
     if (
       typeof message === "string" &&
       (message.includes("[BrowserControl]") ||
         message.includes("[CommandParser]") ||
         message.includes("[BrowserWindow]") ||
-        message.includes("[App]") && message.includes("🌐"))
+        message.includes("[AutoAmélioration]") ||
+        (message.includes("[App]") && message.includes("🌐")))
     ) {
       const categoryMatch = message.match(/\[([^\]]+)\]/);
       const category = categoryMatch ? categoryMatch[1] : "Unknown";
@@ -71,9 +49,45 @@ export function DebugPanel() {
         data: args.length > 1 ? args.slice(1) : undefined,
       };
 
-      setLogs((prev) => [...prev.slice(-49), newLog]); // Garder les 50 derniers
+      setLogs((prev) => [...prev.slice(-49), newLog]);
     }
-  };
+  }, []);
+
+  /** Never invoke captureLog synchronously from console.* (can run during another component's render). */
+  const deferCapture = useCallback((level: "info" | "success" | "warning" | "error", args: any[]) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => captureLog(level, args), 0);
+      });
+    });
+  }, [captureLog]);
+
+  useEffect(() => {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    console.log = (...args: any[]) => {
+      originalLog(...args);
+      deferCapture("info", args);
+    };
+
+    console.error = (...args: any[]) => {
+      originalError(...args);
+      deferCapture("error", args);
+    };
+
+    console.warn = (...args: any[]) => {
+      originalWarn(...args);
+      deferCapture("warning", args);
+    };
+
+    return () => {
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+    };
+  }, [deferCapture]);
 
   const filteredLogs = logs.filter((log) => {
     if (filter === "all") return true;
@@ -173,7 +187,7 @@ export function DebugPanel() {
           <>
             {/* Filters */}
             <div className="bg-slate-800/50 border-b border-slate-700 p-2 flex gap-2 overflow-x-auto">
-              {["all", "BrowserControl", "CommandParser", "BrowserWindow", "App", "errors", "success"].map(
+              {["all", "BrowserControl", "CommandParser", "BrowserWindow", "AutoAmélioration", "App", "errors", "success"].map(
                 (f) => (
                   <button
                     key={f}
@@ -184,7 +198,15 @@ export function DebugPanel() {
                         : "bg-slate-700 text-slate-400 hover:bg-slate-600"
                     }`}
                   >
-                    {f === "all" ? "Tous" : f === "errors" ? "Erreurs" : f === "success" ? "Succès" : f}
+                    {f === "all"
+                      ? "Tous"
+                      : f === "errors"
+                        ? "Erreurs"
+                        : f === "success"
+                          ? "Succès"
+                          : f === "AutoAmélioration"
+                            ? "Auto-amél."
+                            : f}
                   </button>
                 )
               )}

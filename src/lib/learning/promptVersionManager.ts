@@ -1,4 +1,5 @@
 import type { PerformanceMetrics, PromptVersion, PromptVersionHistory } from './types';
+import { logAutoImprovement } from './autoImprovementLog';
 import { getLearningStorage } from './storage';
 
 const MAX_VERSIONS = 20;
@@ -45,6 +46,15 @@ export class PromptVersionManager {
     };
 
     await storage.updateVersionHistory(updatedHistory);
+    logAutoImprovement("Versions", "Nouvelle version de prompt créée", {
+      userId: this.userId,
+      version: version.version,
+      activeVersion,
+      changeDescription: input.changeDescription,
+      appliedProposals: input.appliedProposals,
+      promptLength: input.promptText.length,
+      hasMetrics: Boolean(input.performanceMetrics),
+    });
     return version;
   }
 
@@ -54,7 +64,14 @@ export class PromptVersionManager {
     const history = data.versionHistory;
 
     const target = history.versions.find((v) => v.version === targetVersion);
-    if (!target) return null;
+    if (!target) {
+      logAutoImprovement("Versions", "Rollback échoué — version introuvable", {
+        userId: this.userId,
+        targetVersion,
+        knownVersions: history.versions.map((v) => v.version),
+      });
+      return null;
+    }
 
     const updatedHistory: PromptVersionHistory = {
       ...history,
@@ -64,6 +81,11 @@ export class PromptVersionManager {
     };
 
     await storage.updateVersionHistory(updatedHistory);
+    logAutoImprovement("Versions", "Rollback prompt", {
+      userId: this.userId,
+      targetVersion,
+      success: Boolean(target),
+    });
     return { ...target, isActive: true };
   }
 }

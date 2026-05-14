@@ -33,6 +33,9 @@ import { RobotEffects } from "./RobotEffects";
 export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps) {
   // Normalize and clamp audio input
   const safeAudioLevel = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
+  /** Updated every render; the RAF loop reads this so we must not put audio level in the effect deps. */
+  const audioLevelRef = useRef(safeAudioLevel);
+  audioLevelRef.current = safeAudioLevel;
   
   // Animation state refs (avoid React reconciliation)
   const animStateRef = useRef<AnimationState>({
@@ -87,7 +90,7 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps)
       state.time = timestamp;
 
       // Smooth audio interpolation (low-pass filter)
-      const targetAudio = applyAudioCurve(safeAudioLevel, 1.2);
+      const targetAudio = applyAudioCurve(audioLevelRef.current, 1.2);
       state.smoothedAudio = lerp(state.smoothedAudio, targetAudio, 0.15);
 
       // Eye micro-saccades (subtle intelligent movement)
@@ -118,7 +121,7 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps)
 
     rafId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafId);
-  }, [status, safeAudioLevel, theme.pulseSpeed]);
+  }, [status, theme.pulseSpeed]);
 
   // Compute derived animation values
   const state = animStateRef.current;

@@ -25,13 +25,6 @@ export function BrowserControlPanel({
   actionHistory,
   accentColor,
 }: BrowserControlPanelProps) {
-  console.log("🎛️ [BrowserControlPanel] État:", {
-    isEnabled,
-    hasPendingConfirmation: !!pendingConfirmation,
-    hasCurrentAction: !!currentAction,
-    historyLength: actionHistory.length,
-  });
-
   const getActionDescription = (action: BrowserAction): string => {
     switch (action.type) {
       case "navigate":

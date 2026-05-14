@@ -1,5 +1,6 @@
 import type { ConversationTurn } from '../conversationMemory';
 import type { ImprovementProposal, LearningCycleStatus } from './types';
+import { logAutoImprovement, truncateForLog } from './autoImprovementLog';
 import { getLearningStorage } from './storage';
 import { PerformanceAnalyzer } from './performanceAnalyzer';
 import { ImprovementValidator } from './improvementValidator';
@@ -36,6 +37,15 @@ export class LearningCycleOrchestrator {
     const storage = getLearningStorage(input.userId);
     const existing = await storage.load();
 
+    logAutoImprovement("Orchestration", "runCycle — entrée", {
+      userId: input.userId,
+      startTime,
+      turnCount: input.turns.length,
+      proposalCount: input.proposals.length,
+      promptLength: input.currentPrompt.length,
+      baselineScore: input.baselineScore,
+    });
+
     const previousDay = existing.cycleHistory
       .filter((c) => this.now() - c.startTime < 24 * 60 * 60 * 1000)
       .length;
@@ -52,20 +62,46 @@ export class LearningCycleOrchestrator {
         errors: ['Learning cycle limit reached for the last 24 hours.'],
         success: false,
       };
+      logAutoImprovement("Orchestration", "Quota cycles 24h atteint", {
+        userId: input.userId,
+        previousDay,
+        maxCyclesPerDay: existing.config.maxCyclesPerDay,
+      });
       await storage.addCycleStatus(blocked);
+      logAutoImprovement("Orchestration", "Statut quota enregistré", blocked);
       return blocked;
     }
 
     try {
+      logAutoImprovement("Orchestration", "Phase analyse (orchestrateur)", {
+        userId: input.userId,
+        feedbackSignalCount: existing.feedback.signals.length,
+      });
       const report = this.analyzer.analyze({
         turns: input.turns,
         feedbackSignals: existing.feedback.signals,
         baselineScore: input.baselineScore,
       });
 
+      logAutoImprovement("Orchestration", "Métriques post-analyse (orchestrateur)", {
+        compositeQualityScore: report.metrics.compositeQualityScore,
+        improvementAreas: report.improvementAreas,
+        patternCount: report.patterns.length,
+      });
+
+      logAutoImprovement("Orchestration", "Phase validation", {
+        proposalIds: input.proposals.map((p) => p.id),
+        maxApplied: existing.config.maxProposalsPerCycle,
+      });
       const validation = this.validator.validateBatch(input.proposals, {
         originalPrompt: input.currentPrompt,
         maxAppliedProposals: existing.config.maxProposalsPerCycle,
+      });
+
+      logAutoImprovement("Orchestration", "Résultat validation", {
+        isValid: validation.isValid,
+        errors: validation.errors,
+        warnings: validation.warnings,
       });
 
       if (!validation.isValid) {
@@ -81,15 +117,27 @@ export class LearningCycleOrchestrator {
           success: false,
         };
         await storage.addCycleStatus(failed);
+        logAutoImprovement("Orchestration", "Cycle échoué — validation", failed);
         return failed;
       }
 
+      logAutoImprovement("Orchestration", "Phase application au prompt", {
+        maxProposals: existing.config.maxProposalsPerCycle,
+      });
       const application = applyImprovementProposals(
         input.currentPrompt,
         input.proposals,
         existing.config.maxProposalsPerCycle,
       );
       const accepted = application.appliedProposals;
+      logAutoImprovement("Orchestration", "Application prompt terminée", {
+        appliedCount: accepted.length,
+        skippedCount: application.skippedProposals.length,
+        newPromptLength: application.promptText.length,
+        deltaChars: application.promptText.length - input.currentPrompt.length,
+        appliedIds: accepted.map((p) => p.id),
+      });
+
       const manager = new PromptVersionManager(input.userId);
       await manager.createVersion({
         promptText: application.promptText,
@@ -110,8 +158,16 @@ export class LearningCycleOrchestrator {
         success: true,
       };
       await storage.addCycleStatus(completed);
+      logAutoImprovement("Orchestration", "Cycle terminé avec succès", {
+        ...completed,
+        promptPreview: truncateForLog(application.promptText, 400),
+      });
       return completed;
     } catch (error) {
+      logAutoImprovement("Orchestration", "Exception durant runCycle", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       const failed: LearningCycleStatus = {
         cycleId: `cycle_${startTime}`,
         startTime,
@@ -124,6 +180,7 @@ export class LearningCycleOrchestrator {
         success: false,
       };
       await storage.addCycleStatus(failed);
+      logAutoImprovement("Orchestration", "Cycle enregistré en échec", failed);
       return failed;
     }
   }

@@ -14,6 +14,7 @@ import type {
   EncryptedLearningData,
 } from './types';
 import { DEFAULT_LEARNING_CONFIG } from './types';
+import { logAutoImprovement } from './autoImprovementLog';
 
 // Storage keys
 const STORAGE_KEY_PREFIX = 'neurochat_learning_';
@@ -210,6 +211,10 @@ export class LearningDataStorage {
     const data = await this.load();
     data.feedback = feedback;
     data.feedback.lastUpdated = Date.now();
+    logAutoImprovement("Stockage", "updateFeedback", {
+      userId: this.userId,
+      signalCount: feedback.signals.length,
+    });
     await this.save(data);
   }
 
@@ -220,6 +225,11 @@ export class LearningDataStorage {
     const data = await this.load();
     data.versionHistory = versionHistory;
     data.versionHistory.lastUpdated = Date.now();
+    logAutoImprovement("Stockage", "updateVersionHistory", {
+      userId: this.userId,
+      versions: versionHistory.versions.length,
+      activeVersion: versionHistory.activeVersion,
+    });
     await this.save(data);
   }
 
@@ -233,6 +243,14 @@ export class LearningDataStorage {
     if (data.cycleHistory.length > 50) {
       data.cycleHistory = data.cycleHistory.slice(-50);
     }
+    logAutoImprovement("Stockage", "addCycleStatus", {
+      userId: this.userId,
+      cycleId: status.cycleId,
+      phase: status.phase,
+      success: status.success,
+      proposalsApplied: status.proposalsApplied,
+      historyLength: data.cycleHistory.length,
+    });
     await this.save(data);
   }
 
@@ -242,6 +260,7 @@ export class LearningDataStorage {
   async updateConfig(config: Partial<LearningCycleConfig>): Promise<void> {
     const data = await this.load();
     data.config = { ...data.config, ...config };
+    logAutoImprovement("Stockage", "updateConfig", { userId: this.userId, patch: config });
     await this.save(data);
   }
 

@@ -8,8 +8,8 @@
  * injected into the system prompt to give the assistant long-term awareness.
  */
 
-import { GoogleGenAI } from "@google/genai";
 import { ConversationSession, ConversationTurn } from "./conversationMemory";
+import { chatWithOpenRouter } from "./OpenRouterService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,9 +33,10 @@ export interface WeeklySummary {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const WEEKLY_SUMMARIES_KEY = "neurochat_v2_weekly_summaries";
-const SUMMARY_MODEL = "gemini-2.0-flash";
+const SUMMARY_COOLDOWN_KEY = "neurochat_v2_summary_cooldown";
 /** Minimum turns in a session before we bother summarising it */
-const MIN_TURNS_FOR_SUMMARY = 4;
+const MIN_TURNS_FOR_SUMMARY = 2;
+const RETRY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -120,9 +121,6 @@ export async function generateSessionSummary(
 ): Promise<string | null> {
   if (session.turns.length < MIN_TURNS_FOR_SUMMARY) return null;
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) return null;
-
   const transcript = formatTranscript(session.turns, userName);
   const date = new Date(session.startTime).toLocaleDateString("fr-FR", {
     weekday: "long",
@@ -140,14 +138,11 @@ export async function generateSessionSummary(
   ].join("\n");
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: SUMMARY_MODEL,
-      contents: prompt,
-    });
-    return response.text?.trim() ?? null;
+    console.log("[Summary] Generating session summary via OpenRouter...");
+    const response = await chatWithOpenRouter([{ role: "user", content: prompt }]);
+    return response?.trim() ?? null;
   } catch (err) {
-    console.error("[Summary] Session summary generation failed:", err);
+    console.error(`[Summary] Session summary generation failed (OpenRouter) for session ${session.id}:`, err);
     return null;
   }
 }
@@ -166,8 +161,6 @@ export async function generateWeeklySummary(
   weekId?: string
 ): Promise<WeeklySummary | null> {
   const targetWeek = weekId ?? getWeekId(new Date());
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) return null;
 
   // Filter sessions belonging to this week
   const weekSessions = sessions.filter(
@@ -177,7 +170,10 @@ export async function generateWeeklySummary(
   if (weekSessions.length === 0) return null;
 
   const totalTurns = weekSessions.reduce((n, s) => n + s.turns.length, 0);
-  if (totalTurns < MIN_TURNS_FOR_SUMMARY) return null;
+  if (totalTurns < MIN_TURNS_FOR_SUMMARY) {
+    console.log(`[Summary] Skipping weekly summary for ${targetWeek}: too few turns (${totalTurns}/${MIN_TURNS_FOR_SUMMARY})`);
+    return null;
+  }
 
   // Build a condensed multi-session transcript
   const transcriptParts = weekSessions.map((s) => {
@@ -194,27 +190,30 @@ export async function generateWeeklySummary(
   const dateRange = formatWeekRange(targetWeek);
 
   const prompt = [
-    `Tu es un assistant personnel de ${userName}. Voici un résumé de toutes les conversations de la semaine du ${dateRange}.`,
+    `Tu es NeuroChat Pro, l'assistant stratégique personnel de ${userName}.`,
+    `Ta mission est d'analyser l'activité de la semaine du ${dateRange} pour en extraire une synthèse intelligente et motivante.`,
     "",
-    "CONVERSATIONS DE LA SEMAINE :",
+    "TRANSCRIPTIONS DE LA SEMAINE :",
     fullTranscript,
     "",
-    "Génère une synthèse hebdomadaire structurée en français avec :",
-    "1. Un résumé global en 3-4 phrases (sujets principaux, humeur générale, accomplissements)",
-    "2. Une liste de 3-5 sujets/thèmes clés sous forme de mots-clés courts (séparés par des virgules)",
+    "DIRECTIVES DE RÉDACTION :",
+    "- Ton : Professionnel, analytique, mais encourageant.",
+    "- Résumé : Synthétise les avancées majeures, les blocages rencontrés et l'état d'esprit global de ${userName}.",
+    "- Thèmes : Identifie les 3 à 5 domaines d'intérêt ou projets récurrents.",
+    "- Insight : Ajoute une observation pertinente sur un schéma répétitif ou une opportunité d'amélioration.",
     "",
-    'Réponds UNIQUEMENT au format JSON suivant (sans markdown) :',
-    '{"summary": "...", "topics": ["...", "...", "..."]}',
+    'Réponds STRICTEMENT au format JSON suivant :',
+    '{',
+    '  "summary": "Une synthèse fluide et structurée (environ 100-150 mots).",',
+    '  "topics": ["Thème 1", "Thème 2", "Thème 3"]',
+    '}',
   ].join("\n");
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: SUMMARY_MODEL,
-      contents: prompt,
-    });
+    console.log("[Summary] Generating weekly summary via OpenRouter...");
+    const response = await chatWithOpenRouter([{ role: "user", content: prompt }]);
 
-    const raw = response.text?.trim() ?? "";
+    const raw = response?.trim() ?? "";
     // Strip potential markdown code fences
     const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
     const parsed = JSON.parse(jsonStr) as { summary: string; topics: string[] };
@@ -235,7 +234,7 @@ export async function generateWeeklySummary(
 
     return weeklySummary;
   } catch (err) {
-    console.error("[Summary] Weekly summary generation failed:", err);
+    console.error("[Summary] Weekly summary generation failed (OpenRouter):", err);
     return null;
   }
 }
@@ -256,7 +255,30 @@ export async function getOrGenerateCurrentWeekSummary(
     !existing || Date.now() - existing.generatedAt > 60 * 60 * 1000;
 
   if (isStale) {
-    return generateWeeklySummary(sessions, userName, currentWeek);
+    // Check cooldown
+    const lastAttempt = parseInt(localStorage.getItem(SUMMARY_COOLDOWN_KEY) || "0");
+    if (Date.now() - lastAttempt < RETRY_COOLDOWN_MS) {
+      console.log("[Summary] Skipping generation: cooldown active (API failure recently)");
+      return existing;
+    }
+
+    const totalTurns = sessions.reduce((n, s) => n + s.turns.length, 0);
+    if (totalTurns < MIN_TURNS_FOR_SUMMARY) {
+      // Don't even try if we know it will fail the threshold
+      return existing;
+    }
+
+    const result = await generateWeeklySummary(sessions, userName, currentWeek);
+    
+    if (!result) {
+      // Record failure timestamp to trigger cooldown
+      localStorage.setItem(SUMMARY_COOLDOWN_KEY, Date.now().toString());
+    } else {
+      // Success, clear cooldown
+      localStorage.removeItem(SUMMARY_COOLDOWN_KEY);
+    }
+    
+    return result || existing;
   }
 
   return existing;

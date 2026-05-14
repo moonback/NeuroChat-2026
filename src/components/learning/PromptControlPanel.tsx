@@ -3,6 +3,7 @@ import { RotateCcw, Sparkles, ToggleLeft, ToggleRight } from 'lucide-react';
 import { getLearningStorage } from '../../lib/learning/storage';
 import { PromptVersionManager } from '../../lib/learning/promptVersionManager';
 import { runLearningCycleForUser } from '../../lib/learning/learningCycleRunner';
+import { logAutoImprovement } from '../../lib/learning/autoImprovementLog';
 import type { LearningCycleConfig, PromptVersion } from '../../lib/learning/types';
 
 interface PromptControlPanelProps {
@@ -32,6 +33,7 @@ export function PromptControlPanel({ userId, accentColor, onChanged, onManualCyc
   const toggleEnabled = async () => {
     if (!config) return;
     const nextEnabled = !config.enabled;
+    logAutoImprovement("UI", "Bascule apprentissage automatique", { userId, nextEnabled });
     await getLearningStorage(userId).updateConfig({ enabled: nextEnabled });
     setConfig({ ...config, enabled: nextEnabled });
     setMessage(nextEnabled ? 'Améliorations automatiques activées.' : 'Améliorations automatiques désactivées.');
@@ -39,7 +41,15 @@ export function PromptControlPanel({ userId, accentColor, onChanged, onManualCyc
   };
 
   const triggerManualCycle = async () => {
+    logAutoImprovement("UI", "Cycle manuel demandé", { userId });
     const status = await runLearningCycleForUser(userId, { manual: true });
+    logAutoImprovement("UI", "Cycle manuel terminé", {
+      userId,
+      success: status.success,
+      phase: status.phase,
+      proposalsApplied: status.proposalsApplied,
+      errors: status.errors,
+    });
     await onManualCycle?.();
     await refresh();
     setMessage(status.success ? `Cycle manuel terminé: ${status.proposalsApplied} amélioration(s).` : status.errors[0] ?? 'Cycle manuel échoué.');
@@ -47,7 +57,9 @@ export function PromptControlPanel({ userId, accentColor, onChanged, onManualCyc
   };
 
   const rollback = async (version: number) => {
+    logAutoImprovement("UI", "Rollback demandé depuis le panneau", { userId, version });
     const restored = await new PromptVersionManager(userId).rollback(version);
+    logAutoImprovement("UI", "Rollback exécuté", { userId, version, ok: Boolean(restored) });
     setMessage(restored ? `Retour à la version v${version}.` : `Version v${version} introuvable.`);
     await refresh();
     onChanged?.();

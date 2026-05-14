@@ -1,5 +1,6 @@
 import type { ConversationTurn } from '../conversationMemory';
 import type { FeedbackData, FeedbackSignal } from './types';
+import { logAutoImprovement, truncateForLog } from './autoImprovementLog';
 import { getLearningStorage } from './storage';
 
 const NEGATIVE_ACK_PATTERNS = [/\b(not helpful|doesn'?t help|wrong|incorrect|stop|nope|that'?s not what i asked)\b/i];
@@ -41,6 +42,17 @@ export class FeedbackCollector {
     }
 
     await this.appendSignals(signals);
+    if (signals.length > 0) {
+      logAutoImprovement("Feedback", "Signaux implicites collectés (tour utilisateur)", {
+        userId: this.userId,
+        sessionId,
+        turnIndex,
+        count: signals.length,
+        categories: signals.map((s) => s.category),
+        sentiments: signals.map((s) => s.sentiment),
+        excerpts: signals.map((s) => truncateForLog(s.content ?? "", 120)),
+      });
+    }
     return signals;
   }
 
@@ -54,6 +66,15 @@ export class FeedbackCollector {
       content,
     );
     await this.appendSignals([signal]);
+    logAutoImprovement("Feedback", "Retour utilisateur explicite enregistré", {
+      userId: this.userId,
+      sessionId,
+      turnIndex,
+      positive,
+      category: signal.category,
+      excerpt: truncateForLog(content ?? "", 200),
+      signalId: signal.id,
+    });
     return signal;
   }
 
@@ -101,5 +122,11 @@ export class FeedbackCollector {
     };
 
     await storage.updateFeedback(feedback);
+    logAutoImprovement("Feedback", "Stockage mis à jour (signaux append)", {
+      userId: this.userId,
+      appended: signals.length,
+      totalSignals: feedback.signals.length,
+      ids: signals.map((s) => s.id),
+    });
   }
 }
