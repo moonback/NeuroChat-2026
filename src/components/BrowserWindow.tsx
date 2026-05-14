@@ -25,8 +25,6 @@ export function BrowserWindow({
   const [inputUrl, setInputUrl] = useState(currentUrl);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  console.log("🪟 [BrowserWindow] Rendu:", { isOpen, currentUrl });
-
   useEffect(() => {
     setInputUrl(currentUrl);
     console.log("🔄 [BrowserWindow] URL mise à jour:", currentUrl);
