@@ -94,3 +94,12 @@ export type {
   SecurityEvent,
   SecurityEventType,
 } from './securityLogger';
+
+
+// Export prompt optimization
+export {
+  PromptOptimizer,
+} from './promptOptimizer';
+export type {
+  PromptOptimizerOptions,
+} from './promptOptimizer';
