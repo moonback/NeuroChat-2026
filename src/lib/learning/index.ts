@@ -55,3 +55,9 @@ export {
 export {
   PerformanceAnalyzer,
 } from './performanceAnalyzer';
+
+
+// Export improvement validation
+export {
+  ImprovementValidator,
+} from './improvementValidator';
