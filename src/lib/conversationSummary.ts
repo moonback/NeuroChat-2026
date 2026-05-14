@@ -190,17 +190,23 @@ export async function generateWeeklySummary(
   const dateRange = formatWeekRange(targetWeek);
 
   const prompt = [
-    `Tu es un assistant personnel de ${userName}. Voici un résumé de toutes les conversations de la semaine du ${dateRange}.`,
+    `Tu es NeuroChat Pro, l'assistant stratégique personnel de ${userName}.`,
+    `Ta mission est d'analyser l'activité de la semaine du ${dateRange} pour en extraire une synthèse intelligente et motivante.`,
     "",
-    "CONVERSATIONS DE LA SEMAINE :",
+    "TRANSCRIPTIONS DE LA SEMAINE :",
     fullTranscript,
     "",
-    "Génère une synthèse hebdomadaire structurée en français avec :",
-    "1. Un résumé global en 3-4 phrases (sujets principaux, humeur générale, accomplissements)",
-    "2. Une liste de 3-5 sujets/thèmes clés sous forme de mots-clés courts (séparés par des virgules)",
+    "DIRECTIVES DE RÉDACTION :",
+    "- Ton : Professionnel, analytique, mais encourageant.",
+    "- Résumé : Synthétise les avancées majeures, les blocages rencontrés et l'état d'esprit global de ${userName}.",
+    "- Thèmes : Identifie les 3 à 5 domaines d'intérêt ou projets récurrents.",
+    "- Insight : Ajoute une observation pertinente sur un schéma répétitif ou une opportunité d'amélioration.",
     "",
-    'Réponds UNIQUEMENT au format JSON suivant (sans markdown) :',
-    '{"summary": "...", "topics": ["...", "...", "..."]}',
+    'Réponds STRICTEMENT au format JSON suivant :',
+    '{',
+    '  "summary": "Une synthèse fluide et structurée (environ 100-150 mots).",',
+    '  "topics": ["Thème 1", "Thème 2", "Thème 3"]',
+    '}',
   ].join("\n");
 
   try {
