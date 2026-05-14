@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { waitFor } from "@testing-library/react";
 import {
   loadConversationHistory,
   getCurrentSession,
@@ -6,12 +7,21 @@ import {
   buildMemoryContext,
   clearConversationHistory,
   getConversationStats,
+  resetAutomaticLearningRunnerForTesting,
+  setAutomaticLearningRunnerForTesting,
+  shouldTriggerLearningCycle,
 } from "../lib/conversationMemory";
+import { getLearningStorage } from "../lib/learning/storage";
 
 describe("Conversation Memory System", () => {
   beforeEach(() => {
     // Clear localStorage before each test
     localStorage.clear();
+    resetAutomaticLearningRunnerForTesting();
+  });
+
+  afterEach(() => {
+    resetAutomaticLearningRunnerForTesting();
   });
 
   it("should start with empty conversation history", () => {
@@ -91,6 +101,28 @@ describe("Conversation Memory System", () => {
     expect(paulSession.turns).toHaveLength(1);
     expect(marieSession.turns[0].message).toBe("Message from Marie");
     expect(paulSession.turns[0].message).toBe("Message from Paul");
+  });
+
+
+
+  it("should identify learning cycle trigger intervals", () => {
+    expect(shouldTriggerLearningCycle(0, 50)).toBe(false);
+    expect(shouldTriggerLearningCycle(49, 50)).toBe(false);
+    expect(shouldTriggerLearningCycle(50, 50)).toBe(true);
+    expect(shouldTriggerLearningCycle(100, 50)).toBe(true);
+    expect(shouldTriggerLearningCycle(50, 0)).toBe(false);
+  });
+
+  it("should trigger automatic learning at configured turn intervals", async () => {
+    const runner = vi.fn().mockResolvedValue(undefined);
+    setAutomaticLearningRunnerForTesting(runner);
+    await getLearningStorage("Marie").updateConfig({ triggerAfterTurns: 2, enabled: true });
+
+    addConversationTurn("Marie", "child", "Message 1");
+    addConversationTurn("Marie", "companion", "Message 2");
+
+    await waitFor(() => expect(runner).toHaveBeenCalledWith("Marie"));
+    expect(runner).toHaveBeenCalledTimes(1);
   });
 
   it("should continue same session if on same day", () => {

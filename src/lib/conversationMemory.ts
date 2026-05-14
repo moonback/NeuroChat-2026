@@ -11,6 +11,8 @@
 import { embedAndStore, clearAllVectors } from "./vectorStore";
 import { clearWeeklySummaries } from "./conversationSummary";
 import { FeedbackCollector } from "./learning/feedbackCollector";
+import { getLearningStorage } from "./learning/storage";
+import { runLearningCycleForUser } from "./learning/learningCycleRunner";
 
 export interface ConversationTurn {
   timestamp: number;
@@ -38,9 +40,48 @@ export interface UserProfile {
 const STORAGE_KEY = "neurochat_v2_memory";
 const LEGACY_MAX_TURNS_IN_MEMORY = 20;
 const USER_PROFILE_KEY = "neurochat_v2_user_profile";
+const LEARNING_TURN_COUNTS_KEY = "neurochat_learning_turn_counts";
 const MAX_SESSIONS = 50; // Increased storage for "pro" feel
 const CONTEXT_WINDOW = 10;
 const feedbackCollectors = new Map<string, FeedbackCollector>();
+
+
+export type AutomaticLearningRunner = (userName: string) => Promise<unknown>;
+
+let automaticLearningRunner: AutomaticLearningRunner = (userName) => runLearningCycleForUser(userName);
+
+export function setAutomaticLearningRunnerForTesting(runner: AutomaticLearningRunner): void {
+  automaticLearningRunner = runner;
+}
+
+export function resetAutomaticLearningRunnerForTesting(): void {
+  automaticLearningRunner = (userName) => runLearningCycleForUser(userName);
+}
+
+export function shouldTriggerLearningCycle(turnCount: number, triggerAfterTurns: number): boolean {
+  return triggerAfterTurns > 0 && turnCount > 0 && turnCount % triggerAfterTurns === 0;
+}
+
+function incrementLearningTurnCount(userName: string): number {
+  try {
+    const stored = localStorage.getItem(LEARNING_TURN_COUNTS_KEY);
+    const counts = stored ? JSON.parse(stored) as Record<string, number> : {};
+    const nextCount = (counts[userName] ?? 0) + 1;
+    counts[userName] = nextCount;
+    localStorage.setItem(LEARNING_TURN_COUNTS_KEY, JSON.stringify(counts));
+    return nextCount;
+  } catch {
+    return 0;
+  }
+}
+
+async function maybeTriggerAutomaticLearning(userName: string, turnCount: number): Promise<void> {
+  const learningData = await getLearningStorage(userName).load();
+  if (!learningData.config.enabled) return;
+  if (!shouldTriggerLearningCycle(turnCount, learningData.config.triggerAfterTurns)) return;
+
+  await automaticLearningRunner(userName);
+}
 
 function getFeedbackCollector(userName: string): FeedbackCollector {
   if (!feedbackCollectors.has(userName)) {
@@ -191,6 +232,9 @@ export function addConversationTurn(
   );
 
   saveAllSessions(sessions);
+
+  const learningTurnCount = incrementLearningTurnCount(userName);
+  void maybeTriggerAutomaticLearning(userName, learningTurnCount);
 }
 
 /** Build context for the AI prompt */
@@ -233,6 +277,7 @@ export function getConversationStats(userName: string) {
 export function clearConversationHistory(): void {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(USER_PROFILE_KEY);
+  localStorage.removeItem(LEARNING_TURN_COUNTS_KEY);
   clearAllVectors();
   clearWeeklySummaries();
 }
