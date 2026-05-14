@@ -1,5 +1,6 @@
 import type { ImprovementProposal, ValidationResult } from './types';
 import { DEFAULT_SAFETY_CONSTRAINTS } from './types';
+import { logAutoImprovement, truncateForLog } from './autoImprovementLog';
 import { SafetyConstraintManager } from './safetyConstraints';
 
 export interface ValidatorOptions {
@@ -74,11 +75,25 @@ export class ImprovementValidator {
       warnings.push(...res.warnings);
     });
 
-    return {
+    const result = {
       isValid: errors.length === 0,
       errors,
       warnings,
       timestamp: Date.now(),
     };
+
+    logAutoImprovement("Validation", "ImprovementValidator.validateBatch", {
+      proposalCount: proposals.length,
+      maxAllowed,
+      originalPromptLength: options.originalPrompt.length,
+      isValid: result.isValid,
+      errors: result.errors,
+      warnings: result.warnings,
+      proposalIds: proposals.map((p) => p.id),
+      proposalTargets: proposals.map((p) => p.targetSection),
+      changePreviews: proposals.map((p) => truncateForLog(p.proposedChange, 160)),
+    });
+
+    return result;
   }
 }

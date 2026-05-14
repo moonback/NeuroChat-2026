@@ -1,5 +1,6 @@
 import type { ImprovementProposal, PerformanceMetrics, PromptVersion } from './types';
 import { DEFAULT_LEARNING_CONFIG } from './types';
+import { logAutoImprovement } from './autoImprovementLog';
 import { PromptVersionManager } from './promptVersionManager';
 import { SecurityLogger, defaultSecurityLogger } from './securityLogger';
 
@@ -75,6 +76,12 @@ export class RegressionDetector {
     );
 
     if (!comparison.isRegression) {
+      logAutoImprovement("Régression", "detectAndRollback — pas de régression", {
+        previousScore: comparison.previousScore,
+        currentScore: comparison.currentScore,
+        percentDecrease: comparison.percentDecrease,
+        threshold: comparison.threshold,
+      });
       return {
         ...comparison,
         rolledBack: false,
@@ -82,6 +89,14 @@ export class RegressionDetector {
         ineffectiveProposalIds: [],
       };
     }
+
+    logAutoImprovement("Régression", "Régression détectée — rollback en cours", {
+      userId: input.userId,
+      activeVersion: input.activeVersion,
+      previousVersion: input.previousVersion,
+      percentDecrease: comparison.percentDecrease,
+      threshold: comparison.threshold,
+    });
 
     this.securityLogger.log('regression_detected', `Prompt version ${input.activeVersion} regressed by ${comparison.percentDecrease.toFixed(2)}%.`, {
       activeVersion: input.activeVersion,
@@ -111,6 +126,13 @@ export class RegressionDetector {
       });
     }
 
+    logAutoImprovement("Régression", "detectAndRollback — résultat", {
+      rolledBack: Boolean(restoredVersion),
+      percentDecrease: comparison.percentDecrease,
+      restoredVersion: restoredVersion?.version,
+      ineffectiveProposalIds,
+    });
+
     return {
       ...comparison,
       rolledBack: Boolean(restoredVersion),
@@ -126,29 +148,48 @@ export class RegressionDetector {
     const history = await this.versionManagerFactory(input.userId).getHistory();
     const activeVersion = history.versions.find((version) => version.version === history.activeVersion);
 
+    logAutoImprovement("Régression", "monitorActiveVersion — entrée", {
+      userId: input.userId,
+      threshold,
+      monitoringPeriod,
+      turnCount: input.currentMetrics.turnCount,
+      compositeScore: input.currentMetrics.compositeQualityScore,
+      activeVersionId: activeVersion?.version,
+      historyLength: history.versions.length,
+    });
+
     if (!activeVersion) {
-      return this.unmonitoredResult(input.currentMetrics, threshold, 'No active prompt version found.');
+      const r = this.unmonitoredResult(input.currentMetrics, threshold, 'No active prompt version found.');
+      logAutoImprovement("Régression", "monitorActiveVersion — non surveillé", { reason: r.reason });
+      return r;
     }
 
     if (input.currentMetrics.turnCount < monitoringPeriod) {
-      return this.unmonitoredResult(
+      const r = this.unmonitoredResult(
         input.currentMetrics,
         threshold,
         `Monitoring period not complete (${input.currentMetrics.turnCount}/${monitoringPeriod} turns).`,
         activeVersion.version,
       );
+      logAutoImprovement("Régression", "monitorActiveVersion — période incomplète", {
+        reason: r.reason,
+        activeVersion: activeVersion.version,
+      });
+      return r;
     }
 
     const activeIndex = history.versions.findIndex((version) => version.version === activeVersion.version);
     const previousVersion = activeIndex > 0 ? history.versions[activeIndex - 1] : undefined;
 
     if (!previousVersion?.performanceMetrics) {
-      return this.unmonitoredResult(
+      const r = this.unmonitoredResult(
         input.currentMetrics,
         threshold,
         'No previous version baseline metrics found.',
         activeVersion.version,
       );
+      logAutoImprovement("Régression", "monitorActiveVersion — pas de baseline", { reason: r.reason });
+      return r;
     }
 
     const result = await this.detectAndRollback({
@@ -167,6 +208,17 @@ export class RegressionDetector {
         createdAt: activeVersion.timestamp,
         status: 'applied',
       })),
+    });
+
+    logAutoImprovement("Régression", "monitorActiveVersion — comparaison terminée", {
+      monitored: true,
+      rolledBack: result.rolledBack,
+      isRegression: result.isRegression,
+      percentDecrease: result.percentDecrease,
+      previousScore: result.previousScore,
+      currentScore: result.currentScore,
+      activeVersion: activeVersion.version,
+      previousVersion: previousVersion.version,
     });
 
     return {

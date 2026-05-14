@@ -35,6 +35,7 @@ export function DebugPanel() {
       (message.includes("[BrowserControl]") ||
         message.includes("[CommandParser]") ||
         message.includes("[BrowserWindow]") ||
+        message.includes("[AutoAmélioration]") ||
         (message.includes("[App]") && message.includes("🌐")))
     ) {
       const categoryMatch = message.match(/\[([^\]]+)\]/);
@@ -186,7 +187,7 @@ export function DebugPanel() {
           <>
             {/* Filters */}
             <div className="bg-slate-800/50 border-b border-slate-700 p-2 flex gap-2 overflow-x-auto">
-              {["all", "BrowserControl", "CommandParser", "BrowserWindow", "App", "errors", "success"].map(
+              {["all", "BrowserControl", "CommandParser", "BrowserWindow", "AutoAmélioration", "App", "errors", "success"].map(
                 (f) => (
                   <button
                     key={f}
@@ -197,7 +198,15 @@ export function DebugPanel() {
                         : "bg-slate-700 text-slate-400 hover:bg-slate-600"
                     }`}
                   >
-                    {f === "all" ? "Tous" : f === "errors" ? "Erreurs" : f === "success" ? "Succès" : f}
+                    {f === "all"
+                      ? "Tous"
+                      : f === "errors"
+                        ? "Erreurs"
+                        : f === "success"
+                          ? "Succès"
+                          : f === "AutoAmélioration"
+                            ? "Auto-amél."
+                            : f}
                   </button>
                 )
               )}

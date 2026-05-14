@@ -124,3 +124,9 @@ export {
 export type {
   LearningCycleRunnerOptions,
 } from './learningCycleRunner';
+
+export {
+  logAutoImprovement,
+  truncateForLog,
+  AUTO_IMPROVEMENT_LOG_PREFIX,
+} from './autoImprovementLog';

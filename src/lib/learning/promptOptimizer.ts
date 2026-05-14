@@ -1,5 +1,6 @@
 import { loadVectorStore } from '../vectorStore';
 import type { ConversationPattern, ImprovementProposal, PerformanceReport } from './types';
+import { logAutoImprovement } from './autoImprovementLog';
 
 export interface PromptOptimizerOptions {
   userId?: string;
@@ -70,7 +71,7 @@ export class PromptOptimizer {
       .sort((a, b) => this.priorityFor(report, b) - this.priorityFor(report, a))
       .slice(0, maxProposals);
 
-    return selected.map((template, index) => ({
+    const proposals = selected.map((template, index) => ({
       id: `proposal_${template.id}_${this.now()}_${index}`,
       targetSection: template.targetSection,
       proposedChange: this.withSuccessfulPatternHint(template.change, userId),
@@ -89,8 +90,22 @@ export class PromptOptimizer {
         },
       },
       createdAt: this.now(),
-      status: 'pending',
+      status: 'pending' as const,
     }));
+
+    logAutoImprovement("Optimisation", "PromptOptimizer — propositions retenues", {
+      userId: userId ?? "(anon)",
+      maxProposals,
+      templateIds: selected.map((t) => t.id),
+      areas: selected.map((t) => t.area),
+      summaries: proposals.map((p) => ({
+        id: p.id,
+        targetSection: p.targetSection,
+        justification: p.justification.slice(0, 200),
+      })),
+    });
+
+    return proposals;
   }
 
   extractSuccessfulPatterns(userId: string, limit: number = 3): string[] {

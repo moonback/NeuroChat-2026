@@ -15,7 +15,9 @@ import { embedAndStore, clearAllVectors } from "./vectorStore";
 import { clearWeeklySummaries } from "./conversationSummary";
 import { FeedbackCollector } from "./learning/feedbackCollector";
 import { getLearningStorage } from "./learning/storage";
+import { logAutoImprovement } from "./learning/autoImprovementLog";
 import { runLearningCycleForUser } from "./learning/learningCycleRunner";
+import type { LearningCycleStatus } from "./learning/types";
 
 console.log("[ConversationMemory] ✅ Imports chargés");
 
@@ -91,10 +93,39 @@ function incrementLearningTurnCount(userName: string): number {
 
 async function maybeTriggerAutomaticLearning(userName: string, turnCount: number): Promise<void> {
   const learningData = await getLearningStorage(userName).load();
-  if (!learningData.config.enabled) return;
-  if (!shouldTriggerLearningCycle(turnCount, learningData.config.triggerAfterTurns)) return;
+  if (!learningData.config.enabled) {
+    return;
+  }
+  if (!shouldTriggerLearningCycle(turnCount, learningData.config.triggerAfterTurns)) {
+    return;
+  }
 
-  await getAutomaticLearningRunner()(userName);
+  logAutoImprovement("Déclenchement", "Seuil de tours atteint — lancement cycle automatique", {
+    userName,
+    turnCount,
+    triggerAfterTurns: learningData.config.triggerAfterTurns,
+    maxCyclesPerDay: learningData.config.maxCyclesPerDay,
+  });
+
+  try {
+    const status = (await getAutomaticLearningRunner()(userName)) as LearningCycleStatus;
+    logAutoImprovement("Déclenchement", "Cycle automatique terminé", {
+      userName,
+      success: status.success,
+      phase: status.phase,
+      proposalsGenerated: status.proposalsGenerated,
+      proposalsValidated: status.proposalsValidated,
+      proposalsApplied: status.proposalsApplied,
+      errors: status.errors,
+      cycleId: status.cycleId,
+    });
+  } catch (err) {
+    console.error("[ConversationMemory] ❌ Cycle d'auto-amélioration:", err);
+    logAutoImprovement("Déclenchement", "Cycle automatique — exception", {
+      userName,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 function getFeedbackCollector(userName: string): FeedbackCollector {

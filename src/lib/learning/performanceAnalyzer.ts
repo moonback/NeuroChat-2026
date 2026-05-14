@@ -6,6 +6,7 @@ import type {
   PerformanceReport,
 } from './types';
 import type { ConversationTurn } from '../conversationMemory';
+import { logAutoImprovement } from './autoImprovementLog';
 
 interface AnalyzeInput {
   turns: ConversationTurn[];
@@ -22,7 +23,7 @@ export class PerformanceAnalyzer {
     const patterns = this.detectPatterns(input.feedbackSignals);
     const improvementAreas = this.prioritizeImprovementAreas(patterns);
 
-    return {
+    const report = {
       metrics,
       patterns,
       improvementAreas,
@@ -35,6 +36,26 @@ export class PerformanceAnalyzer {
           },
       timestamp: now,
     };
+
+    logAutoImprovement("Analyse", "PerformanceAnalyzer.analyze — rapport", {
+      turnCount: input.turns.length,
+      feedbackSignalCount: input.feedbackSignals.length,
+      compositeQualityScore: metrics.compositeQualityScore,
+      concisionRatio: metrics.concisionRatio,
+      contextAwareness: metrics.contextAwareness,
+      proactivity: metrics.proactivity,
+      userSatisfaction: metrics.userSatisfaction,
+      improvementAreas,
+      patterns: patterns.slice(0, 12).map((p) => ({
+        type: p.type,
+        description: p.description,
+        frequency: p.frequency,
+        severity: p.severity,
+      })),
+      baselineComparison: report.baselineComparison,
+    });
+
+    return report;
   }
 
   computeMetrics(turns: ConversationTurn[], feedbackSignals: FeedbackSignal[], timestamp = Date.now()): PerformanceMetrics {
