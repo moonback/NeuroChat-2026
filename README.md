@@ -28,20 +28,44 @@ NeuroChat est un assistant personnel professionnel multimodal qui vit sur votre 
 
 ---
 
-## ✨ Fonctionnalités Principales
+## ✨ Fonctionnalités Ultra-Détaillées
 
-### 👤 Pour l'Utilisateur
-- **Vision Multimodale** : Partage d'écran en temps réel et capture caméra pour une assistance visuelle contextuelle.
-- **Voix Temps Réel** : Interaction vocale fluide (STT/TTS) avec détection d'activité vocale (VAD) et réduction de bruit.
-- **Contrôle du Navigateur** : L'assistant peut naviguer sur le web, rechercher des informations et interagir avec les pages pour vous.
-- **Mémoire Sémantique (RAG)** : Recherche intelligente dans tout l'historique de vos conversations passées.
-- **Synthèses Hebdomadaires** : Rapports automatiques sur vos activités, progrès et thèmes récurrents.
+### 👁️ Vision Multimodale Contextuelle
+NeuroChat ne se contente pas de discuter ; il voit votre environnement de travail pour mieux vous aider.
+- **Partage d'écran en temps réel** : Capture intelligente via `desktopCapturer` d'Electron permettant à l'IA d'analyser vos documents, codes ou présentations.
+- **Gestion Multicaméra** : Sélecteur dynamique permettant de basculer entre la caméra frontale, arrière ou des périphériques externes.
+- **Analyse de Flux Vidéo** : Envoi de frames JPEG optimisées au modèle Gemini pour une compréhension visuelle fluide et à faible latence.
 
-### 💻 Pour le Développeur / Administrateur
-- **Système d'Auto-Amélioration** : Cycle d'apprentissage automatique qui optimise le prompt système basé sur les feedbacks utilisateurs.
-- **Monitoring de Régression** : Détection automatique des baisses de performance après une mise à jour de prompt, avec rollback sécurisé.
-- **Coffre de Conversations** : Interface de gestion et d'exploration de la mémoire persistante (LocalStorage chiffré).
-- **Architecture Modulaire** : Services isolés pour l'audio, la vidéo, le navigateur et l'IA.
+### 🎙️ Pipeline Audio Haute Performance
+Une interaction naturelle grâce à un traitement sonore de niveau professionnel.
+- **Flux Bidirectionnel (Full Duplex)** : Parlez et écoutez en même temps avec une latence minimale.
+- **VAD (Voice Activity Detection)** : Détection intelligente du silence et de la parole pour éviter les interruptions inutiles.
+- **Réduction de Bruit & Écho** : Traitement audio avancé pour une clarté optimale même dans des environnements bruyants.
+- **Synthèse Vocale (TTS)** : Retour vocal naturel pour une expérience mains-libres complète.
+
+### 🌐 Contrôle Autonome du Navigateur
+L'assistant peut agir directement sur le web pour accomplir des tâches complexes.
+- **Navigation Web** : Recherche active sur Google, exploration de sites et extraction d'informations ciblées.
+- **Interactions Dynamiques** : Capacité de cliquer sur des boutons, remplir des formulaires et scroller sur les pages.
+- **Parsing de Commandes** : Moteur interne de traduction du langage naturel en actions techniques structurées.
+
+### 🧠 Mémoire Long-Terme & RAG (Retrieval Augmented Generation)
+NeuroChat se souvient de tout ce qui est important pour vous.
+- **Vector Store Local** : Stockage sécurisé des embeddings (`gemini-embedding-001`) directement sur votre machine via LocalStorage.
+- **Recherche Sémantique** : Recherche par "sens" plutôt que par mots-clés simples dans tout l'historique des conversations.
+- **Gestion de Fenêtre de Contexte** : Injection intelligente des souvenirs les plus pertinents dans le prompt de l'IA pour une continuité parfaite.
+- **Synthèses Automatiques** : Génération de résumés de sessions et de rapports hebdomadaires détaillés pour suivre vos progrès.
+
+### 🚀 NeuroLearning : Système d'Auto-Évolution
+Le premier assistant qui apprend de ses erreurs et s'améliore tout seul.
+- **Collecte de Feedback** : Analyse discrète des réactions de l'utilisateur pour évaluer la qualité des réponses.
+- **Cycle d'Apprentissage (Learning Cycle)** : Analyse périodique de l'historique pour générer des propositions d'amélioration du prompt système.
+- **Monitoring de Régression** : Surveillance constante des performances après chaque mise à jour. Si une version est moins efficace, le système effectue un **Rollback automatique**.
+- **Historique des Versions** : Suivi complet de l'évolution de la personnalité et des capacités de l'IA.
+
+### 🔒 Privacy & Desktop Native
+- **100% Local Data** : Vos conversations, préférences et vecteurs ne quittent jamais votre machine (stockage LocalStorage/Electron).
+- **Intégration OS** : Accès direct aux capacités du système sans les limitations des navigateurs standards.
 
 ---
 
