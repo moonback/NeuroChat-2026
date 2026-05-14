@@ -54,6 +54,7 @@ export function useBrowserControl() {
    * Active ou désactive le contrôle du navigateur
    */
   const toggleBrowserControl = useCallback((enabled: boolean) => {
+    console.log(`🔄 [BrowserControl] Contrôle ${enabled ? "activé" : "désactivé"}`);
     setState((prev) => ({
       ...prev,
       isEnabled: enabled,
@@ -64,6 +65,7 @@ export function useBrowserControl() {
    * Ouvre la fenêtre du navigateur intégré
    */
   const openBrowserWindow = useCallback((url?: string) => {
+    console.log("🪟 [BrowserControl] Ouverture de la fenêtre:", url);
     setState((prev) => ({
       ...prev,
       browserWindowOpen: true,
@@ -75,6 +77,7 @@ export function useBrowserControl() {
    * Ferme la fenêtre du navigateur intégré
    */
   const closeBrowserWindow = useCallback(() => {
+    console.log("🚪 [BrowserControl] Fermeture de la fenêtre");
     setState((prev) => ({
       ...prev,
       browserWindowOpen: false,
@@ -85,6 +88,7 @@ export function useBrowserControl() {
    * Navigue vers une URL dans la fenêtre intégrée
    */
   const navigateInBrowser = useCallback((url: string) => {
+    console.log("🧭 [BrowserControl] Navigation dans le navigateur:", url);
     setState((prev) => ({
       ...prev,
       currentUrl: url,
@@ -97,7 +101,10 @@ export function useBrowserControl() {
    */
   const executeAction = useCallback(
     async (action: BrowserAction): Promise<BrowserActionResult> => {
+      console.log("🚀 [BrowserControl] Exécution de l'action:", action);
+      
       if (!controllerRef.current) {
+        console.error("❌ [BrowserControl] Contrôleur non initialisé");
         return {
           success: false,
           error: "Le contrôle du navigateur n'est pas activé",
@@ -111,19 +118,25 @@ export function useBrowserControl() {
 
       // Si c'est une navigation, ouvrir la fenêtre intégrée
       if (action.type === "navigate" && action.params?.url) {
+        console.log("🌐 [BrowserControl] Navigation vers:", action.params.url);
         navigateInBrowser(action.params.url);
+        
+        const result = { success: true, data: { navigated: true, url: action.params.url } };
+        console.log("✅ [BrowserControl] Navigation réussie:", result);
         
         setState((prev) => ({
           ...prev,
           currentAction: null,
-          lastResult: { success: true, data: { navigated: true, url: action.params?.url } },
+          lastResult: result,
           actionHistory: [...prev.actionHistory, action].slice(-20),
         }));
 
-        return { success: true, data: { navigated: true, url: action.params.url } };
+        return result;
       }
 
+      console.log("⚙️ [BrowserControl] Exécution via le contrôleur");
       const result = await controllerRef.current.executeAction(action);
+      console.log("📊 [BrowserControl] Résultat:", result);
 
       setState((prev) => ({
         ...prev,

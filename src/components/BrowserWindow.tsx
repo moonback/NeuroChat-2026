@@ -25,15 +25,23 @@ export function BrowserWindow({
   const [inputUrl, setInputUrl] = useState(currentUrl);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  console.log("🪟 [BrowserWindow] Rendu:", { isOpen, currentUrl });
+
   useEffect(() => {
     setInputUrl(currentUrl);
+    console.log("🔄 [BrowserWindow] URL mise à jour:", currentUrl);
   }, [currentUrl]);
+
+  useEffect(() => {
+    console.log("👁️ [BrowserWindow] État d'ouverture changé:", isOpen);
+  }, [isOpen]);
 
   const handleNavigate = () => {
     let url = inputUrl.trim();
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       url = "https://" + url;
     }
+    console.log("🧭 [BrowserWindow] Navigation manuelle vers:", url);
     onNavigate(url);
   };
 

@@ -115,6 +115,8 @@ const COMMAND_PATTERNS = [
  * Parse le texte de l'assistant pour détecter des commandes de contrôle du navigateur
  */
 export function parseAssistantResponse(text: string): ParsedCommand {
+  console.log("🔍 [CommandParser] Analyse du texte:", text);
+  
   let cleanText = text;
   let detectedAction: BrowserAction | null = null;
 
@@ -123,9 +125,15 @@ export function parseAssistantResponse(text: string): ParsedCommand {
     
     if (matches.length > 0) {
       const match = matches[0];
+      console.log("✅ [CommandParser] Pattern détecté:", {
+        type: pattern.type,
+        match: match[0],
+        fullMatch: match,
+      });
       
       // Extraire les paramètres de la commande
       const params = pattern.extract(match);
+      console.log("📦 [CommandParser] Paramètres extraits:", params);
       
       // Créer l'action
       detectedAction = {
@@ -134,14 +142,22 @@ export function parseAssistantResponse(text: string): ParsedCommand {
         requiresConfirmation: pattern.type === "navigate" || pattern.type === "submit_form",
       };
 
+      console.log("🎯 [CommandParser] Action créée:", detectedAction);
+
       // Nettoyer le texte en retirant la commande
       cleanText = text.replace(match[0], "").trim();
       
       // Nettoyer les doubles espaces et ponctuations orphelines
       cleanText = cleanText.replace(/\s+/g, " ").replace(/\s+([.,!?])/g, "$1");
       
+      console.log("✂️ [CommandParser] Texte nettoyé:", cleanText);
+      
       break; // On ne traite qu'une commande à la fois
     }
+  }
+
+  if (!detectedAction) {
+    console.log("❌ [CommandParser] Aucune commande détectée dans:", text);
   }
 
   return {
