@@ -47,6 +47,13 @@ export class SafetyConstraintManager {
   ): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
+    // Empty or malformed prompts cannot be safely section-validated.
+    if (this.getSectionNames(originalPrompt).length === 0 || this.getSectionNames(modifiedPrompt).length === 0) {
+      errors.push(
+        `Section "${targetSection}" is not in the list of modifiable sections because the prompt contains no valid section markers.`
+      );
+    }
+
     // Check if target section is immutable
     if (this.isImmutableSection(targetSection)) {
       errors.push(

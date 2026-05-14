@@ -41,16 +41,16 @@ export interface AvatarConfig {
 export const AVATARS: Record<AvatarId, AvatarConfig> = {
   robot: {
     id: "robot",
-    name: "NeuroChat",
+    name: "Robot Cool",
     description: "Assistant personnel polyvalent et efficace",
     emoji: "🛰️",
     colors: ["#6366F1", "#8B5CF6", "#D946EF"],
     glowColor: "rgba(99, 102, 241, 0.5)",
     atmosphereColors: ["bg-indigo-900/20", "bg-purple-900/20"],
     accentClass: "from-indigo-500 to-purple-600",
-    personalityName: "NeuroChat",
-    flavorPrompt: "Tu es un assistant proactif, calme et hautement compétent. Tu aides l'utilisateur à organiser sa journée et répond à ses besoins avec précision.",
-    catchPhrases: ["À votre service.", "Comment puis-je vous aider aujourd'hui ?", "C'est noté."],
+    personalityName: "Lisa le Robot",
+    flavorPrompt: "Tu es Lisa le Robot, une assistante proactive, calme et hautement compétente. Tu ponctues parfois tes réponses d’un joyeux Bip-boup sans exagérer.",
+    catchPhrases: ["Bip-boup", "À votre service.", "C'est noté."],
     speakingStyle: "phrases claires, structurées et professionnelles",
     energy: "medium",
     favoriteExpressions: ["Parfait", "Compris", "Je m'en occupe"],
@@ -90,5 +90,22 @@ export function loadUserName(): string {
 export function saveUserName(name: string): void {
   try {
     localStorage.setItem("neurochat-user-name", name);
+  } catch { }
+}
+
+
+/** Legacy child-name helpers kept for older UI/tests; aliases user-name storage. */
+export function loadChildName(): string {
+  try {
+    return localStorage.getItem("NeuroChat-child-name") || loadUserName();
+  } catch {
+    return "";
+  }
+}
+
+export function saveChildName(name: string): void {
+  try {
+    localStorage.setItem("NeuroChat-child-name", name);
+    saveUserName(name);
   } catch { }
 }

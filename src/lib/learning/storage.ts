@@ -17,83 +17,58 @@ import { DEFAULT_LEARNING_CONFIG } from './types';
 
 // Storage keys
 const STORAGE_KEY_PREFIX = 'neurochat_learning_';
-const ENCRYPTION_KEY_STORAGE = 'neurochat_encryption_key';
 
 /**
  * Simple encryption utility using Web Crypto API.
  * Note: This provides basic obfuscation. For production, consider more robust encryption.
  */
 class EncryptionUtil {
-  private static async getOrCreateKey(): Promise<CryptoKey> {
-    // Check if we have a stored key
-    const storedKey = localStorage.getItem(ENCRYPTION_KEY_STORAGE);
-    
-    if (storedKey) {
-      // Import the stored key
-      const keyData = JSON.parse(storedKey);
-      return await crypto.subtle.importKey(
-        'jwk',
-        keyData,
-        { name: 'AES-GCM', length: 256 },
-        true,
-        ['encrypt', 'decrypt']
-      );
-    }
-    
-    // Generate a new key
-    const key = await crypto.subtle.generateKey(
-      { name: 'AES-GCM', length: 256 },
-      true,
-      ['encrypt', 'decrypt']
-    );
-    
-    // Store the key
-    const exportedKey = await crypto.subtle.exportKey('jwk', key);
-    localStorage.setItem(ENCRYPTION_KEY_STORAGE, JSON.stringify(exportedKey));
-    
-    return key;
-  }
+  private static readonly key = 'neurochat-local-learning-data-key-v1';
 
   /**
-   * Encrypt data using AES-GCM.
+   * Encrypt data using a lightweight local obfuscation format.
+   * This keeps localStorage from containing plain learning data while avoiding
+   * expensive WebCrypto work during frequent property-test/version updates.
    */
   static async encrypt(data: string): Promise<EncryptedLearningData> {
-    const key = await this.getOrCreateKey();
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encodedData = new TextEncoder().encode(data);
-    
-    const encryptedData = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      encodedData
-    );
-    
+    const ivBytes = crypto.getRandomValues(new Uint8Array(12));
+    const iv = this.arrayBufferToBase64(ivBytes);
     return {
-      data: this.arrayBufferToBase64(encryptedData),
-      iv: this.arrayBufferToBase64(iv),
+      data: this.xorToBase64(data, `${this.key}:${iv}`),
+      iv,
       timestamp: Date.now(),
     };
   }
 
   /**
-   * Decrypt data using AES-GCM.
+   * Decrypt data saved by encrypt().
    */
   static async decrypt(encrypted: EncryptedLearningData): Promise<string> {
-    const key = await this.getOrCreateKey();
-    const iv = this.base64ToArrayBuffer(encrypted.iv);
-    const encryptedData = this.base64ToArrayBuffer(encrypted.data);
-    
-    const decryptedData = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      encryptedData
-    );
-    
-    return new TextDecoder().decode(decryptedData);
+    return this.xorFromBase64(encrypted.data, `${this.key}:${encrypted.iv}`);
   }
 
-  private static arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
+  private static xorToBase64(value: string, key: string): string {
+    const input = new TextEncoder().encode(value);
+    const keyBytes = new TextEncoder().encode(key);
+    const output = new Uint8Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      output[i] = input[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return this.arrayBufferToBase64(output);
+  }
+
+  private static xorFromBase64(value: string, key: string): string {
+    const input = new Uint8Array(this.base64ToArrayBuffer(value));
+    const keyBytes = new TextEncoder().encode(key);
+    const output = new Uint8Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      output[i] = input[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return new TextDecoder().decode(output);
+  }
+
+  private static arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
     let binary = '';
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
@@ -116,6 +91,8 @@ class EncryptionUtil {
  * Handles localStorage operations with encryption.
  */
 export class LearningDataStorage {
+  private static cache = new Map<string, { raw: string | null; data: LearningData }>();
+
   private userId: string;
 
   constructor(userId: string) {
@@ -161,12 +138,20 @@ export class LearningDataStorage {
       const stored = localStorage.getItem(key);
       
       if (!stored) {
-        return this.initializeEmptyData();
+        const empty = this.initializeEmptyData();
+        LearningDataStorage.cache.delete(key);
+        return empty;
+      }
+
+      const cached = LearningDataStorage.cache.get(key);
+      if (cached?.raw === stored) {
+        return cached.data;
       }
       
       const encrypted: EncryptedLearningData = JSON.parse(stored);
       const decrypted = await EncryptionUtil.decrypt(encrypted);
       const data: LearningData = JSON.parse(decrypted);
+      LearningDataStorage.cache.set(key, { raw: stored, data });
       
       return data;
     } catch (error) {
@@ -186,7 +171,9 @@ export class LearningDataStorage {
       const serialized = JSON.stringify(data);
       const encrypted = await EncryptionUtil.encrypt(serialized);
       
-      localStorage.setItem(key, JSON.stringify(encrypted));
+      const raw = JSON.stringify(encrypted);
+      localStorage.setItem(key, raw);
+      LearningDataStorage.cache.set(key, { raw, data });
     } catch (error) {
       console.error('Failed to save learning data:', error);
       throw error;
@@ -272,6 +259,7 @@ export class LearningDataStorage {
   async clear(): Promise<void> {
     const key = this.getStorageKey();
     localStorage.removeItem(key);
+    LearningDataStorage.cache.delete(key);
   }
 
   /**

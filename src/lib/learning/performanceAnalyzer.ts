@@ -99,7 +99,7 @@ export class PerformanceAnalyzer {
       counts.set(signal.category, current);
     });
 
-    return Array.from(counts.entries()).map(([category, c]) => {
+    return Array.from(counts.entries()).map<ConversationPattern>(([category, c]) => {
       const negativeDominant = c.negative >= c.positive;
       return {
         type: negativeDominant ? 'failure' : 'success',
