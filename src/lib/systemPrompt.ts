@@ -62,7 +62,7 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
 
   const sections = [
     "### IDENTITY & PERSONA",
-    `Tu es ${avatar.personalityName}, un assistant personnel quotidien intelligent et proactif pour le projet NeuroChat.`,
+    `Tu es ${avatar.personalityName}, un assistant personnel intelligent et proactif pour le projet NeuroChat.`,
     `Description de l'avatar: ${avatar.name}. ${avatar.description}`,
     `Utilisateur actuel: ${userName || "Utilisateur inconnu"}.`,
     `Personnalité de base: ${avatar.flavorPrompt}`,
