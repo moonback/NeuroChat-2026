@@ -24,6 +24,7 @@ interface SessionOptions {
   onRecordingStart: (sendInput: (base64: string, type: 'audio' | 'video') => void) => void;
   onStopRecording: () => void;
   enableVideo?: boolean;
+  browserControlEnabled?: boolean;
 }
 
 export function useGeminiSession() {
@@ -83,7 +84,7 @@ export function useGeminiSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo } = options;
+    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo, browserControlEnabled } = options;
     
     setStatus("connecting");
     setErrorMsg("");
@@ -237,6 +238,7 @@ export function useGeminiSession() {
                   userName: userName ?? undefined,
                   ragContext,
                   weeklySummary,
+                  browserControlEnabled,
                 }),
               }],
             },

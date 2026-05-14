@@ -33,8 +33,10 @@ export interface WeeklySummary {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const WEEKLY_SUMMARIES_KEY = "neurochat_v2_weekly_summaries";
+const SUMMARY_COOLDOWN_KEY = "neurochat_v2_summary_cooldown";
 /** Minimum turns in a session before we bother summarising it */
-const MIN_TURNS_FOR_SUMMARY = 4;
+const MIN_TURNS_FOR_SUMMARY = 2;
+const RETRY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -140,7 +142,7 @@ export async function generateSessionSummary(
     const response = await chatWithOpenRouter([{ role: "user", content: prompt }]);
     return response?.trim() ?? null;
   } catch (err) {
-    console.error("[Summary] Session summary generation failed (OpenRouter):", err);
+    console.error(`[Summary] Session summary generation failed (OpenRouter) for session ${session.id}:`, err);
     return null;
   }
 }
@@ -168,7 +170,10 @@ export async function generateWeeklySummary(
   if (weekSessions.length === 0) return null;
 
   const totalTurns = weekSessions.reduce((n, s) => n + s.turns.length, 0);
-  if (totalTurns < MIN_TURNS_FOR_SUMMARY) return null;
+  if (totalTurns < MIN_TURNS_FOR_SUMMARY) {
+    console.log(`[Summary] Skipping weekly summary for ${targetWeek}: too few turns (${totalTurns}/${MIN_TURNS_FOR_SUMMARY})`);
+    return null;
+  }
 
   // Build a condensed multi-session transcript
   const transcriptParts = weekSessions.map((s) => {
@@ -244,7 +249,30 @@ export async function getOrGenerateCurrentWeekSummary(
     !existing || Date.now() - existing.generatedAt > 60 * 60 * 1000;
 
   if (isStale) {
-    return generateWeeklySummary(sessions, userName, currentWeek);
+    // Check cooldown
+    const lastAttempt = parseInt(localStorage.getItem(SUMMARY_COOLDOWN_KEY) || "0");
+    if (Date.now() - lastAttempt < RETRY_COOLDOWN_MS) {
+      console.log("[Summary] Skipping generation: cooldown active (API failure recently)");
+      return existing;
+    }
+
+    const totalTurns = sessions.reduce((n, s) => n + s.turns.length, 0);
+    if (totalTurns < MIN_TURNS_FOR_SUMMARY) {
+      // Don't even try if we know it will fail the threshold
+      return existing;
+    }
+
+    const result = await generateWeeklySummary(sessions, userName, currentWeek);
+    
+    if (!result) {
+      // Record failure timestamp to trigger cooldown
+      localStorage.setItem(SUMMARY_COOLDOWN_KEY, Date.now().toString());
+    } else {
+      // Success, clear cooldown
+      localStorage.removeItem(SUMMARY_COOLDOWN_KEY);
+    }
+    
+    return result || existing;
   }
 
   return existing;

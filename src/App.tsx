@@ -88,6 +88,7 @@ export default function App() {
       avatarId,
       userName,
       enableVideo: cameraActive,
+      browserControlEnabled,
       onAudioResponse: async (base64, aiText) => {
         if (base64) playAudio(base64);
         // Accumule les fragments de transcription IA (outputTranscription)

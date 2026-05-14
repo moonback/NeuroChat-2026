@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
@@ -47,25 +47,15 @@ export function ConversationVault({
   onClearMemory,
   accentColor,
 }: ConversationVaultProps) {
-  // Early return AVANT tout hook ou log pour éviter les rendus inutiles
-  if (!isOpen) {
-    return null;
-  }
-  
-  console.log(`[ConversationVault] 🏛️ Rendu du Coffre - userName: ${userName}`);
-  
   const [activeTab, setActiveTab] = useState<Tab>("sessions");
   const [weeklySummaries, setWeeklySummaries] = useState<WeeklySummary[]>(
     () => {
       const summaries = loadWeeklySummaries();
-      console.log(`[ConversationVault] 📚 ${summaries.length} synthèse(s) hebdomadaire(s) chargée(s)`);
       return summaries;
     }
   );
   const [generatingWeek, setGeneratingWeek] = useState<string | null>(null);
   const [learningRefreshKey, setLearningRefreshKey] = useState(0);
-  
-  console.log(`[ConversationVault] 📊 Données de mémoire:`, memoryData);
 
   // ── Weekly summary helpers ──────────────────────────────────────────────────
 
@@ -81,7 +71,8 @@ export function ConversationVault({
         console.log("[ConversationVault] ✅ Synthèse générée avec succès");
         setWeeklySummaries(loadWeeklySummaries());
       } else {
-        console.log("[ConversationVault] ⚠️ Aucune synthèse générée");
+        const totalTurns = sessions.reduce((n, s) => n + s.turns.length, 0);
+        console.log(`[ConversationVault] ⚠️ Aucune synthèse générée (Seuil: ${totalTurns}/2 tours)`);
       }
     } catch (err) {
       console.error("[ConversationVault] ❌ Échec de la génération hebdomadaire:", err);
@@ -91,19 +82,38 @@ export function ConversationVault({
     }
   };
 
-  // Group sessions by ISO week for the weekly tab
-  const sessionsByWeek = (memoryData?.sessions ?? []).reduce(
-    (acc: Record<string, ConversationSession[]>, s: ConversationSession) => {
-      const wk = getWeekId(new Date(s.startTime));
-      if (!acc[wk]) acc[wk] = [];
-      acc[wk].push(s);
-      return acc;
-    },
-    {}
-  );
+  useEffect(() => {
+    if (isOpen) {
+      console.log(`[ConversationVault] 🏛️ Rendu du Coffre - userName: ${userName}`);
+      console.log(`[ConversationVault] 📊 Données de mémoire:`, memoryData);
+    }
+  }, [isOpen, userName, memoryData]);
 
-  const weekIds = Object.keys(sessionsByWeek).sort().reverse();
-  console.log(`[ConversationVault] 📅 ${weekIds.length} semaine(s) avec des sessions`);
+  // Group sessions by ISO week for the weekly tab
+  const { sessionsByWeek, weekIds } = useMemo(() => {
+    const grouped = (memoryData?.sessions ?? []).reduce(
+      (acc: Record<string, ConversationSession[]>, s: ConversationSession) => {
+        const wk = getWeekId(new Date(s.startTime));
+        if (!acc[wk]) acc[wk] = [];
+        acc[wk].push(s);
+        return acc;
+      },
+      {}
+    );
+    const ids = Object.keys(grouped).sort().reverse();
+    return { sessionsByWeek: grouped, weekIds: ids };
+  }, [memoryData?.sessions]);
+
+  useEffect(() => {
+    if (isOpen) {
+      console.log(`[ConversationVault] 📅 ${weekIds.length} semaine(s) avec des sessions`);
+    }
+  }, [isOpen, weekIds.length]);
+
+  // Early return APRÈS tous les hooks
+  if (!isOpen) {
+    return null;
+  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

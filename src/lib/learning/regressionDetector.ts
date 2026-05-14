@@ -159,7 +159,7 @@ export class RegressionDetector {
     });
 
     if (!activeVersion) {
-      const r = this.unmonitoredResult(input.currentMetrics, threshold, 'No active prompt version found.');
+      const r = this.unmonitoredResult(input.currentMetrics, threshold, 'Initial baseline not established (no active version found).');
       logAutoImprovement("Régression", "monitorActiveVersion — non surveillé", { reason: r.reason });
       return r;
     }

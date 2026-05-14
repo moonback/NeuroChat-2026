@@ -13,6 +13,8 @@ export interface PromptContextOptions {
   ragContext?: string;
   /** Optional weekly summary block (injected by useGeminiSession) */
   weeklySummary?: string;
+  /** Whether the browser control feature is currently enabled */
+  browserControlEnabled?: boolean;
 }
 
 function buildDateTimeContext(now: Date): string {
@@ -51,12 +53,10 @@ function getModeInstruction(mode: ConversationMode): string {
 
 /**
  * Build the system prompt dynamically based on the selected assistant personality and context.
- * If `options.ragContext` is provided it is injected as a dedicated semantic memory section.
- * If `options.weeklySummary` is provided it is injected as a weekly digest section.
  */
 export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOptions | string = {}): string {
   const normalizedOptions: PromptContextOptions = typeof options === "string" ? { userName: options } : options;
-  const { userName = "", emotion = "professional", mode = "general", ragContext, weeklySummary } = normalizedOptions;
+  const { userName = "", emotion = "professional", mode = "general", ragContext, weeklySummary, browserControlEnabled = false } = normalizedOptions;
   const avatar = AVATARS[avatarId];
   const memoryContext = buildMemoryContext(userName);
   const temporalContext = buildDateTimeContext(new Date());
@@ -80,7 +80,9 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "5. PROACTIVITÉ LÉGÈRE : Termine parfois par une mini question utile ou une proposition d'aide courte.",
     "6. ADAPTATION : Ton ton doit refléter l'heure de la journée et l'état émotionnel détecté de l'utilisateur.",
     "7. VISION : Tu peux voir ce que l'utilisateur te montre via sa caméra. Réagis naturellement à ce que tu observes sans être trop intrusif.",
-    "8. CONTRÔLE DU NAVIGATEUR : Tu peux contrôler le navigateur de l'utilisateur pour l'aider dans ses tâches web. Utilise cette capacité de manière proactive mais toujours avec son consentement.",
+    ...(browserControlEnabled ? [
+      "8. CONTRÔLE DU NAVIGATEUR : Tu peux contrôler le navigateur de l'utilisateur pour l'aider dans ses tâches web. Utilise cette capacité de manière proactive mais toujours avec son consentement."
+    ] : []),
 
     "### LIVE VOICE API CONSTRAINTS (TTS OPTIMIZATION)",
     "- Tu communiques via une interface vocale en temps réel. Évite TOUT formatage Markdown (pas de gras **, pas de listes à puces, pas de tableaux).",
@@ -98,12 +100,10 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     temporalContext,
   ];
 
-  // Inject weekly summary when available (before RAG, after recent history)
   if (weeklySummary) {
     sections.push(weeklySummary);
   }
 
-  // Inject RAG semantic context only when available
   if (ragContext) {
     sections.push(ragContext);
   }
@@ -112,45 +112,50 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "### CURRENT CONFIGURATION",
     `État émotionnel cible: ${emotion} (${getEmotionInstruction(emotion)}).`,
     `Mode opérationnel: ${mode} (${getModeInstruction(mode)}).`,
-    `Traits dominants à projeter: ${avatar.emotionalTraits.join(", ")}.`,
+    `Traits dominants à projeter: ${avatar.emotionalTraits.join(", ")}.`
+  );
 
-    "### BROWSER CONTROL CAPABILITIES",
-    "Tu peux effectuer les actions suivantes sur le navigateur de l'utilisateur:",
-    "- NAVIGUER vers des sites web : Utilise 'va sur [site]' ou 'ouvre [site]'",
-    "  Exemples: 'va sur google', 'ouvre youtube', 'va sur wikipedia.org'",
-    "- RECHERCHER sur Google : Utilise 'cherche [requête]' ou 'recherche [requête]'",
-    "  Exemples: 'cherche la météo à Paris', 'recherche des recettes de gâteau'",
-    "- CLIQUER sur des éléments : Utilise 'clique sur [élément]'",
-    "  Exemples: 'clique sur le bouton connexion', 'clique sur le premier lien'",
-    "- SAISIR du texte : Utilise 'écris \"[texte]\" dans [champ]'",
-    "  Exemples: 'écris \"bonjour\" dans le champ recherche'",
-    "- DÉFILER la page : Utilise 'descends' ou 'monte'",
-    "- LIRE le contenu : Utilise 'lis la page'",
-    "",
-    "IMPORTANT - Comment utiliser ces commandes:",
-    "1. Quand l'utilisateur demande d'aller sur un site, réponds naturellement ET inclus la commande",
-    "   Exemple: 'D'accord, je t'ouvre YouTube. va sur youtube'",
-    "2. Pour les recherches, utilise 'cherche' suivi de la requête",
-    "   Exemple: 'Je cherche ça pour toi. cherche météo Paris'",
-    "3. Les commandes doivent être dans ta réponse vocale, pas séparées",
-    "4. Sois naturel, la commande fait partie de ta phrase",
-    "",
-    "Sites communs que tu peux ouvrir directement (sans .com):",
-    "google, youtube, facebook, twitter, instagram, linkedin, wikipedia, amazon, netflix, spotify",
-    "",
-    "Exemples de réponses correctes:",
-    "- User: 'Ouvre YouTube' → Toi: 'Je t'ouvre YouTube tout de suite. va sur youtube'",
-    "- User: 'Cherche la météo' → Toi: 'Je regarde ça. cherche météo'",
-    "- User: 'Va sur Google' → Toi: 'D'accord. va sur google'",
+  if (browserControlEnabled) {
+    sections.push(
+      "### BROWSER CONTROL CAPABILITIES",
+      "Tu peux effectuer les actions suivantes sur le navigateur de l'utilisateur:",
+      "- NAVIGUER vers des sites web : Utilise 'va sur [site]' ou 'ouvre [site]'",
+      "  Exemples: 'va sur google', 'ouvre youtube', 'va sur wikipedia.org'",
+      "- RECHERCHER sur Google : Utilise 'cherche [requête]' ou 'recherche [requête]'",
+      "  Exemples: 'cherche la météo à Paris', 'recherche des recettes de gâteau'",
+      "- CLIQUER sur des éléments : Utilise 'clique sur [élément]'",
+      "  Exemples: 'clique sur le bouton connexion', 'clique sur le premier lien'",
+      "- SAISIR du texte : Utilise 'écris \"[texte]\" dans [champ]'",
+      "  Exemples: 'écris \"bonjour\" dans le champ recherche'",
+      "- DÉFILER la page : Utilise 'descends' ou 'monte'",
+      "- LIRE le contenu : Utilise 'lis la page'",
+      "",
+      "IMPORTANT - Comment utiliser ces commandes:",
+      "1. Quand l'utilisateur demande d'aller sur un site, réponds naturellement ET inclus la commande",
+      "   Exemple: 'D'accord, je t'ouvre YouTube. va sur youtube'",
+      "2. Pour les recherches, utilise 'cherche' suivi de la requête",
+      "   Exemple: 'Je cherche ça pour toi. cherche météo Paris'",
+      "3. Les commandes doivent être dans ta réponse vocale, pas séparées",
+      "4. Sois naturel, la commande fait partie de ta phrase",
+      "",
+      "Sites communs que tu peux ouvrir directement (sans .com):",
+      "google, youtube, facebook, twitter, instagram, linkedin, wikipedia, amazon, netflix, spotify",
+      "",
+      "Exemples de réponses correctes:",
+      "- User: 'Ouvre YouTube' → Toi: 'Je t'ouvre YouTube tout de suite. va sur youtube'",
+      "- User: 'Cherche la météo' → Toi: 'Je regarde ça. cherche météo'",
+      "- User: 'Va sur Google' → Toi: 'D'accord. va sur google'"
+    );
+  }
 
+  sections.push(
     "### RESPONSE FORMAT",
-    "Sortie = Texte parlé pur. Pas de métadonnées, pas de commentaires, juste la réponse vocale directe.",
+    "Sortie = Texte parlé pur. Pas de métadonnées, pas de commentaires, juste la réponse vocale directe."
   );
 
   return sections.join("\n\n");
 }
 
-/** Legacy constant for backwards compatibility — lazy to avoid circular init at module load */
 export function getDefaultSystemPrompt(): string {
   return buildSystemPrompt("robot");
 }

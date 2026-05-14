@@ -13,6 +13,7 @@ interface SessionOptions {
   onRecordingStart: (sendInput: (base64: string, type: 'audio' | 'video') => void) => void;
   onStopRecording: () => void;
   enableVideo?: boolean;
+  browserControlEnabled?: boolean;
 }
 
 export function useAIConversation() {

@@ -12,6 +12,8 @@ interface SessionOptions {
   onInterrupted: () => void;
   onRecordingStart: (sendInput: (base64: string, type: 'audio' | 'video') => void) => void;
   onStopRecording: () => void;
+  enableVideo?: boolean;
+  browserControlEnabled?: boolean;
 }
 
 export function useOpenRouterSession() {
@@ -31,13 +33,16 @@ export function useOpenRouterSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onRecordingStart } = options;
+    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onRecordingStart, browserControlEnabled } = options;
 
     setStatus("listening");
     setErrorMsg("");
 
     // Initialize system prompt
-    const systemPrompt = buildSystemPrompt(avatarId, { userName: userName ?? undefined });
+    const systemPrompt = buildSystemPrompt(avatarId, { 
+      userName: userName ?? undefined,
+      browserControlEnabled
+    });
     conversationHistory.current = [{ role: "system", content: systemPrompt }];
 
     // Initialize Web Speech API for STT
