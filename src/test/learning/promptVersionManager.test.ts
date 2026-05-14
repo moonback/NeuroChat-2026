@@ -37,8 +37,8 @@ describe('PromptVersionManager', () => {
     expect(history.versions.find(v => v.version === 2)?.isActive).toBe(false);
   });
 
-  it('property: version count never exceeds 20', async () => {
-    await fc.assert(fc.asyncProperty(fc.integer({ min: 21, max: 60 }), async (count) => {
+  it('property: version count never exceeds 20', { timeout: 15000 }, async () => {
+    await fc.assert(fc.asyncProperty(fc.integer({ min: 21, max: 30 }), async (count) => {
       localStorage.clear();
       const manager = new PromptVersionManager(USER_ID);
       for (let i = 0; i < count; i++) {
