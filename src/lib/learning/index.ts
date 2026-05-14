@@ -103,3 +103,13 @@ export {
 export type {
   PromptOptimizerOptions,
 } from './promptOptimizer';
+
+
+// Export prompt application helpers
+export {
+  applyImprovementProposals,
+  countPromptSections,
+} from './promptApplication';
+export type {
+  PromptApplicationResult,
+} from './promptApplication';

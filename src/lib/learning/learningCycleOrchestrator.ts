@@ -4,6 +4,7 @@ import { getLearningStorage } from './storage';
 import { PerformanceAnalyzer } from './performanceAnalyzer';
 import { ImprovementValidator } from './improvementValidator';
 import { PromptVersionManager } from './promptVersionManager';
+import { applyImprovementProposals } from './promptApplication';
 
 export interface LearningCycleDeps {
   analyzer?: PerformanceAnalyzer;
@@ -83,11 +84,15 @@ export class LearningCycleOrchestrator {
         return failed;
       }
 
-      const accepted = input.proposals.slice(0, existing.config.maxProposalsPerCycle);
+      const application = applyImprovementProposals(
+        input.currentPrompt,
+        input.proposals,
+        existing.config.maxProposalsPerCycle,
+      );
+      const accepted = application.appliedProposals;
       const manager = new PromptVersionManager(input.userId);
-      const newPrompt = `${input.currentPrompt}\n\n# Auto-improvements\n${accepted.map((p) => `- ${p.proposedChange}`).join('\n')}`;
       await manager.createVersion({
-        promptText: newPrompt,
+        promptText: application.promptText,
         changeDescription: `Applied ${accepted.length} auto-improvements`,
         appliedProposals: accepted.map((p) => p.id),
       });

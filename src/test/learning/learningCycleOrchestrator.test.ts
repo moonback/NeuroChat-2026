@@ -1,6 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LearningCycleOrchestrator } from '../../lib/learning/learningCycleOrchestrator';
+import { PromptVersionManager } from '../../lib/learning/promptVersionManager';
 import type { ImprovementProposal } from '../../lib/learning/types';
+
+const sectionedPrompt = `### IDENTITY & PERSONA
+Tu es NeuroChat.
+
+### CORE OPERATIONAL RULES
+1. Réponds en français et reste concis.
+
+### SAFETY & PRIVACY
+Respecte la confidentialité.
+
+### RESPONSE FORMAT
+Texte parlé pur.`;
 
 const baseProposal: ImprovementProposal = {
   id: 'p1',
@@ -25,12 +38,16 @@ describe('LearningCycleOrchestrator', () => {
         { timestamp: 2, speaker: 'user', message: 'Oui merci' },
       ],
       proposals: [baseProposal],
-      currentPrompt: 'Base prompt '.repeat(120),
+      currentPrompt: sectionedPrompt,
     });
 
     expect(result.success).toBe(true);
     expect(result.phase).toBe('completed');
     expect(result.proposalsApplied).toBe(1);
+
+    const history = await new PromptVersionManager('u1').getHistory();
+    expect(history.versions[0].promptText).toContain('Amélioration validée: Rester proactif');
+    expect(history.versions[0].promptText).not.toContain('# Auto-improvements');
   });
 
   it('fails when validation rejects proposals', async () => {
@@ -40,7 +57,7 @@ describe('LearningCycleOrchestrator', () => {
       userId: 'u2',
       turns: [],
       proposals: [{ ...baseProposal, targetSection: 'SAFETY & PRIVACY' }],
-      currentPrompt: 'Base prompt '.repeat(120),
+      currentPrompt: sectionedPrompt,
     });
 
     expect(result.success).toBe(false);
@@ -56,7 +73,7 @@ describe('LearningCycleOrchestrator', () => {
       userId: 'u3',
       turns: [],
       proposals: [baseProposal],
-      currentPrompt: 'Base prompt '.repeat(120),
+      currentPrompt: sectionedPrompt,
     };
 
     const first = await orchestrator.runCycle(input);
