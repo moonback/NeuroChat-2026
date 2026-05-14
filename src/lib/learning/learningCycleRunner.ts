@@ -3,6 +3,7 @@ import { buildSystemPrompt } from '../systemPrompt';
 import { LearningCycleOrchestrator } from './learningCycleOrchestrator';
 import { PerformanceAnalyzer } from './performanceAnalyzer';
 import { PromptOptimizer } from './promptOptimizer';
+import { RegressionDetector } from './regressionDetector';
 import { getLearningStorage } from './storage';
 import type { LearningCycleStatus } from './types';
 
@@ -60,6 +61,30 @@ export async function runLearningCycleForUser(
     turns,
     feedbackSignals: data.feedback.signals,
   });
+
+  const regression = await new RegressionDetector().monitorActiveVersion({
+    userId,
+    currentMetrics: report.metrics,
+    threshold: data.config.regressionThreshold,
+    monitoringPeriod: data.config.monitoringPeriod,
+  });
+
+  if (regression.monitored && regression.rolledBack) {
+    const rolledBack: LearningCycleStatus = {
+      cycleId: `cycle_${now()}`,
+      startTime: now(),
+      endTime: now(),
+      phase: 'completed',
+      proposalsGenerated: 0,
+      proposalsValidated: 0,
+      proposalsApplied: 0,
+      errors: [],
+      success: true,
+    };
+    await storage.addCycleStatus(rolledBack);
+    return rolledBack;
+  }
+
   const optimizer = new PromptOptimizer({ maxProposals: data.config.maxProposalsPerCycle, now });
   const proposals = optimizer.generateProposals(report, {
     userId,

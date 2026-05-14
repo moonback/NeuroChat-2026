@@ -49,6 +49,45 @@ describe('runLearningCycleForUser', () => {
     expect(history.versions[0].promptText).toContain('Amélioration validée:');
   });
 
+
+  it('rolls back monitored regressions before generating new proposals', async () => {
+    const userId = 'monitored-runner-user';
+    const manager = new PromptVersionManager(userId);
+    await manager.createVersion({
+      promptText: 'Prompt baseline',
+      changeDescription: 'baseline',
+      appliedProposals: [],
+      performanceMetrics: {
+        concisionRatio: 1,
+        contextAwareness: 90,
+        proactivity: 90,
+        userSatisfaction: 95,
+        compositeQualityScore: 95,
+        turnCount: 25,
+        periodStart: 1,
+        periodEnd: 2,
+        individualMetrics: [],
+      },
+    });
+    await manager.createVersion({
+      promptText: 'Prompt changed',
+      changeDescription: 'auto-improvement',
+      appliedProposals: ['p1'],
+    });
+    await getLearningStorage(userId).updateConfig({ monitoringPeriod: 2, maxCyclesPerDay: 5 });
+
+    addConversationTurn(userId, 'assistant', 'Voici une réponse volontairement très très très longue sans question utile ni référence au contexte précédent afin de simuler une baisse de qualité nette pour le monitoring.');
+    addConversationTurn(userId, 'assistant', 'Encore une réponse longue et peu proactive qui ne répond pas clairement et qui devrait faire baisser le score composite.');
+
+    const status = await runLearningCycleForUser(userId, { manual: true, currentPrompt: prompt, now: () => 1000 });
+
+    expect(status.success).toBe(true);
+    expect(status.proposalsGenerated).toBe(0);
+
+    const history = await manager.getHistory();
+    expect(history.activeVersion).toBe(1);
+  });
+
   it('honors disabled automatic learning for non-manual cycles', async () => {
     await getLearningStorage('disabled-user').updateConfig({ enabled: false });
     addConversationTurn('disabled-user', 'assistant', 'Réponse longue à raccourcir.');
