@@ -8,3 +8,12 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare global {
+  interface Window {
+    /** Présent uniquement dans la fenêtre Electron (voir `electron/preload.cjs`). */
+    neurochatElectron?: { isElectron: boolean };
+  }
+}
+
+export {};
