@@ -9,6 +9,10 @@ import { useGeminiSession } from "./hooks/useGeminiSession";
 import { ConversationVault } from "./components/ConversationVault";
 import { VideoService } from "./lib/VideoService";
 import { Header } from "./components/layout/Header";
+import { useBrowserControl } from "./hooks/useBrowserControl";
+import { BrowserControlPanel } from "./components/BrowserControlPanel";
+import { BrowserWindow } from "./components/BrowserWindow";
+import { parseAssistantResponse } from "./lib/commandParser";
 
 export default function App() {
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
@@ -54,6 +58,22 @@ export default function App() {
     stopSession
   } = useGeminiSession();
 
+  // Browser control hook
+  const {
+    isEnabled: browserControlEnabled,
+    pendingConfirmation,
+    currentAction,
+    actionHistory,
+    browserWindowOpen,
+    currentUrl,
+    toggleBrowserControl,
+    executeAction,
+    respondToConfirmation,
+    getPageContext,
+    closeBrowserWindow,
+    navigateInBrowser,
+  } = useBrowserControl();
+
   const handleStartSession = async () => {
     // Accumulateurs pour les textes fragmentés (streaming)
     const aiTextAccumulator: string[] = [];
@@ -63,11 +83,29 @@ export default function App() {
       avatarId,
       userName,
       enableVideo: cameraActive,
-      onAudioResponse: (base64, aiText) => {
+      onAudioResponse: async (base64, aiText) => {
         if (base64) playAudio(base64);
         // Accumule les fragments de transcription IA (outputTranscription)
         if (aiText) {
           aiTextAccumulator.push(aiText);
+          
+          // Détecter et exécuter les commandes de contrôle du navigateur
+          if (browserControlEnabled) {
+            const parsed = parseAssistantResponse(aiText);
+            if (parsed.action) {
+              console.log("🌐 Commande détectée:", parsed.action);
+              try {
+                const result = await executeAction(parsed.action);
+                if (result.success) {
+                  console.log("✅ Commande exécutée avec succès:", result.data);
+                } else {
+                  console.error("❌ Échec de la commande:", result.error);
+                }
+              } catch (error) {
+                console.error("❌ Erreur lors de l'exécution de la commande:", error);
+              }
+            }
+          }
         }
       },
       onTranscription: (text, finished) => {
@@ -290,6 +328,26 @@ export default function App() {
         userName={userName}
         updateUserName={updateUserName}
         onShowMemory={() => setShowMemoryModal(true)}
+      />
+
+      {/* Browser Control Panel */}
+      <BrowserControlPanel
+        isEnabled={browserControlEnabled}
+        onToggle={toggleBrowserControl}
+        pendingConfirmation={pendingConfirmation}
+        onConfirm={respondToConfirmation}
+        currentAction={currentAction}
+        actionHistory={actionHistory}
+        accentColor={avatar.colors[0]}
+      />
+
+      {/* Integrated Browser Window */}
+      <BrowserWindow
+        isOpen={browserWindowOpen}
+        onClose={closeBrowserWindow}
+        currentUrl={currentUrl}
+        onNavigate={navigateInBrowser}
+        accentColor={avatar.colors[0]}
       />
 
 

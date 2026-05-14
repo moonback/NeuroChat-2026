@@ -17,11 +17,22 @@ L'application transforme l'interaction avec l'IA en une conversation naturelle e
 ### 🎭 Assistant Intelligent
 - **Nova** 🛰️ : Votre assistant principal, proactif et polyvalent. Spécialisé dans l'organisation, la productivité et la gestion du temps.
 - **Personnalité Adaptative** : Le ton et le style de réponse s'adaptent dynamiquement à l'heure de la journée et au contexte de vos échanges.
+- **🌐 Contrôle du Navigateur** : L'assistant peut maintenant contrôler votre navigateur pour vous aider dans vos tâches web (navigation, recherche, interaction avec les pages).
 
 ### 🧠 Mémoire & Continuité
 - **Mémoire Persistante** : NeuroChat se souvient des échanges précédents pour offrir des réponses contextuelles et éviter les répétitions.
 - **Analyse du Temps** : Conscience de la date, de l'heure et des périodes de la journée pour une pertinence maximale.
 - **Confidentialité Locale** : Toutes vos données de session et votre historique sont stockés localement dans votre navigateur (Privacy-first).
+
+### 🌐 Contrôle du Navigateur (NOUVEAU !)
+- **Navigation Vocale** : Dites simplement "Va sur Google" ou "Ouvre YouTube" et l'assistant s'en charge
+- **Recherche Intelligente** : "Cherche la météo à Paris" lance automatiquement une recherche Google
+- **Fenêtre Intégrée** : Naviguez dans une fenêtre élégante contrôlée par l'assistant
+- **Sécurité Renforcée** : Confirmations pour les actions sensibles
+- **Historique des Actions** : Suivez toutes les actions effectuées par l'assistant
+
+👉 **[Guide Rapide du Contrôle du Navigateur](GUIDE_RAPIDE_NAVIGATEUR.md)**
+📖 **[Documentation Complète](BROWSER_CONTROL.md)**
 
 ### 🔄 Auto-Amélioration Continue
 - **Apprentissage Automatique** : Le système analyse automatiquement la qualité des conversations et améliore ses réponses au fil du temps.

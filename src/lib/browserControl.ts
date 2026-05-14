@@ -1,0 +1,578 @@
+/**
+ * Browser Control System - Permet à l'assistant de contrôler le navigateur
+ * 
+ * Fonctionnalités:
+ * - Navigation (ouvrir des URLs, retour/avant)
+ * - Interaction avec les éléments (clic, saisie de texte)
+ * - Extraction d'informations (lecture de contenu)
+ * - Capture d'écran pour vision
+ * - Gestion de formulaires
+ */
+
+export interface BrowserAction {
+  type: 
+    | "navigate"
+    | "click"
+    | "type"
+    | "scroll"
+    | "extract"
+    | "screenshot"
+    | "back"
+    | "forward"
+    | "reload"
+    | "fill_form"
+    | "submit_form"
+    | "wait";
+  params?: Record<string, any>;
+  requiresConfirmation?: boolean;
+}
+
+export interface BrowserActionResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  screenshot?: string; // base64
+}
+
+export interface ElementSelector {
+  selector?: string;
+  text?: string;
+  role?: string;
+  placeholder?: string;
+}
+
+/**
+ * Classe principale pour le contrôle du navigateur
+ */
+export class BrowserController {
+  private actionHistory: BrowserAction[] = [];
+  private maxHistorySize = 50;
+  private onConfirmationNeeded?: (action: BrowserAction) => Promise<boolean>;
+
+  constructor(onConfirmationNeeded?: (action: BrowserAction) => Promise<boolean>) {
+    this.onConfirmationNeeded = onConfirmationNeeded;
+  }
+
+  /**
+   * Exécute une action sur le navigateur
+   */
+  async executeAction(action: BrowserAction): Promise<BrowserActionResult> {
+    // Vérifier si l'action nécessite une confirmation
+    if (action.requiresConfirmation && this.onConfirmationNeeded) {
+      const confirmed = await this.onConfirmationNeeded(action);
+      if (!confirmed) {
+        return {
+          success: false,
+          error: "Action annulée par l'utilisateur",
+        };
+      }
+    }
+
+    // Ajouter à l'historique
+    this.actionHistory.push(action);
+    if (this.actionHistory.length > this.maxHistorySize) {
+      this.actionHistory.shift();
+    }
+
+    try {
+      switch (action.type) {
+        case "navigate":
+          return await this.navigate(action.params?.url);
+        
+        case "click":
+          return await this.click(action.params?.selector);
+        
+        case "type":
+          return await this.typeText(action.params?.selector, action.params?.text);
+        
+        case "scroll":
+          return await this.scroll(action.params?.direction, action.params?.amount);
+        
+        case "extract":
+          return await this.extractContent(action.params?.selector);
+        
+        case "screenshot":
+          return await this.takeScreenshot(action.params?.fullPage);
+        
+        case "back":
+          return await this.goBack();
+        
+        case "forward":
+          return await this.goForward();
+        
+        case "reload":
+          return await this.reload();
+        
+        case "fill_form":
+          return await this.fillForm(action.params?.fields);
+        
+        case "submit_form":
+          return await this.submitForm(action.params?.selector);
+        
+        case "wait":
+          return await this.wait(action.params?.duration);
+        
+        default:
+          return {
+            success: false,
+            error: `Action inconnue: ${action.type}`,
+          };
+      }
+    } catch (error: any) {
+      console.error(`Erreur lors de l'exécution de l'action ${action.type}:`, error);
+      return {
+        success: false,
+        error: error.message || "Erreur inconnue",
+      };
+    }
+  }
+
+  /**
+   * Navigue vers une URL
+   */
+  private async navigate(url: string): Promise<BrowserActionResult> {
+    if (!url) {
+      return { success: false, error: "URL manquante" };
+    }
+
+    try {
+      // Ouvrir dans un nouvel onglet ou iframe selon le contexte
+      const newWindow = window.open(url, "_blank");
+      
+      if (!newWindow) {
+        return {
+          success: false,
+          error: "Impossible d'ouvrir l'URL (popup bloqué?)",
+        };
+      }
+
+      return {
+        success: true,
+        data: { url, opened: true },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Clique sur un élément
+   */
+  private async click(selector: ElementSelector): Promise<BrowserActionResult> {
+    const element = this.findElement(selector);
+    
+    if (!element) {
+      return {
+        success: false,
+        error: "Élément introuvable",
+      };
+    }
+
+    try {
+      if (element instanceof HTMLElement) {
+        element.click();
+        return {
+          success: true,
+          data: { clicked: true, element: this.getElementInfo(element) },
+        };
+      }
+      return { success: false, error: "L'élément n'est pas cliquable" };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Saisit du texte dans un champ
+   */
+  private async typeText(
+    selector: ElementSelector,
+    text: string
+  ): Promise<BrowserActionResult> {
+    const element = this.findElement(selector);
+    
+    if (!element) {
+      return { success: false, error: "Élément introuvable" };
+    }
+
+    try {
+      if (
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLTextAreaElement
+      ) {
+        element.value = text;
+        element.dispatchEvent(new Event("input", { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        
+        return {
+          success: true,
+          data: { typed: true, text, element: this.getElementInfo(element) },
+        };
+      }
+      return { success: false, error: "L'élément n'accepte pas de texte" };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Fait défiler la page
+   */
+  private async scroll(
+    direction: "up" | "down" | "top" | "bottom" = "down",
+    amount: number = 300
+  ): Promise<BrowserActionResult> {
+    try {
+      switch (direction) {
+        case "up":
+          window.scrollBy({ top: -amount, behavior: "smooth" });
+          break;
+        case "down":
+          window.scrollBy({ top: amount, behavior: "smooth" });
+          break;
+        case "top":
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          break;
+        case "bottom":
+          window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+          break;
+      }
+
+      return {
+        success: true,
+        data: { scrolled: true, direction, amount },
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Extrait le contenu d'un élément ou de la page
+   */
+  private async extractContent(
+    selector?: ElementSelector
+  ): Promise<BrowserActionResult> {
+    try {
+      if (selector) {
+        const element = this.findElement(selector);
+        if (!element) {
+          return { success: false, error: "Élément introuvable" };
+        }
+        
+        return {
+          success: true,
+          data: {
+            text: element.textContent?.trim(),
+            html: element.innerHTML,
+            attributes: this.getElementAttributes(element),
+          },
+        };
+      }
+
+      // Extraire le contenu de la page entière
+      return {
+        success: true,
+        data: {
+          title: document.title,
+          url: window.location.href,
+          text: document.body.textContent?.trim(),
+          headings: this.extractHeadings(),
+          links: this.extractLinks(),
+          forms: this.extractForms(),
+        },
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Prend une capture d'écran
+   */
+  private async takeScreenshot(fullPage: boolean = false): Promise<BrowserActionResult> {
+    try {
+      // Utiliser html2canvas ou une API similaire
+      // Pour l'instant, on retourne une indication que la fonctionnalité nécessite une bibliothèque
+      return {
+        success: false,
+        error: "La capture d'écran nécessite l'installation de html2canvas",
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Retour en arrière dans l'historique
+   */
+  private async goBack(): Promise<BrowserActionResult> {
+    try {
+      window.history.back();
+      return { success: true, data: { navigated: "back" } };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Avancer dans l'historique
+   */
+  private async goForward(): Promise<BrowserActionResult> {
+    try {
+      window.history.forward();
+      return { success: true, data: { navigated: "forward" } };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Recharger la page
+   */
+  private async reload(): Promise<BrowserActionResult> {
+    try {
+      window.location.reload();
+      return { success: true, data: { reloaded: true } };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Remplit un formulaire
+   */
+  private async fillForm(
+    fields: Record<string, string>
+  ): Promise<BrowserActionResult> {
+    try {
+      const results: Record<string, boolean> = {};
+      
+      for (const [fieldName, value] of Object.entries(fields)) {
+        const element = this.findElement({ selector: `[name="${fieldName}"]` });
+        
+        if (element && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
+          element.value = value;
+          element.dispatchEvent(new Event("input", { bubbles: true }));
+          element.dispatchEvent(new Event("change", { bubbles: true }));
+          results[fieldName] = true;
+        } else {
+          results[fieldName] = false;
+        }
+      }
+
+      return {
+        success: true,
+        data: { filled: results },
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Soumet un formulaire
+   */
+  private async submitForm(selector?: ElementSelector): Promise<BrowserActionResult> {
+    try {
+      let form: HTMLFormElement | null = null;
+
+      if (selector) {
+        const element = this.findElement(selector);
+        if (element instanceof HTMLFormElement) {
+          form = element;
+        }
+      } else {
+        form = document.querySelector("form");
+      }
+
+      if (!form) {
+        return { success: false, error: "Formulaire introuvable" };
+      }
+
+      form.submit();
+      return { success: true, data: { submitted: true } };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Attend un certain temps
+   */
+  private async wait(duration: number = 1000): Promise<BrowserActionResult> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ success: true, data: { waited: duration } });
+      }, duration);
+    });
+  }
+
+  /**
+   * Trouve un élément dans le DOM
+   */
+  private findElement(selector: ElementSelector): Element | null {
+    if (selector.selector) {
+      return document.querySelector(selector.selector);
+    }
+
+    if (selector.text) {
+      const elements = Array.from(document.querySelectorAll("*"));
+      return elements.find((el) => el.textContent?.includes(selector.text!)) || null;
+    }
+
+    if (selector.role) {
+      return document.querySelector(`[role="${selector.role}"]`);
+    }
+
+    if (selector.placeholder) {
+      return document.querySelector(`[placeholder="${selector.placeholder}"]`);
+    }
+
+    return null;
+  }
+
+  /**
+   * Obtient les informations d'un élément
+   */
+  private getElementInfo(element: Element): Record<string, any> {
+    return {
+      tagName: element.tagName.toLowerCase(),
+      id: element.id,
+      className: element.className,
+      text: element.textContent?.trim().substring(0, 100),
+    };
+  }
+
+  /**
+   * Obtient les attributs d'un élément
+   */
+  private getElementAttributes(element: Element): Record<string, string> {
+    const attrs: Record<string, string> = {};
+    for (const attr of element.attributes) {
+      attrs[attr.name] = attr.value;
+    }
+    return attrs;
+  }
+
+  /**
+   * Extrait les titres de la page
+   */
+  private extractHeadings(): string[] {
+    const headings = document.querySelectorAll("h1, h2, h3, h4, h5, h6");
+    return Array.from(headings).map((h) => h.textContent?.trim() || "");
+  }
+
+  /**
+   * Extrait les liens de la page
+   */
+  private extractLinks(): Array<{ text: string; href: string }> {
+    const links = document.querySelectorAll("a[href]");
+    return Array.from(links).map((link) => ({
+      text: link.textContent?.trim() || "",
+      href: (link as HTMLAnchorElement).href,
+    }));
+  }
+
+  /**
+   * Extrait les formulaires de la page
+   */
+  private extractForms(): Array<{ action: string; method: string; fields: string[] }> {
+    const forms = document.querySelectorAll("form");
+    return Array.from(forms).map((form) => ({
+      action: form.action,
+      method: form.method,
+      fields: Array.from(form.querySelectorAll("input, textarea, select")).map(
+        (field) => (field as HTMLInputElement).name || (field as HTMLInputElement).id
+      ),
+    }));
+  }
+
+  /**
+   * Obtient l'historique des actions
+   */
+  getActionHistory(): BrowserAction[] {
+    return [...this.actionHistory];
+  }
+
+  /**
+   * Efface l'historique des actions
+   */
+  clearHistory(): void {
+    this.actionHistory = [];
+  }
+}
+
+/**
+ * Parse une commande en langage naturel en action de navigateur
+ */
+export function parseNaturalLanguageCommand(command: string): BrowserAction | null {
+  const lowerCommand = command.toLowerCase().trim();
+
+  // Navigation
+  if (lowerCommand.includes("va sur") || lowerCommand.includes("ouvre") || lowerCommand.includes("navigue")) {
+    const urlMatch = command.match(/(?:va sur|ouvre|navigue vers?)\s+(.+)/i);
+    if (urlMatch) {
+      let url = urlMatch[1].trim();
+      if (!url.startsWith("http")) {
+        url = "https://" + url;
+      }
+      return {
+        type: "navigate",
+        params: { url },
+        requiresConfirmation: true,
+      };
+    }
+  }
+
+  // Clic
+  if (lowerCommand.includes("clique sur")) {
+    const textMatch = command.match(/clique sur\s+(.+)/i);
+    if (textMatch) {
+      return {
+        type: "click",
+        params: { selector: { text: textMatch[1].trim() } },
+      };
+    }
+  }
+
+  // Saisie de texte
+  if (lowerCommand.includes("écris") || lowerCommand.includes("tape") || lowerCommand.includes("saisis")) {
+    const match = command.match(/(?:écris|tape|saisis)\s+"([^"]+)"\s+dans\s+(.+)/i);
+    if (match) {
+      return {
+        type: "type",
+        params: {
+          text: match[1],
+          selector: { placeholder: match[2].trim() },
+        },
+      };
+    }
+  }
+
+  // Défilement
+  if (lowerCommand.includes("descends") || lowerCommand.includes("scroll")) {
+    return { type: "scroll", params: { direction: "down" } };
+  }
+  if (lowerCommand.includes("monte") || lowerCommand.includes("remonte")) {
+    return { type: "scroll", params: { direction: "up" } };
+  }
+
+  // Extraction
+  if (lowerCommand.includes("lis") || lowerCommand.includes("extrais") || lowerCommand.includes("récupère")) {
+    return { type: "extract" };
+  }
+
+  // Navigation historique
+  if (lowerCommand.includes("retour") || lowerCommand.includes("précédent")) {
+    return { type: "back" };
+  }
+  if (lowerCommand.includes("suivant") || lowerCommand.includes("avance")) {
+    return { type: "forward" };
+  }
+
+  return null;
+}
