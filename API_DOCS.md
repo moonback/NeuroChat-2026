@@ -1,70 +1,79 @@
-# Documentation de l'API (Live API Integration) 🔌
+# 🔌 Référence API — NeuroChat
 
-Bien que cette application ne définisse pas d'API REST interne (serveur backend Node.js), elle dépend fortement d'une intégration en temps réel (WebSocket) détaillée ci-dessous.
-
-## 1. Google Gemini Live API
-
-L'API principale utilisée est le SDK officiel `@google/genai` pour initier une session WebSocket temps réel avec le modèle vocal.
-
-### Authentification
-L'authentification se fait via un identifiant passé dans le frontend.
-- **Header/Secret** : `GEMINI_API_KEY` (Fourni lors de l'instanciation de `GoogleGenAI`).
-
-### Initialisation de session : `ai.live.connect()`
-
-Initialisée dans `App.tsx` (fonction `startSession`).
-
-**Configuration :**
-```typescript
-{
-  model: "gemini-3.1-flash-live-preview",
-  config: {
-    responseModalities: ["AUDIO"],
-    speechConfig: {
-      voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
-    },
-    systemInstruction: "..." // Chargé depuis lib/systemPrompt.ts
-  }
-}
-```
-
-### Événements et Callbacks WebSocket
-
-1. **`onopen`** : 
-   - Déclenché lorsque le tunnel WebSocket est ouvert et prêt. 
-   - **Action** : Modifie l'état UI à `listening`, démarre l'`AudioRecorder` (microphone).
-
-2. **Émission de messages (Client -> Serveur)** :
-   - Fonction : `session.sendRealtimeInput(payload)`
-   - Payload : Audio encodé
-   ```json
-   {
-     "audio": {
-       "data": "base64String...",
-       "mimeType": "audio/pcm;rate=16000"
-     }
-   }
-   ```
-   > ⚠️ **Format audio requis** : Le serveur Gemini attend des tampons audio échantillonnés à **16 kHz** en **PCM 16-bit Mono**.
-
-3. **`onmessage`** :
-   - Déclenché lors du retour audio ou texte de Gemini.
-   - **Action** : Traite les chunks audio `message.serverContent.modelTurn.parts[0].inlineData.data`. 
-   - **Interruption** : Si l'utilisateur parle pendant que Gemini répond, un événement d'interruption `message.serverContent.interrupted === true` est envoyé. La file d'attente `AudioPlayer` est alors purgée.
-
-4. **`onclose` & `onerror`** :
-   - Fermeture ordonnée ou due à une erreur de réseau.
-   - Purgement de l'audio (`audioRecorder.stop()`, `audioPlayer.clearQueue()`).
+Ce document répertorie les points d'entrée (endpoints) externes consommés par NeuroChat ainsi que les services internes structurants.
 
 ---
 
-## 2. API Futures (Planification Supabase)
+## 🤖 Services d'IA Externes
 
-Si une intégration Supabase (PostgreSQL + REST) est ajoutée (selon la ROADMAP), voici les points finaux REST générés `PostgREST` qui seront envisagés :
+### 1. Google Gemini Multimodal Live
+Utilisé pour l'interaction vocale et visuelle en temps réel.
 
-### `POST /auth/v1/signup`
-- Gestion des utilisateurs (Parents et Enfants).
+- **URL** : `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent`
+- **Méthode** : WebSocket (Bidirectionnel)
+- **Authentification** : Clé API transmise via query parameter `key`.
+- **Rôle** : Reçoit des flux audio (PCM) et vidéo (JPEG) et renvoie des flux audio et texte en temps réel.
 
-### `GET /rest/v1/sessions`
-- Historique de session, durée de la discussion.
-- Dépend du token JWT généré par le service auth.
+### 2. OpenRouter (Failover & Synthèses)
+Utilisé pour les tâches asynchrones ou en cas d'indisponibilité du service principal.
+
+- **Méthode** : `POST`
+- **Route** : `https://openrouter.ai/api/v1/chat/completions`
+- **Authentification** : Bearer Token (`VITE_OPENROUTER_API_KEY`)
+- **Corps de la requête** :
+| Nom | Type | Requis | Description |
+| :--- | :--- | :--- | :--- |
+| `model` | `string` | Oui | Identifiant du modèle (ex: `minimax/minimax-m2.5:free`) |
+| `messages` | `array` | Oui | Liste des messages `{role, content}` |
+| `temperature`| `number` | Non | Créativité (défaut: 0.7) |
+
+---
+
+## 🏛️ Services Internes (Pseudo-API)
+
+Bien que l'application soit client-side, les modules suivants agissent comme une couche API interne.
+
+### 📦 Vector Store (`src/lib/vectorStore.ts`)
+Gère l'indexation et la recherche sémantique locale.
+
+| Fonction | Description | Paramètres |
+| :--- | :--- | :--- |
+| `addVectorEntry` | Ajoute un vecteur au store | `entry: VectorEntry` |
+| `semanticSearch` | Recherche par similarité | `query: string, userName: string, topK: number` |
+| `clearUserVectors`| Efface les données d'un utilisateur | `userName: string` |
+
+### 🧠 Conversation Memory (`src/lib/conversationMemory.ts`)
+Gère la persistance des sessions de chat.
+
+| Fonction | Description | Retour |
+| :--- | :--- | :--- |
+| `loadAllSessions`| Charge tout l'historique | `ConversationSession[]` |
+| `addConversationTurn` | Ajoute un message à la session | `void` |
+| `buildMemoryContext` | Génère le contexte pour le prompt | `string` |
+
+---
+
+## 📂 Formats de Données
+
+### Objet `ConversationSession`
+```json
+{
+  "id": "session_173956..._abc123",
+  "userName": "Maysson",
+  "startTime": 173956...,
+  "endTime": 173957...,
+  "turns": [
+    {
+      "timestamp": 173956...,
+      "speaker": "user",
+      "message": "Bonjour NeuroChat"
+    }
+  ],
+  "summary": "Résumé de la session...",
+  "topic": "Salutations"
+}
+```
+
+---
+
+> ⚠️ À compléter : Détails sur les schémas de réponse exacts de l'API Gemini Live (BidiGenerateContent).

@@ -1,57 +1,72 @@
-{
-  "project_context": {
-    "name": "NeuroChat AI",
-    "description": "A real-time voice assistant app for kids using Gemini Live API, React, and TailwindCSS.",
-    "architecture_focus": "Client-Side SPA with direct external WebSocket connection.",
-    "core_purpose": "Provide an engaging, magical, and realtime voice-based UI for kids."
-  },
-  "stack": [
-    "React 19",
-    "TypeScript",
-    "Vite",
-    "Tailwind CSS v4",
-    "Framer Motion (motion/react)",
-    "Lucide React",
-    "@google/genai SDK",
-    "Web Audio API"
-  ],
-  "conventions": {
-    "naming": {
-      "files": "PascalCase for React components (e.g., `AnimatedCharacter.tsx`), camelCase for utilities/lib files (e.g., `audioPlayer.ts`).",
-      "variables": "camelCase for instances, UPPER_SNAKE_CASE for global constants.",
-      "types_interfaces": "PascalCase for interfaces and types (e.g., `interface AudioConfig`)"
-    },
-    "components": {
-      "structure": "Functional components heavily utilizing React hooks. Use `export function ComponentName() {}` instead of arrow function default exports.",
-      "styles": "Use Tailwind utility classes inline. Do not create `.css` files per component unless absolutely necessary for complex keyframes.",
-      "animations": "Use `motion/react` elements for component mounts, unmounts (`AnimatePresence`), and interactive keyframe variants."
-    },
-    "state_management": {
-      "UI_State": "Use React `useState` and `useEffect`.",
-      "Persistent_References": "Use `useRef` for holding instances of AudioContext, Workers, WebSocket connections, or standard JS classes to avoid re-initializing them across renders."
-    }
-  },
-  "architecture_patterns": {
-    "frontend_structure": {
-      "components": "`src/components` - UI building blocks.",
-      "lib": "`src/lib` - Complex browser APIs or interactions (WebRTC, Audio Processing, AI SDK adapters).",
-      "assets": "`public/` - Media files."
-    },
-    "data_fetching": "All current AI connections are managed client-side using WebSocket (`@google/genai`). Future REST implementation should use `fetch` or a dedicated client like `supabase-js`."
-  },
-  "best_practices": {
-    "error_handling": "Always wrap browser APIs (`getUserMedia`) in `try/catch` and provide a visually distinct error state to the UI.",
-    "audio_lifecycle": "Always cleanly destroy `AudioContext` and close `MediaStream` tracks on unmount (`useEffect` cleanup function).",
-    "type_safety": "Avoid `any`. Strictly type API responses, Event payloads, and Component Props.",
-    "security": "Do not commit `.env` files. Access secrets exclusively via `process.env` in Vite configs securely managed by host deployment."
-  },
-  "workflow": {
-    "new_feature": "Create a branch, isolate logic in `src/lib` if modifying core behaviors, or `src/components` for UI, and write tests for critical path logic.",
-    "prompt_design": "To edit the AI persona, modify `src/lib/systemPrompt.ts` explicitly without changing API configuration code."
-  },
-  "preferences": [
-    "Prefer Tailwind for layouts and colors.",
-    "Prefer Lucide icons for UI symbolism.",
-    "Avoid state redundancy (compute derived states where applicable)."
-  ]
-}
+# 🤖 NeuroChat — Règles de Développement Assisté par IA (.cursorrules)
+
+Ce document définit les règles et standards pour toute modification du code de NeuroChat via des outils d'IA.
+
+---
+
+## 🌍 Contexte du Projet
+- **Nom** : NeuroChat
+- **Nature** : Assistant IA multimodal professionnel (Desktop/Electron).
+- **Philosophie** : Confidentialité d'abord (données locales), performance temps réel, et auto-amélioration continue.
+
+---
+
+## 🛠 Stack Technique
+- **Frontend** : React 19, Vite 6, Tailwind CSS 4, Motion, Lucide React.
+- **Desktop** : Electron 35 (Main process en CJS, Renderer en ESM).
+- **IA** : Google Gemini (Multimodal Live), OpenRouter (Failover).
+- **Mémoire** : LocalStorage-based RAG & Vector Store.
+
+---
+
+## 🎨 Styles de Code & Conventions
+- **Langage** : Utiliser TypeScript systématiquement. Typage strict.
+- **Composants** :
+  - Toujours utiliser des composants fonctionnels avec des types pour les `Props`.
+  - Préférer la déstructuration des props.
+  - Utiliser `useMemo` et `useCallback` pour optimiser les performances des composants lourds (ex: `ConversationVault`).
+- **Nommage** :
+  - Fichiers : `PascalCase` pour les composants, `camelCase` pour les services/lib.
+  - Variables : `camelCase`.
+  - Constantes : `UPPER_SNAKE_CASE`.
+
+---
+
+## 🏗 Patterns d'Architecture
+- **Services Isolés** : La logique métier doit être dans `src/lib` et non dans les composants.
+- **Hooks Personnalisés** : Extraire la logique d'état complexe dans des hooks (`src/hooks`).
+- **Gestion des Erreurs** : Toujours wrapper les appels API et les accès au stockage dans des blocs `try/catch` avec des logs explicites.
+
+---
+
+## ✅ Bonnes Pratiques
+- **Logs** : Utiliser des préfixes pour les logs console (ex: `[Audio]`, `[Memory]`, `[Learning]`).
+- **Accessibilité** : Assurer que les boutons et éléments interactifs ont des labels clairs ou des `title`.
+- **Nettoyage** : Toujours nettoyer les EventListeners, Intervals ou WebSockets dans les fonctions de retour de `useEffect`.
+
+---
+
+## 🔄 Workflows Communs
+- **Ajout d'un service** : Créer un fichier dans `src/lib`, exporter les fonctions nécessaires et ajouter des logs de cycle de vie.
+- **Modification de l'IA** : Pour modifier le comportement de l'assistant, éditer `src/lib/systemPrompt.ts`.
+
+---
+
+## 📦 Dépendances Préférées
+- Iconographie : `lucide-react`.
+- Animations : `motion/react`.
+- IA Multimodale : `@google/genai`.
+
+---
+
+## ❌ Anti-patterns à Éviter
+- **NE JAMAIS** appeler des hooks de manière conditionnelle ou après un retour prématuré (`Rules of Hooks`).
+- **NE JAMAIS** stocker de clés API en dur dans le code (utiliser `.env`).
+- **NE JAMAIS** manipuler le DOM directement (utiliser les `refs` React).
+- **NE PAS** utiliser `any` sauf cas de force majeure documenté.
+
+---
+
+## 📝 Règles de Documentation
+- **Commentaires** : Documenter les fonctions complexes avec JSDoc.
+- **Logs de Changement** : Documenter les changements architecturaux dans `IMPROVEMENTS.md` ou `ARCHITECTURE.md`.

@@ -1,56 +1,72 @@
-# Guide de Contribution 🤝
+# 🤝 Guide de Contribution — NeuroChat
 
-Merci de l'intérêt que vous portez au projet **NeuroChat AI** ! Que vous souhaitiez corriger un bug, ajouter des animations à l'avatar ou améliorer l'architecture vers un backend persistant, nous sommes heureux de votre aide.
+Merci de l'intérêt que vous portez à NeuroChat ! Ce document définit les standards et le workflow pour contribuer au projet.
 
-## Avant de contribuer
+---
 
-1. **Vérifier les "Issues" existantes** sur GitHub.
-2. Si vous proposez une fonctionnalité majeure, il est préférable d'**ouvrir une issue de discussion** avant d'investir des heures dans le code.
+## 🛠 Prérequis
 
-## Workflow de développement
+- **Node.js 20+** et **npm 10+**.
+- Connaissance de **React (Hooks/Context)** et **TypeScript**.
+- Un environnement de développement capable de faire tourner **Electron**.
 
-1. **Faites un "Fork"** du projet sur votre propre compte GitHub.
-2. **Clonez** votre fork localement :
-   ```bash
-   git clone https://github.com/votre-compte/NeuroChat-ai.git
-   cd NeuroChat-ai
-   ```
-3. **Créez une branche dédiée** pour votre nouvelle fonctionnalité ou correction :
-   ```bash
-   git checkout -b feat/avatar-personnalise
-   ```
-   *(Conventions : `feat/...`, `fix/...`, `docs/...`, `refactor/...`)*
-4. Lancez le serveur de développement localement et testez vos modifications (`npm run dev`).
+---
 
-## Normes de Code (Code Style)
+## 🔄 Workflow Git
 
-Afin d'assurer la cohérence du projet :
+### 🌿 Branches
+- `main` : Branche stable, toujours prête pour la production.
+- `develop` : Branche d'intégration pour les nouvelles fonctionnalités.
+- `feature/[nom]` : Pour le développement de nouvelles fonctionnalités.
+- `fix/[nom]` : Pour les corrections de bugs.
 
-- **TypeScript** : Respectez l'usage de TypeScript. Pas de `any` sauf situation bloquante. Documentez les interfaces complexes.
-- **Prettier & ESLint** : Avant tout commit, assurez-vous que votre éditeur formate le code correctement, et n'hésitez pas à lancer `npm run lint`.
-- **CSS / Tailwind** : Préférez utiliser les classes utilitaires de Tailwind CSS `className="..."` plutôt que du style en ligne statique. Gardez le style en ligne uniquement pour des variables CSS dynamiques gérées par JavaScript (ex: positions x/y).
-- **Hooks React** : Gardez les dépendances des hooks (`useEffect`, `useCallback`) à jour pour éviter des bugs de fermeture lexicale.
+### 💬 Commits
+Nous suivons la convention **Conventional Commits** :
+- `feat: ...` : Nouvelle fonctionnalité.
+- `fix: ...` : Correction de bug.
+- `docs: ...` : Mise à jour de la documentation.
+- `refactor: ...` : Modification du code sans changement de comportement.
+- `test: ...` : Ajout ou modification de tests.
 
-## Ajouter une modification au Git
+---
 
-Rédigez des messages de commit clairs et conventionnels (Connaissez *Conventional Commits*) :
+## 🎨 Standards de Code
 
-- `feat(ui): add new fox avatar character`
-- `fix(audio): handle buffer underrun in AudioPlayer`
-- `style: reformat App.tsx with prettier`
-- `docs: update ROADMAP.md with new step`
+- **TypeScript** : Typage strict obligatoire (`noImplicitAny`).
+- **Composants** : Utilisation de composants fonctionnels et de Hooks. Favorisez la composition.
+- **Styling** : Utilisez les utilitaires **Tailwind CSS 4**. Évitez le CSS inline ou les modules CSS sauf nécessité absolue.
+- **Logs** : Utilisez les préfixes de logs établis (ex: `[AudioService]`, `[VectorStore]`) pour faciliter le débogage.
 
-Lancez ensuite votre Pull Request :
+---
+
+## 🧪 Tests
+
+Avant de soumettre une Pull Request, assurez-vous que les tests passent :
 
 ```bash
-git add .
-git commit -m "feat(module): description claire"
-git push origin feat/votre-branche
+# Lancer tous les tests
+npm run test
+
+# Lancer les tests avec l'interface UI
+npm run test:ui
 ```
 
-## Review et Pull Request (PR)
+---
 
-- Créez une **Pull Request** de votre branche vers le dépôt cible.
-- Fournissez un résumé clair des changements apportés.
-- Si vous avez ajouté des éléments visuels complexes, n'hésitez pas à **inclure une capture d'écran** ou un petit GIF.
-- Restez ouverts aux commentaires et aux refactoring demandés ! 💖
+## 📝 Processus de Review
+
+1. Créez une branche depuis `develop`.
+2. Implémentez vos changements et ajoutez des tests si nécessaire.
+3. Assurez-vous que le linting et les types passent (`npm run lint`).
+4. Ouvrez une Pull Request vers `develop`.
+5. Attendez la validation d'au moins un mainteneur avant le merge.
+
+---
+
+## 📜 Code de Conduite
+
+Soyez respectueux, constructif et professionnel dans toutes vos interactions liées au projet. Harcèlement et comportements inappropriés ne seront pas tolérés.
+
+---
+
+> ⚠️ À compléter : Lien vers le canal Discord ou Slack de la communauté si disponible.
