@@ -7,6 +7,7 @@
 
 import type { SafetyConstraintConfig } from './types';
 import { DEFAULT_SAFETY_CONSTRAINTS } from './types';
+import { SecurityLogger, defaultSecurityLogger, type SecurityEvent } from './securityLogger';
 
 /**
  * Safety constraint manager.
@@ -15,7 +16,10 @@ import { DEFAULT_SAFETY_CONSTRAINTS } from './types';
 export class SafetyConstraintManager {
   private config: SafetyConstraintConfig;
 
-  constructor(config: SafetyConstraintConfig = DEFAULT_SAFETY_CONSTRAINTS) {
+  constructor(
+    config: SafetyConstraintConfig = DEFAULT_SAFETY_CONSTRAINTS,
+    private readonly securityLogger: SecurityLogger = defaultSecurityLogger,
+  ) {
     this.config = config;
   }
 
@@ -171,41 +175,19 @@ export class SafetyConstraintManager {
       proposalId?: string;
     }
   ): void {
-    const event = {
-      type: eventType,
-      ...details,
-    };
-
-    console.warn('[SECURITY EVENT]', event);
-
-    // Store in localStorage for audit trail
-    const eventsKey = 'neurochat_security_events';
-    const stored = localStorage.getItem(eventsKey);
-    const events = stored ? JSON.parse(stored) : [];
-    events.push(event);
-
-    // Keep only last 100 events
-    if (events.length > 100) {
-      events.splice(0, events.length - 100);
+    if (eventType === 'modification_attempt') {
+      this.securityLogger.logModificationAttempt(details.targetSection, details.reason, details);
+      return;
     }
 
-    localStorage.setItem(eventsKey, JSON.stringify(events));
+    this.securityLogger.logValidationRejection(details.reason, details);
   }
 
   /**
    * Get recent security events.
    */
-  getSecurityEvents(limit: number = 50): Array<{
-    type: string;
-    targetSection: string;
-    reason: string;
-    timestamp: number;
-    proposalId?: string;
-  }> {
-    const eventsKey = 'neurochat_security_events';
-    const stored = localStorage.getItem(eventsKey);
-    const events = stored ? JSON.parse(stored) : [];
-    return events.slice(-limit);
+  getSecurityEvents(limit: number = 50): SecurityEvent[] {
+    return this.securityLogger.getEvents(limit);
   }
 
   /**

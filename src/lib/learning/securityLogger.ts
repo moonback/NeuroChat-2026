@@ -9,6 +9,9 @@ export interface SecurityEvent {
   type: SecurityEventType;
   timestamp: number;
   message: string;
+  targetSection?: string;
+  reason?: string;
+  proposalId?: string;
   details?: Record<string, unknown>;
 }
 
@@ -24,26 +27,29 @@ export class SecurityLogger {
       type,
       timestamp: this.now(),
       message,
+      targetSection: typeof details.targetSection === 'string' ? details.targetSection : undefined,
+      reason: typeof details.reason === 'string' ? details.reason : message,
+      proposalId: typeof details.proposalId === 'string' ? details.proposalId : undefined,
       details,
     };
 
     const events = this.getEvents(MAX_SECURITY_EVENTS);
     events.push(event);
-    const limited = events.slice(-MAX_SECURITY_EVENTS);
-    localStorage.setItem(SECURITY_EVENTS_KEY, JSON.stringify(limited));
+    localStorage.setItem(SECURITY_EVENTS_KEY, JSON.stringify(events.slice(-MAX_SECURITY_EVENTS)));
     return event;
   }
 
   logValidationRejection(reason: string, details: Record<string, unknown> = {}): SecurityEvent {
-    return this.log('validation_rejection', reason, details);
+    return this.log('validation_rejection', reason, { reason, ...details });
   }
 
   logModificationAttempt(targetSection: string, reason: string, details: Record<string, unknown> = {}): SecurityEvent {
-    return this.log('modification_attempt', reason, { targetSection, ...details });
+    return this.log('modification_attempt', reason, { targetSection, reason, ...details });
   }
 
   logRegressionRollback(version: number, percentDecrease: number, details: Record<string, unknown> = {}): SecurityEvent {
     return this.log('rollback_performed', `Rolled back prompt version ${version} after ${percentDecrease.toFixed(2)}% regression.`, {
+      reason: 'Regression rollback triggered',
       version,
       percentDecrease,
       ...details,
