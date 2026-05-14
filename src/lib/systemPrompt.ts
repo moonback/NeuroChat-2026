@@ -9,6 +9,10 @@ export interface PromptContextOptions {
   userName?: string;
   emotion?: EmotionState;
   mode?: ConversationMode;
+  /** Optional RAG context block from semanticSearch (injected by useGeminiSession) */
+  ragContext?: string;
+  /** Optional weekly summary block (injected by useGeminiSession) */
+  weeklySummary?: string;
 }
 
 function buildDateTimeContext(now: Date): string {
@@ -47,14 +51,16 @@ function getModeInstruction(mode: ConversationMode): string {
 
 /**
  * Build the system prompt dynamically based on the selected assistant personality and context.
+ * If `options.ragContext` is provided it is injected as a dedicated semantic memory section.
+ * If `options.weeklySummary` is provided it is injected as a weekly digest section.
  */
 export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOptions = {}): string {
-  const { userName = "", emotion = "professional", mode = "general" } = options;
+  const { userName = "", emotion = "professional", mode = "general", ragContext, weeklySummary } = options;
   const avatar = AVATARS[avatarId];
   const memoryContext = buildMemoryContext(userName);
   const temporalContext = buildDateTimeContext(new Date());
 
-  return [
+  const sections = [
     "### IDENTITY & PERSONA",
     `Tu es ${avatar.personalityName}, un assistant personnel quotidien intelligent et proactif pour le projet NeuroChat.`,
     `Description de l'avatar: ${avatar.name}. ${avatar.description}`,
@@ -86,7 +92,19 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "### CONTEXTUAL MEMORY",
     `Mémoire des échanges récents (sessions passées et actuelle):\n${memoryContext || "Pas d'historique récent disponible."}`,
     `Contexte temporel: ${temporalContext}`,
+  ];
 
+  // Inject weekly summary when available (before RAG, after recent history)
+  if (weeklySummary) {
+    sections.push(weeklySummary);
+  }
+
+  // Inject RAG semantic context only when available
+  if (ragContext) {
+    sections.push(ragContext);
+  }
+
+  sections.push(
     "### CURRENT CONFIGURATION",
     `État émotionnel cible: ${emotion} (${getEmotionInstruction(emotion)}).`,
     `Mode opérationnel: ${mode} (${getModeInstruction(mode)}).`,
@@ -94,7 +112,9 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
 
     "### RESPONSE FORMAT",
     "Sortie = Texte parlé pur. Pas de métadonnées, pas de commentaires, juste la réponse vocale directe.",
-  ].join("\n\n");
+  );
+
+  return sections.join("\n\n");
 }
 
 /** Legacy constant for backwards compatibility */
