@@ -19,52 +19,75 @@ import { DEFAULT_LEARNING_CONFIG } from './types';
 const STORAGE_KEY_PREFIX = 'neurochat_learning_';
 
 /**
- * Simple encryption utility using Web Crypto API.
- * Note: This provides basic obfuscation. For production, consider more robust encryption.
+ * Encryption utility using Web Crypto API AES-GCM.
+ * The CryptoKey is cached in memory to keep frequent prompt-version updates fast.
  */
 class EncryptionUtil {
-  private static readonly key = 'neurochat-local-learning-data-key-v1';
+  private static cachedKey: CryptoKey | null = null;
+
+  private static async getOrCreateKey(): Promise<CryptoKey> {
+    if (this.cachedKey) return this.cachedKey;
+
+    const storedKey = localStorage.getItem('neurochat_encryption_key');
+    if (storedKey) {
+      const keyData = JSON.parse(storedKey);
+      this.cachedKey = await crypto.subtle.importKey(
+        'jwk',
+        keyData,
+        { name: 'AES-GCM', length: 256 },
+        true,
+        ['encrypt', 'decrypt']
+      );
+      return this.cachedKey;
+    }
+
+    const key = await crypto.subtle.generateKey(
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+    const exportedKey = await crypto.subtle.exportKey('jwk', key);
+    localStorage.setItem('neurochat_encryption_key', JSON.stringify(exportedKey));
+    this.cachedKey = key;
+    return key;
+  }
 
   /**
-   * Encrypt data using a lightweight local obfuscation format.
-   * This keeps localStorage from containing plain learning data while avoiding
-   * expensive WebCrypto work during frequent property-test/version updates.
+   * Encrypt data using AES-GCM.
    */
   static async encrypt(data: string): Promise<EncryptedLearningData> {
-    const ivBytes = crypto.getRandomValues(new Uint8Array(12));
-    const iv = this.arrayBufferToBase64(ivBytes);
+    const key = await this.getOrCreateKey();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encodedData = new TextEncoder().encode(data);
+
+    const encryptedData = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encodedData
+    );
+
     return {
-      data: this.xorToBase64(data, `${this.key}:${iv}`),
-      iv,
+      data: this.arrayBufferToBase64(encryptedData),
+      iv: this.arrayBufferToBase64(iv),
       timestamp: Date.now(),
     };
   }
 
   /**
-   * Decrypt data saved by encrypt().
+   * Decrypt data using AES-GCM.
    */
   static async decrypt(encrypted: EncryptedLearningData): Promise<string> {
-    return this.xorFromBase64(encrypted.data, `${this.key}:${encrypted.iv}`);
-  }
+    const key = await this.getOrCreateKey();
+    const iv = this.base64ToArrayBuffer(encrypted.iv);
+    const encryptedData = this.base64ToArrayBuffer(encrypted.data);
 
-  private static xorToBase64(value: string, key: string): string {
-    const input = new TextEncoder().encode(value);
-    const keyBytes = new TextEncoder().encode(key);
-    const output = new Uint8Array(input.length);
-    for (let i = 0; i < input.length; i++) {
-      output[i] = input[i] ^ keyBytes[i % keyBytes.length];
-    }
-    return this.arrayBufferToBase64(output);
-  }
+    const decryptedData = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encryptedData
+    );
 
-  private static xorFromBase64(value: string, key: string): string {
-    const input = new Uint8Array(this.base64ToArrayBuffer(value));
-    const keyBytes = new TextEncoder().encode(key);
-    const output = new Uint8Array(input.length);
-    for (let i = 0; i < input.length; i++) {
-      output[i] = input[i] ^ keyBytes[i % keyBytes.length];
-    }
-    return new TextDecoder().decode(output);
+    return new TextDecoder().decode(decryptedData);
   }
 
   private static arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {

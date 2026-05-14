@@ -73,3 +73,24 @@ export {
 export {
   LearningCycleOrchestrator,
 } from './learningCycleOrchestrator';
+
+
+// Export regression detection
+export {
+  RegressionDetector,
+} from './regressionDetector';
+export type {
+  RegressionComparison,
+  RegressionRollbackInput,
+  RegressionRollbackResult,
+} from './regressionDetector';
+
+// Export security logging
+export {
+  SecurityLogger,
+  defaultSecurityLogger,
+} from './securityLogger';
+export type {
+  SecurityEvent,
+  SecurityEventType,
+} from './securityLogger';
