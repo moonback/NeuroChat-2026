@@ -27,6 +27,20 @@ export interface RegressionRollbackResult extends RegressionComparison {
   ineffectiveProposalIds: string[];
 }
 
+export interface RegressionMonitorInput {
+  userId: string;
+  currentMetrics: PerformanceMetrics;
+  monitoringPeriod?: number;
+  threshold?: number;
+}
+
+export interface RegressionMonitorResult extends RegressionRollbackResult {
+  monitored: boolean;
+  reason?: string;
+  activeVersion?: number;
+  previousVersion?: number;
+}
+
 export class RegressionDetector {
   constructor(
     private readonly versionManagerFactory: (userId: string) => PromptVersionManager = (userId) => new PromptVersionManager(userId),
@@ -102,6 +116,85 @@ export class RegressionDetector {
       rolledBack: Boolean(restoredVersion),
       restoredVersion,
       ineffectiveProposalIds,
+    };
+  }
+
+
+  async monitorActiveVersion(input: RegressionMonitorInput): Promise<RegressionMonitorResult> {
+    const threshold = input.threshold ?? DEFAULT_LEARNING_CONFIG.regressionThreshold;
+    const monitoringPeriod = input.monitoringPeriod ?? DEFAULT_LEARNING_CONFIG.monitoringPeriod;
+    const history = await this.versionManagerFactory(input.userId).getHistory();
+    const activeVersion = history.versions.find((version) => version.version === history.activeVersion);
+
+    if (!activeVersion) {
+      return this.unmonitoredResult(input.currentMetrics, threshold, 'No active prompt version found.');
+    }
+
+    if (input.currentMetrics.turnCount < monitoringPeriod) {
+      return this.unmonitoredResult(
+        input.currentMetrics,
+        threshold,
+        `Monitoring period not complete (${input.currentMetrics.turnCount}/${monitoringPeriod} turns).`,
+        activeVersion.version,
+      );
+    }
+
+    const activeIndex = history.versions.findIndex((version) => version.version === activeVersion.version);
+    const previousVersion = activeIndex > 0 ? history.versions[activeIndex - 1] : undefined;
+
+    if (!previousVersion?.performanceMetrics) {
+      return this.unmonitoredResult(
+        input.currentMetrics,
+        threshold,
+        'No previous version baseline metrics found.',
+        activeVersion.version,
+      );
+    }
+
+    const result = await this.detectAndRollback({
+      userId: input.userId,
+      previousVersion: previousVersion.version,
+      activeVersion: activeVersion.version,
+      previousMetrics: previousVersion.performanceMetrics,
+      currentMetrics: input.currentMetrics,
+      threshold,
+      proposals: activeVersion.appliedProposals.map((proposalId) => ({
+        id: proposalId,
+        targetSection: 'CORE OPERATIONAL RULES',
+        proposedChange: '',
+        justification: 'Marked ineffective after monitored regression rollback.',
+        motivatingData: { patterns: [], metrics: {} },
+        createdAt: activeVersion.timestamp,
+        status: 'applied',
+      })),
+    });
+
+    return {
+      ...result,
+      monitored: true,
+      activeVersion: activeVersion.version,
+      previousVersion: previousVersion.version,
+    };
+  }
+
+  private unmonitoredResult(
+    currentMetrics: PerformanceMetrics,
+    threshold: number,
+    reason: string,
+    activeVersion?: number,
+  ): RegressionMonitorResult {
+    return {
+      monitored: false,
+      reason,
+      activeVersion,
+      previousScore: 0,
+      currentScore: this.clampScore(currentMetrics.compositeQualityScore),
+      percentDecrease: 0,
+      threshold,
+      isRegression: false,
+      rolledBack: false,
+      restoredVersion: null,
+      ineffectiveProposalIds: [],
     };
   }
 

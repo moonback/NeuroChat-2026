@@ -83,6 +83,8 @@ export type {
   RegressionComparison,
   RegressionRollbackInput,
   RegressionRollbackResult,
+  RegressionMonitorInput,
+  RegressionMonitorResult,
 } from './regressionDetector';
 
 // Export security logging

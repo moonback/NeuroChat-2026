@@ -80,6 +80,69 @@ describe('RegressionDetector', () => {
     expect(history.versions.find((version) => version.version === 1)?.isActive).toBe(true);
   });
 
+
+  it('monitors an active version and rolls back after the monitoring period on regression', async () => {
+    const manager = new PromptVersionManager(USER_ID);
+    await manager.createVersion({
+      promptText: 'Prompt baseline',
+      changeDescription: 'baseline',
+      appliedProposals: [],
+      performanceMetrics: metrics(92),
+    });
+    await manager.createVersion({
+      promptText: 'Prompt changed',
+      changeDescription: 'auto-improvement',
+      appliedProposals: ['p1', 'p2'],
+    });
+
+    const detector = new RegressionDetector();
+    const result = await detector.monitorActiveVersion({
+      userId: USER_ID,
+      currentMetrics: metrics(70),
+      monitoringPeriod: 25,
+      threshold: 15,
+    });
+
+    expect(result.monitored).toBe(true);
+    expect(result.rolledBack).toBe(true);
+    expect(result.previousVersion).toBe(1);
+    expect(result.activeVersion).toBe(2);
+    expect(result.ineffectiveProposalIds).toEqual(['p1', 'p2']);
+
+    const history = await manager.getHistory();
+    expect(history.activeVersion).toBe(1);
+  });
+
+  it('waits until the monitoring period is complete before checking regression', async () => {
+    const manager = new PromptVersionManager(USER_ID);
+    await manager.createVersion({
+      promptText: 'Prompt baseline',
+      changeDescription: 'baseline',
+      appliedProposals: [],
+      performanceMetrics: metrics(92),
+    });
+    await manager.createVersion({
+      promptText: 'Prompt changed',
+      changeDescription: 'auto-improvement',
+      appliedProposals: ['p1'],
+    });
+
+    const detector = new RegressionDetector();
+    const result = await detector.monitorActiveVersion({
+      userId: USER_ID,
+      currentMetrics: { ...metrics(60), turnCount: 24 },
+      monitoringPeriod: 25,
+      threshold: 15,
+    });
+
+    expect(result.monitored).toBe(false);
+    expect(result.rolledBack).toBe(false);
+    expect(result.reason).toContain('Monitoring period not complete');
+
+    const history = await manager.getHistory();
+    expect(history.activeVersion).toBe(2);
+  });
+
   it('property: decreases greater than 15% trigger rollback classification', () => {
     fc.assert(
       fc.property(
