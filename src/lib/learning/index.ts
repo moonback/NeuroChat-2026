@@ -67,3 +67,9 @@ export {
 export {
   PromptVersionManager,
 } from './promptVersionManager';
+
+
+// Export learning cycle automation
+export {
+  LearningCycleOrchestrator,
+} from './learningCycleOrchestrator';
