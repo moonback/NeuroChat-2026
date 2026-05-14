@@ -1,4 +1,4 @@
-import { Square, Sparkles, Camera, CameraOff, RefreshCcw } from "lucide-react";
+import { Square, Sparkles, Camera, CameraOff, RefreshCcw, Monitor } from "lucide-react";
 import { useState, FormEvent, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
@@ -8,6 +8,7 @@ import { useConversationMemory } from "./hooks/useConversationMemory";
 import { useGeminiSession } from "./hooks/useGeminiSession";
 import { ConversationVault } from "./components/ConversationVault";
 import { VideoService } from "./lib/VideoService";
+import { ScreenCaptureService } from "./lib/ScreenCaptureService";
 import { Header } from "./components/layout/Header";
 import { useBrowserControl } from "./hooks/useBrowserControl";
 import { BrowserControlPanel } from "./components/BrowserControlPanel";
@@ -19,9 +20,11 @@ export default function App() {
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
   const [cameraActive, setCameraActive] = useState(false);
+  const [screenShareActive, setScreenShareActive] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const videoServiceRef = useRef<VideoService | null>(null);
+  const screenCaptureServiceRef = useRef<ScreenCaptureService | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
 
@@ -174,8 +177,13 @@ export default function App() {
         if (videoServiceRef.current) {
           videoServiceRef.current.stop();
           videoServiceRef.current = null;
-          setVideoStream(null);
         }
+        if (screenCaptureServiceRef.current) {
+          screenCaptureServiceRef.current.stop();
+          screenCaptureServiceRef.current = null;
+        }
+        setScreenShareActive(false);
+        setVideoStream(null);
       }
     });
   };
@@ -186,11 +194,55 @@ export default function App() {
       if (videoServiceRef.current) {
         videoServiceRef.current.stop();
         videoServiceRef.current = null;
-        setVideoStream(null);
       }
+      if (screenCaptureServiceRef.current) {
+        screenCaptureServiceRef.current.stop();
+        screenCaptureServiceRef.current = null;
+      }
+      setScreenShareActive(false);
+      setVideoStream(null);
     }, userName ?? undefined);
     stopAudio();
     sendInputRef.current = null;
+  };
+
+  const handleToggleScreenShare = async () => {
+    if (screenShareActive) {
+      screenCaptureServiceRef.current?.stop();
+      screenCaptureServiceRef.current = null;
+      setScreenShareActive(false);
+      setVideoStream(videoServiceRef.current?.getStream() ?? null);
+      return;
+    }
+    if (status !== "listening" || !sendInputRef.current) {
+      setErrorMsg("Démarre une conversation avant de partager l’écran.");
+      return;
+    }
+    if (videoServiceRef.current) {
+      videoServiceRef.current.stop();
+      videoServiceRef.current = null;
+    }
+    setCameraActive(false);
+    try {
+      const svc = new ScreenCaptureService(
+        (videoBase64) => sendInputRef.current?.(videoBase64, "video"),
+        () => {
+          screenCaptureServiceRef.current = null;
+          setScreenShareActive(false);
+          setVideoStream(videoServiceRef.current?.getStream() ?? null);
+        }
+      );
+      await svc.start();
+      screenCaptureServiceRef.current = svc;
+      setScreenShareActive(true);
+      setVideoStream(svc.getStream());
+    } catch (err: unknown) {
+      const name = err && typeof err === "object" && "name" in err ? String((err as { name: string }).name) : "";
+      if (name !== "NotAllowedError" && name !== "AbortError") {
+        setErrorMsg("Impossible de partager l’écran.");
+      }
+      console.error("Partage d’écran:", err);
+    }
   };
 
   const toggleCameraFacingMode = async () => {
@@ -208,8 +260,9 @@ export default function App() {
     }
   };
 
-  // Manage VideoService reactively based on cameraActive and session status
+  // Manage VideoService reactively based on cameraActive and session status (caméra uniquement)
   useEffect(() => {
+    if (screenShareActive) return;
     if (status === "listening" && cameraActive && !videoServiceRef.current && sendInputRef.current) {
       console.log("🎥 Activation de la caméra...");
       videoServiceRef.current = new VideoService((videoBase64) => {
@@ -231,7 +284,7 @@ export default function App() {
       videoServiceRef.current = null;
       setVideoStream(null);
     }
-  }, [cameraActive, status]);
+  }, [cameraActive, status, screenShareActive]);
 
   useEffect(() => {
     if (videoPreviewRef.current && videoStream) {
@@ -431,7 +484,7 @@ export default function App() {
 
                 {/* Video PiP Preview */}
                 <AnimatePresence>
-                  {cameraActive && videoStream && (
+                  {(cameraActive || screenShareActive) && videoStream && (
                     <motion.div
                       drag
                       dragConstraints={{ left: -window.innerWidth + 160, right: 0, top: -window.innerHeight + 240, bottom: 0 }}
@@ -456,7 +509,7 @@ export default function App() {
                         autoPlay
                         muted
                         playsInline
-                        className={`w-full h-full object-cover ${facingMode === "user" ? "mirror" : ""}`}
+                        className={`w-full h-full object-cover ${cameraActive && facingMode === "user" ? "mirror" : ""}`}
                       />
 
                       {/* Premium Overlay Effects */}
@@ -472,7 +525,9 @@ export default function App() {
                       {/* UI Elements inside PiP */}
                       <div className="absolute top-2 left-3 flex items-center gap-1.5 px-2 py-0.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/10">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                        <span className="text-[10px] font-bold text-white/90 uppercase tracking-tighter">Vision Active</span>
+                        <span className="text-[10px] font-bold text-white/90 uppercase tracking-tighter">
+                          {screenShareActive ? "Écran partagé" : "Vision Active"}
+                        </span>
                       </div>
 
                       <div className="absolute bottom-2 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -550,7 +605,14 @@ export default function App() {
           >
             <div className="flex items-center gap-4 bg-slate-900/60 backdrop-blur-xl border border-white/10 p-2 rounded-[40px] shadow-2xl">
               <button
-                onClick={() => setCameraActive(!cameraActive)}
+                onClick={() => {
+                  if (!cameraActive && screenShareActive) {
+                    screenCaptureServiceRef.current?.stop();
+                    screenCaptureServiceRef.current = null;
+                    setScreenShareActive(false);
+                  }
+                  setCameraActive(!cameraActive);
+                }}
                 className={`w-14 h-14 flex items-center justify-center rounded-full transition-all ${cameraActive
                     ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                     : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
@@ -558,6 +620,19 @@ export default function App() {
                 title={cameraActive ? "Désactiver la caméra" : "Activer la caméra"}
               >
                 {cameraActive ? <Camera className="w-6 h-6" /> : <CameraOff className="w-6 h-6" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToggleScreenShare}
+                disabled={status === "connecting"}
+                className={`w-14 h-14 flex items-center justify-center rounded-full transition-all disabled:opacity-40 disabled:pointer-events-none ${screenShareActive
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
+                  }`}
+                title={screenShareActive ? "Arrêter le partage d’écran" : "Partager l’écran avec l’assistant"}
+              >
+                {screenShareActive ? <Monitor className="w-6 h-6" /> : <Monitor className="w-6 h-6 opacity-60" />}
               </button>
 
               {cameraActive && (
