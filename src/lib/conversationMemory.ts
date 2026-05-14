@@ -93,11 +93,17 @@ function getFeedbackCollector(userName: string): FeedbackCollector {
 /** Load all sessions from storage */
 export function loadAllSessions(): ConversationSession[] {
   try {
+    console.log("[ConversationMemory] 📂 Chargement des sessions depuis le stockage...");
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return [];
-    return JSON.parse(stored);
+    if (!stored) {
+      console.log("[ConversationMemory] ℹ️ Aucune session trouvée dans le stockage");
+      return [];
+    }
+    const sessions = JSON.parse(stored);
+    console.log(`[ConversationMemory] ✅ ${sessions.length} session(s) chargée(s)`);
+    return sessions;
   } catch (error) {
-    console.error("Failed to load memory:", error);
+    console.error("[ConversationMemory] ❌ Échec du chargement de la mémoire:", error);
     return [];
   }
 }
@@ -105,23 +111,35 @@ export function loadAllSessions(): ConversationSession[] {
 /** Save all sessions to storage */
 function saveAllSessions(sessions: ConversationSession[]): void {
   try {
+    console.log(`[ConversationMemory] 💾 Sauvegarde de ${sessions.length} session(s)...`);
     // Keep last N sessions
     const limited = sessions.slice(-MAX_SESSIONS);
+    if (limited.length < sessions.length) {
+      console.log(`[ConversationMemory] ⚠️ Limitation à ${MAX_SESSIONS} sessions (${sessions.length - limited.length} supprimée(s))`);
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(limited));
+    console.log("[ConversationMemory] ✅ Sessions sauvegardées avec succès");
   } catch (error) {
-    console.error("Failed to save memory:", error);
+    console.error("[ConversationMemory] ❌ Échec de la sauvegarde de la mémoire:", error);
   }
 }
 
 /** Get or create user profile */
 export function getUserProfile(userName: string): UserProfile {
   try {
+    console.log(`[ConversationMemory] 👤 Chargement du profil pour: ${userName}`);
     const stored = localStorage.getItem(USER_PROFILE_KEY);
     if (stored) {
       const profiles = JSON.parse(stored);
-      if (profiles[userName]) return profiles[userName];
+      if (profiles[userName]) {
+        console.log(`[ConversationMemory] ✅ Profil trouvé: ${profiles[userName].totalConversations} conversation(s)`);
+        return profiles[userName];
+      }
     }
-  } catch (e) {}
+    console.log(`[ConversationMemory] ℹ️ Création d'un nouveau profil pour: ${userName}`);
+  } catch (e) {
+    console.error("[ConversationMemory] ⚠️ Erreur lors du chargement du profil:", e);
+  }
   
   return {
     name: userName,
@@ -134,6 +152,7 @@ export function getUserProfile(userName: string): UserProfile {
 /** Update user profile */
 export function updateUserProfile(profile: UserProfile): void {
   try {
+    console.log(`[ConversationMemory] 📝 Mise à jour du profil: ${profile.name}`);
     const stored = localStorage.getItem(USER_PROFILE_KEY);
     const profiles = stored ? JSON.parse(stored) : {};
     profiles[profile.name] = {
@@ -141,11 +160,15 @@ export function updateUserProfile(profile: UserProfile): void {
       lastActive: Date.now()
     };
     localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profiles));
-  } catch (e) {}
+    console.log("[ConversationMemory] ✅ Profil mis à jour avec succès");
+  } catch (e) {
+    console.error("[ConversationMemory] ❌ Échec de la mise à jour du profil:", e);
+  }
 }
 
 /** Get the current active session or create a new one */
 export function getOrCreateCurrentSession(userName: string): ConversationSession {
+  console.log(`[ConversationMemory] 🔍 Recherche de session active pour: ${userName}`);
   const sessions = loadAllSessions();
   const now = Date.now();
   
@@ -155,7 +178,10 @@ export function getOrCreateCurrentSession(userName: string): ConversationSession
     (now - (s.endTime || s.startTime)) < 30 * 60 * 1000
   );
 
-  if (recentSession) return recentSession;
+  if (recentSession) {
+    console.log(`[ConversationMemory] ✅ Session active trouvée: ${recentSession.id} (${recentSession.turns.length} tours)`);
+    return recentSession;
+  }
 
   const newSession: ConversationSession = {
     id: `session_${now}_${Math.random().toString(36).substr(2, 9)}`,
@@ -163,6 +189,7 @@ export function getOrCreateCurrentSession(userName: string): ConversationSession
     startTime: now,
     turns: []
   };
+  console.log(`[ConversationMemory] 🆕 Nouvelle session créée: ${newSession.id}`);
 
   return newSession;
 }
@@ -173,6 +200,7 @@ export function addConversationTurn(
   speaker: "user" | "assistant" | "child" | "companion",
   message: string
 ): void {
+  console.log(`[ConversationMemory] 💬 Ajout d'un tour: ${speaker} (${message.length} caractères)`);
   const sessions = loadAllSessions();
   const currentSession = getOrCreateCurrentSession(userName);
   
@@ -183,14 +211,18 @@ export function addConversationTurn(
   };
 
   const sessionIndex = sessions.findIndex(s => s.id === currentSession.id);
+  console.log(`[ConversationMemory] 📍 Index de session: ${sessionIndex}`);
   
   if (sessionIndex >= 0) {
+    console.log(`[ConversationMemory] ➕ Ajout du tour à la session existante: ${sessions[sessionIndex].id}`);
     sessions[sessionIndex].turns.push(turn);
     sessions[sessionIndex].endTime = Date.now();
     // Simple topic extraction (first user message)
     if (!sessions[sessionIndex].topic && (speaker === "user" || speaker === "child")) {
       sessions[sessionIndex].topic = message.slice(0, 40) + (message.length > 40 ? "..." : "");
+      console.log(`[ConversationMemory] 🏷️ Sujet défini: ${sessions[sessionIndex].topic}`);
     }
+    console.log(`[ConversationMemory] 📊 Total tours dans la session: ${sessions[sessionIndex].turns.length}`);
     // RAG: embed and store the turn asynchronously (fire-and-forget)
     embedAndStore(message, {
       sessionId: sessions[sessionIndex].id,
@@ -199,10 +231,12 @@ export function addConversationTurn(
       timestamp: turn.timestamp,
     });
   } else {
+    console.log(`[ConversationMemory] 🆕 Ajout d'une nouvelle session: ${currentSession.id}`);
     currentSession.turns.push(turn);
     currentSession.endTime = Date.now();
     currentSession.topic = (speaker === "user" || speaker === "child") ? message.slice(0, 40) : "Discussion";
     sessions.push(currentSession);
+    console.log(`[ConversationMemory] 📊 Total sessions: ${sessions.length}`);
     
     // Update profile stats
     const profile = getUserProfile(userName);
@@ -261,25 +295,31 @@ export function buildMemoryContext(userName: string): string {
 
 /** Get stats for the UI */
 export function getConversationStats(userName: string) {
+  console.log(`[ConversationMemory] 📊 Calcul des statistiques pour: ${userName}`);
   const sessions = loadAllSessions().filter(s => s.userName === userName);
   const profile = getUserProfile(userName);
   
-  return {
+  const stats = {
     totalSessions: sessions.length || profile.totalConversations,
     totalTurns: sessions.reduce((acc, s) => acc + s.turns.length, 0),
     lastActive: profile.lastActive,
     lastConversationDate: sessions.length ? new Date(Math.max(...sessions.map(s => s.endTime || s.startTime))) : undefined,
     sessions: sessions.reverse() // Newest first for UI
   };
+  
+  console.log(`[ConversationMemory] ✅ Stats: ${stats.totalSessions} sessions, ${stats.totalTurns} tours`);
+  return stats;
 }
 
 /** Clear all data (sessions + vector store + weekly summaries) */
 export function clearConversationHistory(): void {
+  console.log("[ConversationMemory] 🗑️ Effacement de tout l'historique des conversations...");
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(USER_PROFILE_KEY);
   localStorage.removeItem(LEARNING_TURN_COUNTS_KEY);
   clearAllVectors();
   clearWeeklySummaries();
+  console.log("[ConversationMemory] ✅ Historique effacé avec succès");
 }
 
 

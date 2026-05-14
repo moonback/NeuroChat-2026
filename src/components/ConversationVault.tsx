@@ -47,30 +47,47 @@ export function ConversationVault({
   onClearMemory,
   accentColor,
 }: ConversationVaultProps) {
+  console.log(`[ConversationVault] 🏛️ Rendu du Coffre - isOpen: ${isOpen}, userName: ${userName}`);
+  
   const [activeTab, setActiveTab] = useState<Tab>("sessions");
   const [weeklySummaries, setWeeklySummaries] = useState<WeeklySummary[]>(
-    () => loadWeeklySummaries()
+    () => {
+      const summaries = loadWeeklySummaries();
+      console.log(`[ConversationVault] 📚 ${summaries.length} synthèse(s) hebdomadaire(s) chargée(s)`);
+      return summaries;
+    }
   );
   const [generatingWeek, setGeneratingWeek] = useState<string | null>(null);
   const [learningRefreshKey, setLearningRefreshKey] = useState(0);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log("[ConversationVault] ❌ Coffre fermé, pas de rendu");
+    return null;
+  }
+  
+  console.log(`[ConversationVault] 📊 Données de mémoire:`, memoryData);
 
   // ── Weekly summary helpers ──────────────────────────────────────────────────
 
   const handleGenerateWeekly = async (weekId?: string) => {
     const target = weekId ?? getWeekId(new Date());
+    console.log(`[ConversationVault] 📅 Génération de la synthèse hebdomadaire pour: ${target}`);
     setGeneratingWeek(target);
     try {
       const sessions = loadAllSessions().filter((s) => s.userName === userName);
+      console.log(`[ConversationVault] 📊 ${sessions.length} session(s) trouvée(s) pour ${userName}`);
       const result = await generateWeeklySummary(sessions, userName, target);
       if (result) {
+        console.log("[ConversationVault] ✅ Synthèse générée avec succès");
         setWeeklySummaries(loadWeeklySummaries());
+      } else {
+        console.log("[ConversationVault] ⚠️ Aucune synthèse générée");
       }
     } catch (err) {
-      console.error("[Vault] Weekly generation failed:", err);
+      console.error("[ConversationVault] ❌ Échec de la génération hebdomadaire:", err);
     } finally {
       setGeneratingWeek(null);
+      console.log("[ConversationVault] 🏁 Génération terminée");
     }
   };
 
@@ -86,6 +103,7 @@ export function ConversationVault({
   );
 
   const weekIds = Object.keys(sessionsByWeek).sort().reverse();
+  console.log(`[ConversationVault] 📅 ${weekIds.length} semaine(s) avec des sessions`);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -135,7 +153,11 @@ export function ConversationVault({
           {/* ── Tabs ── */}
           <div className="flex border-b border-slate-800 bg-slate-900/30">
             <button
-              onClick={() => { setActiveTab("sessions"); onSelectSession(null); }}
+              onClick={() => { 
+                console.log("[ConversationVault] 🔄 Changement d'onglet vers: sessions");
+                setActiveTab("sessions"); 
+                onSelectSession(null); 
+              }}
               className={`flex items-center gap-2 px-6 py-3.5 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === "sessions"
                   ? "border-current text-white"
@@ -147,7 +169,11 @@ export function ConversationVault({
               Sessions
             </button>
             <button
-              onClick={() => { setActiveTab("weekly"); onSelectSession(null); }}
+              onClick={() => { 
+                console.log("[ConversationVault] 🔄 Changement d'onglet vers: weekly");
+                setActiveTab("weekly"); 
+                onSelectSession(null); 
+              }}
               className={`flex items-center gap-2 px-6 py-3.5 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === "weekly"
                   ? "border-current text-white"
@@ -159,7 +185,11 @@ export function ConversationVault({
               Synthèses hebdomadaires
             </button>
             <button
-              onClick={() => { setActiveTab("learning"); onSelectSession(null); }}
+              onClick={() => { 
+                console.log("[ConversationVault] 🔄 Changement d'onglet vers: learning");
+                setActiveTab("learning"); 
+                onSelectSession(null); 
+              }}
               className={`flex items-center gap-2 px-6 py-3.5 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === "learning"
                   ? "border-current text-white"
@@ -209,7 +239,10 @@ export function ConversationVault({
                       memoryData.sessions.map((session: ConversationSession) => (
                         <button
                           key={session.id}
-                          onClick={() => onSelectSession(session.id)}
+                          onClick={() => {
+                            console.log(`[ConversationVault] 🎯 Sélection de la session: ${session.id}`);
+                            onSelectSession(session.id);
+                          }}
                           className={`w-full text-left p-4 rounded-2xl transition-all border ${
                             selectedSession?.id === session.id
                               ? "bg-slate-800/50 border-slate-700 shadow-lg"

@@ -16,17 +16,24 @@ export function useConversationMemory() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   const handleWelcomeSubmit = useCallback((name: string) => {
+    console.log(`[useConversationMemory] 👋 Soumission du nom d'utilisateur: ${name}`);
     setUserName(name);
     saveUserName(name);
     setShowWelcomeModal(false);
+    console.log("[useConversationMemory] ✅ Modal de bienvenue fermée");
   }, []);
 
   const handleClearMemory = useCallback(() => {
+    console.log("[useConversationMemory] 🗑️ Demande d'effacement de la mémoire");
     if (window.confirm("Êtes-vous sûr de vouloir effacer toute la mémoire des conversations ? Cette action est irréversible.")) {
+      console.log("[useConversationMemory] ✅ Confirmation reçue, effacement en cours...");
       clearConversationHistory();
       setShowMemoryModal(false);
       alert("La mémoire a été effacée avec succès !");
+      console.log("[useConversationMemory] 🔄 Rechargement de la page...");
       window.location.reload(); // Refresh to clear state
+    } else {
+      console.log("[useConversationMemory] ❌ Effacement annulé par l'utilisateur");
     }
   }, []);
 
@@ -37,13 +44,29 @@ export function useConversationMemory() {
 
   // Compute stats and session list
   const memoryData = useMemo(() => {
-    if (!userName) return null;
-    return getConversationStats(userName);
+    console.log("[useConversationMemory] 📊 Calcul des données de mémoire...");
+    if (!userName) {
+      console.log("[useConversationMemory] ⚠️ Pas de nom d'utilisateur, données nulles");
+      return null;
+    }
+    const data = getConversationStats(userName);
+    console.log(`[useConversationMemory] ✅ Données calculées: ${data.totalSessions} sessions`);
+    return data;
   }, [userName, showMemoryModal]); // Refresh when modal opens
 
   const selectedSession = useMemo(() => {
-    if (!selectedSessionId || !memoryData) return null;
-    return memoryData.sessions.find(s => s.id === selectedSessionId) || null;
+    console.log(`[useConversationMemory] 🔍 Recherche de la session sélectionnée: ${selectedSessionId}`);
+    if (!selectedSessionId || !memoryData) {
+      console.log("[useConversationMemory] ℹ️ Aucune session sélectionnée");
+      return null;
+    }
+    const session = memoryData.sessions.find(s => s.id === selectedSessionId) || null;
+    if (session) {
+      console.log(`[useConversationMemory] ✅ Session trouvée: ${session.topic} (${session.turns.length} tours)`);
+    } else {
+      console.log("[useConversationMemory] ⚠️ Session non trouvée");
+    }
+    return session;
   }, [selectedSessionId, memoryData]);
 
   return {
