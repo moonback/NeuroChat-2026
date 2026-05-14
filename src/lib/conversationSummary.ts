@@ -8,8 +8,8 @@
  * injected into the system prompt to give the assistant long-term awareness.
  */
 
-import { GoogleGenAI } from "@google/genai";
 import { ConversationSession, ConversationTurn } from "./conversationMemory";
+import { chatWithOpenRouter } from "./OpenRouterService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,7 +33,6 @@ export interface WeeklySummary {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const WEEKLY_SUMMARIES_KEY = "neurochat_v2_weekly_summaries";
-const SUMMARY_MODEL = "gemini-2.0-flash";
 /** Minimum turns in a session before we bother summarising it */
 const MIN_TURNS_FOR_SUMMARY = 4;
 
@@ -120,9 +119,6 @@ export async function generateSessionSummary(
 ): Promise<string | null> {
   if (session.turns.length < MIN_TURNS_FOR_SUMMARY) return null;
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) return null;
-
   const transcript = formatTranscript(session.turns, userName);
   const date = new Date(session.startTime).toLocaleDateString("fr-FR", {
     weekday: "long",
@@ -140,14 +136,11 @@ export async function generateSessionSummary(
   ].join("\n");
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: SUMMARY_MODEL,
-      contents: prompt,
-    });
-    return response.text?.trim() ?? null;
+    console.log("[Summary] Generating session summary via OpenRouter...");
+    const response = await chatWithOpenRouter([{ role: "user", content: prompt }]);
+    return response?.trim() ?? null;
   } catch (err) {
-    console.error("[Summary] Session summary generation failed:", err);
+    console.error("[Summary] Session summary generation failed (OpenRouter):", err);
     return null;
   }
 }
@@ -166,8 +159,6 @@ export async function generateWeeklySummary(
   weekId?: string
 ): Promise<WeeklySummary | null> {
   const targetWeek = weekId ?? getWeekId(new Date());
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) return null;
 
   // Filter sessions belonging to this week
   const weekSessions = sessions.filter(
@@ -208,13 +199,10 @@ export async function generateWeeklySummary(
   ].join("\n");
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: SUMMARY_MODEL,
-      contents: prompt,
-    });
+    console.log("[Summary] Generating weekly summary via OpenRouter...");
+    const response = await chatWithOpenRouter([{ role: "user", content: prompt }]);
 
-    const raw = response.text?.trim() ?? "";
+    const raw = response?.trim() ?? "";
     // Strip potential markdown code fences
     const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
     const parsed = JSON.parse(jsonStr) as { summary: string; topics: string[] };
@@ -235,7 +223,7 @@ export async function generateWeeklySummary(
 
     return weeklySummary;
   } catch (err) {
-    console.error("[Summary] Weekly summary generation failed:", err);
+    console.error("[Summary] Weekly summary generation failed (OpenRouter):", err);
     return null;
   }
 }

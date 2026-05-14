@@ -5,7 +5,7 @@ import { AnimatedCharacter } from "./components/AnimatedCharacter";
 import { AVATARS, type AvatarId } from "./lib/avatarConfig";
 import { useAudioSession } from "./hooks/useAudioSession";
 import { useConversationMemory } from "./hooks/useConversationMemory";
-import { useGeminiSession } from "./hooks/useGeminiSession";
+import { useAIConversation } from "./hooks/useAIConversation";
 import { ConversationVault } from "./components/ConversationVault";
 import { VideoService } from "./lib/VideoService";
 import { ScreenCaptureService } from "./lib/ScreenCaptureService";
@@ -59,8 +59,9 @@ export default function App() {
     errorMsg,
     setErrorMsg,
     startSession,
-    stopSession
-  } = useGeminiSession();
+    stopSession,
+    activeProvider
+  } = useAIConversation();
 
   // Browser control hook
   const {
@@ -587,6 +588,11 @@ export default function App() {
                   className="text-xl text-slate-300 font-light leading-relaxed animate-pulse"
                 >
                   Je t'écoute... Pose ta question à haute voix !
+                  {activeProvider === "openrouter" && (
+                    <span className="block text-xs text-amber-400/70 mt-2 font-mono uppercase tracking-widest">
+                      Mode Secours : OpenRouter Activé
+                    </span>
+                  )}
                 </motion.p>
               )}
             </AnimatePresence>
