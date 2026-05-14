@@ -4,7 +4,7 @@
  * Stores text embeddings in localStorage and provides cosine-similarity
  * search over the full conversation history.
  *
- * Embeddings are generated via the Gemini text-embedding-004 model
+ * Embeddings are generated via the Gemini embedding-001 model
  * (already available through @google/genai).
  */
 
@@ -33,28 +33,40 @@ export interface VectorEntry {
 const VECTOR_STORE_KEY = "neurochat_v2_vectors";
 /** Maximum entries kept in the vector store (older ones are pruned) */
 const MAX_VECTOR_ENTRIES = 500;
-/** Gemini embedding model */
-const EMBEDDING_MODEL = "text-embedding-004";
+/** Gemini embedding model — gemini-embedding-001 remplace text-embedding-004 (déprécié jan 2026) */
+const EMBEDDING_MODEL = "gemini-embedding-001";
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
 export function loadVectorStore(): VectorEntry[] {
   try {
+    console.log("[VectorStore] 📂 Chargement du store de vecteurs...");
     const raw = localStorage.getItem(VECTOR_STORE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as VectorEntry[];
-  } catch {
+    if (!raw) {
+      console.log("[VectorStore] ℹ️ Aucun vecteur trouvé dans le stockage");
+      return [];
+    }
+    const entries = JSON.parse(raw) as VectorEntry[];
+    console.log(`[VectorStore] ✅ ${entries.length} vecteur(s) chargé(s)`);
+    return entries;
+  } catch (error) {
+    console.error("[VectorStore] ❌ Échec du chargement:", error);
     return [];
   }
 }
 
 function saveVectorStore(entries: VectorEntry[]): void {
   try {
+    console.log(`[VectorStore] 💾 Sauvegarde de ${entries.length} vecteur(s)...`);
     // Keep only the most recent entries to stay within localStorage limits
     const limited = entries.slice(-MAX_VECTOR_ENTRIES);
+    if (limited.length < entries.length) {
+      console.log(`[VectorStore] ⚠️ Limitation à ${MAX_VECTOR_ENTRIES} vecteurs (${entries.length - limited.length} supprimé(s))`);
+    }
     localStorage.setItem(VECTOR_STORE_KEY, JSON.stringify(limited));
+    console.log("[VectorStore] ✅ Vecteurs sauvegardés avec succès");
   } catch (error) {
-    console.error("[VectorStore] Failed to save:", error);
+    console.error("[VectorStore] ❌ Échec de la sauvegarde:", error);
   }
 }
 
@@ -67,19 +79,26 @@ function saveVectorStore(entries: VectorEntry[]): void {
 export async function generateEmbedding(text: string): Promise<number[] | null> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
-    console.warn("[VectorStore] VITE_GEMINI_API_KEY not set — skipping embedding.");
+    console.warn("[VectorStore] ⚠️ VITE_GEMINI_API_KEY not set — skipping embedding.");
     return null;
   }
 
   try {
+    console.log(`[VectorStore] 🔄 Génération d'embedding pour: "${text.slice(0, 50)}..."`);
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.embedContent({
       model: EMBEDDING_MODEL,
       contents: text,
     });
-    return response.embeddings?.[0]?.values ?? null;
+    const embedding = response.embeddings?.[0]?.values ?? null;
+    if (embedding) {
+      console.log(`[VectorStore] ✅ Embedding généré (${embedding.length} dimensions)`);
+    } else {
+      console.warn("[VectorStore] ⚠️ Aucun embedding retourné par l'API");
+    }
+    return embedding;
   } catch (error) {
-    console.error("[VectorStore] Embedding generation failed:", error);
+    console.error("[VectorStore] ❌ Échec de la génération d'embedding:", error);
     return null;
   }
 }
@@ -128,14 +147,22 @@ export async function embedAndStore(
   metadata: VectorEntry["metadata"]
 ): Promise<void> {
   const id = `${metadata.timestamp}_${metadata.speaker}`;
+  console.log(`[VectorStore] 🔄 Tentative d'embedding pour: ${id}`);
 
   // Skip if already embedded
   const store = loadVectorStore();
-  if (store.some((e) => e.id === id)) return;
+  if (store.some((e) => e.id === id)) {
+    console.log(`[VectorStore] ⏭️ Vecteur déjà existant, ignoré: ${id}`);
+    return;
+  }
 
   const vector = await generateEmbedding(text);
-  if (!vector) return;
+  if (!vector) {
+    console.log(`[VectorStore] ⚠️ Pas de vecteur généré pour: ${id}`);
+    return;
+  }
 
+  console.log(`[VectorStore] ➕ Ajout du vecteur: ${id}`);
   addVectorEntry({ id, text, vector, metadata });
 }
 
@@ -155,7 +182,10 @@ export async function semanticSearch(
   threshold = 0.6
 ): Promise<Array<VectorEntry & { score: number }>> {
   const queryVector = await generateEmbedding(queryText);
-  if (!queryVector) return [];
+  if (!queryVector) {
+    console.warn("[RAG] ⚠️ Embedding indisponible, recherche sémantique ignorée");
+    return [];
+  }
 
   const store = loadVectorStore().filter(
     (e) => e.metadata.userName === userName
