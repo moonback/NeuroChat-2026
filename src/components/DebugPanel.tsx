@@ -4,7 +4,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Bug, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Bug, X, ChevronDown, ChevronUp, TestTube } from "lucide-react";
+import { testCommandPatterns } from "../lib/commandParser";
 
 interface DebugLog {
   timestamp: number;
@@ -144,6 +145,14 @@ export function DebugPanel() {
               ) : (
                 <ChevronUp className="w-4 h-4 text-slate-400" />
               )}
+            </button>
+            <button
+              onClick={() => testCommandPatterns()}
+              className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white transition-colors flex items-center gap-1"
+              title="Tester les patterns de commandes"
+            >
+              <TestTube className="w-3 h-3" />
+              Test
             </button>
             <button
               onClick={() => setLogs([])}

@@ -15,9 +15,9 @@ export interface ParsedCommand {
  * Patterns de commandes reconnus
  */
 const COMMAND_PATTERNS = [
-  // Navigation - patterns plus flexibles
+  // Navigation - patterns plus flexibles et robustes
   {
-    regex: /(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?|cherche(?:\s+sur)?|recherche(?:\s+sur)?)\s+([a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:\/[^\s]*)?)/gi,
+    regex: /(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\s+([a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:\/[^\s]*)?)/gi,
     type: "navigate" as const,
     extract: (match: RegExpMatchArray) => {
       let url = match[1].trim();
@@ -56,6 +56,28 @@ const COMMAND_PATTERNS = [
     extract: (match: RegExpMatchArray) => {
       const query = encodeURIComponent(match[1].trim());
       return { url: `https://www.google.com/search?q=${query}` };
+    },
+  },
+  // Pattern spécial pour "va sur youtube" (sans point)
+  {
+    regex: /(?:va\s+sur|ouvre)\s+(youtube|google|facebook|twitter|instagram|linkedin|wikipedia|amazon|netflix|spotify)(?:\s|$|\.)/gi,
+    type: "navigate" as const,
+    extract: (match: RegExpMatchArray) => {
+      const site = match[1].toLowerCase();
+      const commonSites: Record<string, string> = {
+        "google": "google.com",
+        "youtube": "youtube.com",
+        "facebook": "facebook.com",
+        "twitter": "twitter.com",
+        "instagram": "instagram.com",
+        "linkedin": "linkedin.com",
+        "wikipedia": "wikipedia.org",
+        "amazon": "amazon.fr",
+        "netflix": "netflix.com",
+        "spotify": "spotify.com",
+      };
+      
+      return { url: `https://${commonSites[site]}` };
     },
   },
   // Clic
@@ -194,6 +216,36 @@ export function extractAllCommands(text: string): BrowserAction[] {
   }
 
   return actions;
+}
+
+/**
+ * Teste les patterns de commandes avec des exemples
+ */
+export function testCommandPatterns(): void {
+  const testCases = [
+    "Je t'ouvre YouTube tout de suite. va sur youtube",
+    "D'accord, je vais sur Google. va sur google",
+    "Je cherche ça pour toi. cherche météo Paris",
+    "ouvre facebook",
+    "va sur netflix",
+    "clique sur le bouton connexion",
+    "descends un peu",
+    "lis la page",
+  ];
+
+  console.log("🧪 [CommandParser] Test des patterns:");
+  
+  testCases.forEach((testCase, index) => {
+    console.log(`\n--- Test ${index + 1}: "${testCase}" ---`);
+    const result = parseAssistantResponse(testCase);
+    
+    if (result.action) {
+      console.log("✅ Commande détectée:", result.action);
+      console.log("📝 Texte nettoyé:", result.cleanText);
+    } else {
+      console.log("❌ Aucune commande détectée");
+    }
+  });
 }
 
 /**
