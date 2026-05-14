@@ -15,6 +15,14 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps)
     return Number.isFinite(val) ? Math.max(min, val) : min;
   };
 
+  const speakingBars = [
+    { x: -25, y: -10, height: 20, scaleY: [0.25, 1.25, 0.5], duration: 0.2 },
+    { x: -15, y: -12, height: 24, scaleY: [0.42, 1.25, 0.63], duration: 0.15 },
+    { x: -5, y: -15, height: 30, scaleY: [0.5, 1.17, 0.67], duration: 0.25 },
+    { x: 5, y: -12, height: 24, scaleY: [0.42, 1.25, 0.63], duration: 0.15 },
+    { x: 15, y: -10, height: 20, scaleY: [0.25, 1.25, 0.5], duration: 0.2 },
+  ];
+
   return (
     <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-[0_10px_30px_rgba(79,70,229,0.4)]">
       <defs>
@@ -89,11 +97,20 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps)
         {/* Mouth — bars react to audioLevel */}
         {isSpeaking ? (
           <motion.g transform="translate(0, 30)">
-            <motion.rect x="-25" y="-10" width="4" height="20" fill="#F472B6" animate={{ height: [5, 25, 10] }} transition={{ duration: 0.2, repeat: Infinity }} rx="2" />
-            <motion.rect x="-15" y="-12" width="4" height="24" fill="#F472B6" animate={{ height: [10, 30, 15] }} transition={{ duration: 0.15, repeat: Infinity }} rx="2" />
-            <motion.rect x="-5" y="-15" width="4" height="30" fill="#F472B6" animate={{ height: [15, 35, 20] }} transition={{ duration: 0.25, repeat: Infinity }} rx="2" />
-            <motion.rect x="5" y="-12" width="4" height="24" fill="#F472B6" animate={{ height: [10, 30, 15] }} transition={{ duration: 0.15, repeat: Infinity }} rx="2" />
-            <motion.rect x="15" y="-10" width="4" height="20" fill="#F472B6" animate={{ height: [5, 25, 10] }} transition={{ duration: 0.2, repeat: Infinity }} rx="2" />
+            {speakingBars.map((bar) => (
+              <motion.rect
+                key={bar.x}
+                x={bar.x}
+                y={bar.y}
+                width="4"
+                height={bar.height}
+                fill="#F472B6"
+                animate={{ scaleY: bar.scaleY }}
+                transition={{ duration: bar.duration, repeat: Infinity }}
+                style={{ originY: 1 }}
+                rx="2"
+              />
+            ))}
           </motion.g>
         ) : status === "listening" ? (
           <g transform="translate(0, 30)">
