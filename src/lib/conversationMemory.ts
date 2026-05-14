@@ -10,6 +10,7 @@
  */
 import { embedAndStore, clearAllVectors } from "./vectorStore";
 import { clearWeeklySummaries } from "./conversationSummary";
+import { FeedbackCollector } from "./learning/feedbackCollector";
 
 export interface ConversationTurn {
   timestamp: number;
@@ -38,6 +39,14 @@ const STORAGE_KEY = "neurochat_v2_memory";
 const USER_PROFILE_KEY = "neurochat_v2_user_profile";
 const MAX_SESSIONS = 50; // Increased storage for "pro" feel
 const CONTEXT_WINDOW = 10;
+const feedbackCollectors = new Map<string, FeedbackCollector>();
+
+function getFeedbackCollector(userName: string): FeedbackCollector {
+  if (!feedbackCollectors.has(userName)) {
+    feedbackCollectors.set(userName, new FeedbackCollector(userName));
+  }
+  return feedbackCollectors.get(userName)!;
+}
 
 /** Load all sessions from storage */
 export function loadAllSessions(): ConversationSession[] {
@@ -166,6 +175,16 @@ export function addConversationTurn(
       timestamp: turn.timestamp,
     });
   }
+
+  const updatedSession = sessions.find(s => s.id === (sessionIndex >= 0 ? sessions[sessionIndex].id : currentSession.id));
+  const previousTurns = updatedSession ? updatedSession.turns.slice(0, -1) : [];
+  const addedTurnIndex = updatedSession ? updatedSession.turns.length - 1 : 0;
+  void getFeedbackCollector(userName).collectFromTurn(
+    (updatedSession?.id ?? currentSession.id),
+    addedTurnIndex,
+    turn,
+    previousTurns
+  );
 
   saveAllSessions(sessions);
 }

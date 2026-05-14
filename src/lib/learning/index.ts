@@ -43,3 +43,9 @@ export {
   SafetyConstraintManager,
   defaultSafetyManager,
 } from './safetyConstraints';
+
+
+// Export feedback collection
+export {
+  FeedbackCollector,
+} from './feedbackCollector';
