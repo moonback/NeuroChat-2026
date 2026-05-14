@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Tag,
   Loader2,
+  BrainCircuit,
 } from "lucide-react";
 import { ConversationSession, loadAllSessions } from "../lib/conversationMemory";
 import {
@@ -20,6 +21,8 @@ import {
   WeeklySummary,
   getWeekId,
 } from "../lib/conversationSummary";
+import { PromptVersionDisplay } from "./learning/PromptVersionDisplay";
+import { PromptControlPanel } from "./learning/PromptControlPanel";
 
 interface ConversationVaultProps {
   isOpen: boolean;
@@ -32,7 +35,7 @@ interface ConversationVaultProps {
   accentColor: string;
 }
 
-type Tab = "sessions" | "weekly";
+type Tab = "sessions" | "weekly" | "learning";
 
 export function ConversationVault({
   isOpen,
@@ -49,6 +52,7 @@ export function ConversationVault({
     () => loadWeeklySummaries()
   );
   const [generatingWeek, setGeneratingWeek] = useState<string | null>(null);
+  const [learningRefreshKey, setLearningRefreshKey] = useState(0);
 
   if (!isOpen) return null;
 
@@ -153,6 +157,18 @@ export function ConversationVault({
             >
               <CalendarDays className="w-4 h-4" />
               Synthèses hebdomadaires
+            </button>
+            <button
+              onClick={() => { setActiveTab("learning"); onSelectSession(null); }}
+              className={`flex items-center gap-2 px-6 py-3.5 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === "learning"
+                  ? "border-current text-white"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              }`}
+              style={activeTab === "learning" ? { color: accentColor, borderColor: accentColor } : {}}
+            >
+              <BrainCircuit className="w-4 h-4" />
+              Apprentissage
             </button>
           </div>
 
@@ -498,6 +514,26 @@ export function ConversationVault({
                     );
                   })
                 )}
+              </div>
+            )}
+
+
+            {/* ════ LEARNING TAB ════ */}
+            {activeTab === "learning" && (
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+                  <PromptVersionDisplay
+                    userId={userName || "anonymous"}
+                    accentColor={accentColor}
+                    refreshKey={learningRefreshKey}
+                  />
+                  <PromptControlPanel
+                    userId={userName || "anonymous"}
+                    accentColor={accentColor}
+                    onChanged={() => setLearningRefreshKey((key) => key + 1)}
+                    onManualCycle={() => setLearningRefreshKey((key) => key + 1)}
+                  />
+                </div>
               </div>
             )}
           </div>
