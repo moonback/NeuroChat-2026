@@ -28,8 +28,16 @@ function buildDateTimeContext(now: Date): string {
   const hours = now.getHours();
   const minutes = now.getMinutes().toString().padStart(2, "0");
 
-  const period = hours < 6 ? "nuit" : hours < 12 ? "matin" : hours < 18 ? "après-midi" : "soir";
-  return `Date: ${dayName} ${now.getDate()} ${monthName} ${now.getFullYear()}, ${hours}h${minutes}. Période: ${period}.`;
+  const period = hours < 6 ? "nuit profonde" : hours < 12 ? "matin" : hours < 18 ? "après-midi (focus)" : hours < 22 ? "soirée" : "fin de soirée";
+  
+  let ritualAdvice = "";
+  if (hours < 6) ritualAdvice = "L'utilisateur devrait se reposer. Sois extrêmement calme et protecteur.";
+  else if (hours < 10) ritualAdvice = "C'est le début de journée. Sois accueillant, énergique et motivant.";
+  else if (hours < 18) ritualAdvice = "Phase de productivité. Sois concis, efficace et ne distrais pas l'utilisateur.";
+  else if (hours < 22) ritualAdvice = "Phase de détente. Sois conversationnel, chaleureux et empathique.";
+  else ritualAdvice = "La journée se termine. Encourage le calme et prépare la fin de session.";
+
+  return `Date: ${dayName} ${now.getDate()} ${monthName} ${now.getFullYear()}, ${hours}h${minutes}. Période: ${period}.\nConseil Rituel: ${ritualAdvice}`;
 }
 
 function getEmotionInstruction(emotion: EmotionState): string {

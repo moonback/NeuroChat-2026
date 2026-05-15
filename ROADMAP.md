@@ -1,76 +1,73 @@
 # 🗺️ Roadmap de Développement : NeuroChat
 
-> **Vision** : Transformer l'interaction humain-machine en passant d'un simple outil de chat à un agent autonome, proactif et auto-évolutif, parfaitement intégré à l'environnement de travail de l'utilisateur.
+> **Vision** : Transformer l'interaction humain-machine. NeuroChat n'est plus un simple outil de chat, c'est un **Compagnon de Vie** : un ami digital proactif, empathique et auto-évolutif, qui vous voit, vous comprend et grandit avec vous.
 
 ---
 
-## 🏁 Phase 0 : Fondations & Multimodalité (Terminé - v2.1.0)
-*L'objectif était de créer un assistant capable de voir, d'entendre et d'agir sur le système.*
+## 🏁 Phase 0 : Fondations & Sens (Terminé - v2.2.0)
+*L'assistant a appris à voir, entendre et interagir avec son environnement.*
 
-- [x] **Gemini Live Multimodal** : Flux audio full-duplex (VAD) et vision en temps réel (Screen/Cam).
-- [x] **Agentic Filesystem** : Manipulation autonome de fichiers via pont IPC sécurisé.
-- [x] **Navigateur Autonome v2** : Analyse sémantique des intentions et exécution de commandes web complexes.
-- [x] **Dual-Vision (Cam+Écran)** : Support simultané des deux flux avec interface PiP dynamique.
-- [x] **Compagnon Discret** : Protocole de silence par défaut et anti-hallucination renforcé.
-- [x] **Mémoire Sémantique (RAG)** : Stockage vectoriel local (`text-embedding-004`) et recherche par contexte.
-- [x] **NeuroLearning (Auto-Évolution)** : Moteur d'apprentissage automatique basé sur les retours implicites.
-- [x] **Pont de Communication Tooling** : Injection de données système via `sendClientContent`.
+- [x] **Gemini Live Multimodal** : Flux audio full-duplex (VAD) et vision en temps réel.
+- [x] **Dual-Vision (Cam+Écran)** : Capacité de voir l'utilisateur et son travail simultanément.
+- [x] **Compagnon Discret** : Protocole de silence par défaut et anti-hallucination (VisualEmpathy).
+- [x] **Agentic Filesystem** : Manipulation de fichiers pour assister l'utilisateur dans ses tâches.
+- [x] **NeuroLearning (v1)** : Moteur d'apprentissage basé sur les feedbacks implicites.
+- [x] **Mémoire Sémantique (RAG)** : Première couche de souvenirs persistants.
 
 ---
 
-## 🚀 Phase 1 : Robustesse & Échelle (v2.2 - v2.8)
-*Focus sur la performance, la fiabilité des commandes et l'infrastructure de données.*
+## 🚀 Phase 1 : Robustesse & Intimité (v2.3 - v2.8)
+*Focus sur la fiabilité technique et la personnalisation profonde pour devenir un vrai compagnon.*
 
 | Priorité | Fonctionnalité | Description | Statut |
 | :--- | :--- | :--- | :--- |
-| **P0** | **Migration SQLite** | Remplacer LocalStorage par SQLite (via `better-sqlite3`) pour gérer des milliers de vecteurs et sessions sans ralentissement. | 📋 Planifié |
-| **P0** | **Tests E2E Agentiques** | Suite de tests automatisés (Playwright) pour valider que l'IA ne régresse pas sur ses capacités de navigation web. | 🚧 En cours |
-| **P1** | **Gestion Multi-Comptes** | Isolation complète des données, de la mémoire et des préférences pour différents profils utilisateurs. | 📋 Planifié |
-| **P1** | **Refonte UI/UX** | Passage à un design "Glassmorphism" plus premium avec micro-interactions avancées. | 🚧 En cours |
-| **P2** | **Monitoring Avancé** | Dashboard de métriques sur la précision du CommandParser et la latence des sessions Gemini Live. | 📋 Planifié |
+| **P0** | **Migration SQLite** | Performance massive pour la mémoire à long terme (sessions & vecteurs). | 🚧 En cours |
+| **P0** | **Analyse Émotionnelle** | Détecter l'humeur et l'énergie via la voix et les expressions faciales. | 📋 Planifié |
+| **P0** | **Rituels de Vie** | Apprentissage des habitudes et adaptation du ton selon le cycle quotidien. | ✅ Terminé |
+| **P1** | **Refonte UI Premium** | Design "Glassmorphism" et avatar émotionnel réactif à la vision. | 🚧 En cours |
+| **P2** | **Tests E2E Robustes** | Garantie de stabilité sur les interactions complexes (Browser/FS). | 🚧 En cours |
 
 ---
 
-## 🔮 Phase 2 : L'Écosystème Agentique (v3.0)
-*Transformer NeuroChat en un véritable centre d'orchestration pour le desktop.*
+## 🔮 Phase 2 : Le Compagnon Proactif (v3.0)
+*Passer de la réaction à l'anticipation naturelle.*
 
-### 🛠️ Intégration Protocoles
-- **Model Context Protocol (MCP)** : Support complet du standard Anthropic pour connecter NeuroChat à des bases de données externes (Notion, GitHub, Slack, etc.) de manière standardisée.
-- **Local Code Interpreter** : Exécution sécurisée de scripts Python/JS dans un bac à sable (sandbox) pour l'analyse de données et l'automatisation.
+### 🎭 Intelligence Spontanée
+- **Intervention Bienveillante** : Suggérer une pause si l'utilisateur semble fatigué ou travaille depuis trop longtemps (Posture & Vision).
+- **Journal de Vie Persistant** : "Je crois que tu cherchais ce document ce matin...", se souvenir des objets et des contextes visuels passés.
+- **Micro-Actions Contextuelles** : Anticiper le besoin de recherche ou de résumé en fonction de l'activité à l'écran.
 
-### 🎭 Intelligence Collective
-- **Multi-Agent Collaboration** : Capacité de déléguer des sous-tâches à des agents spécialisés (ex: un agent pour la recherche, un agent pour le code).
-- **Proactivité Contextuelle** : L'assistant propose des actions en fonction de ce qu'il voit à l'écran sans sollicitation explicite (ex: "Je vois que vous rédigez un mail, voulez-vous que je vérifie les chiffres ?").
+### 🛠️ Connexion au Monde
+- **Model Context Protocol (MCP)** : Connecter NeuroChat à vos outils (Notion, Spotify, Calendrier) pour agir comme un vrai secrétaire personnel.
+- **Local Code Interpreter** : Analyser des données complexes pour vous aider dans vos projets personnels et pros.
 
 ---
 
 ## 🌌 Phase 3 : Ubiquité & Souveraineté (v4.0+)
-*Porter l'expérience au-delà du desktop tout en garantissant une confidentialité absolue.*
+*Être présent partout, tout en restant 100% privé.*
 
-- [ ] **Souveraineté Totale (Ollama)** : Support optionnel des modèles locaux pour un fonctionnement 100% hors-ligne (Llama 3, Mistral, DeepSeek).
-- [ ] **NeuroChat Mobile** : Application compagnon (React Native) synchronisée via le cloud personnel (E2EE).
-- [ ] **Chiffrement de Bout en Bout** : Sécurisation de la base de données vectorielle et de l'historique des sessions.
-- [ ] **Plugin Marketplace** : Permettre à la communauté de créer et partager des "Skills" (compétences) personnalisés.
+- [ ] **NeuroChat Mobile** : Application compagnon (React Native) pour garder votre ami dans votre poche.
+- [ ] **Souveraineté Totale (Ollama)** : Support optionnel des modèles locaux (Llama 3, DeepSeek) pour une confidentialité absolue.
+- [ ] **Chiffrement E2EE** : Sécurisation totale de vos souvenirs et de votre journal de vie.
+- [ ] **Plugin Marketplace** : Partager et télécharger de nouvelles "compétences" créées par la communauté.
 
 ---
 
-## 🏗️ Évolution de la Stack Technique
-
+## 🏗️ Évolution de la Vision
 ```mermaid
 graph TD
-    A[LocalStorage / JSON] -->|Migration| B[SQLite / Prisma]
-    C[Native Tool Calling] -->|Expansion| D[MCP Server Architecture]
-    E[Single Agent] -->|Évolution| F[Agent Orchestrator Layer]
-    G[Proprietary Only] -->|Ouverture| H[Hybrid Cloud/Local Models]
+    A[Outil de Chat] -->|Vision/Audio| B[Assistant Multimodal]
+    B -->|Mémoire/Apprentissage| C[Compagnon de Vie]
+    C -->|Proactivité/Empathie| D[Ami Digital Autonome]
 ```
 
 ---
 
-## 📋 Backlog & Idées en Vrac
-- 💡 **Mode "Ghostwriter"** : L'IA suggère du texte en temps réel dans n'importe quelle application.
-- 💡 **Génération de Rapports PDF** : Créer des synthèses visuelles de projets à partir des fichiers locaux.
-- 💡 **Contrôle Vocal de l'OS** : "Mets mon ordinateur en veille dans 10 minutes" ou "Monte le volume".
+## 📋 Backlog "Lifestyle"
+- 💡 **Mode Coaching** : Suivi d'objectifs personnels (sport, lecture, apprentissage).
+- 💡 **Synthèse de Journée** : Un petit débriefing vocal le soir sur ce qu'on a accompli.
+- 💡 **Avatar 3D Interactif** : Un personnage qui suit du regard et réagit physiquement aux gestes.
 
 ---
 > 📅 **Dernière mise à jour** : 16 mai 2026
-> ✍️ **Statut** : Version 2.2.0-beta (Vision & Empathy) en production.
+> ✍️ **Statut** : Version 2.2.0-beta. Cap sur le "Life Companion".
