@@ -4,12 +4,7 @@ export interface OpenRouterMessage {
 }
 
 const MODELS = [
-  "minimax/minimax-m2.5:free",
-  "mistralai/mistral-7b-instruct:free",
-  "meta-llama/llama-3-8b-instruct:free",
-  "microsoft/phi-3-mini-128k-instruct:free",
-  "qwen/qwen-2-7b-instruct:free",
-  "huggingfaceh4/zephyr-7b-beta:free"
+  "deepseek/deepseek-v4-flash:free"
 ];
 
 export async function chatWithOpenRouter(messages: OpenRouterMessage[]) {
