@@ -15,48 +15,48 @@ describe('avatarConfig', () => {
   });
 
   describe('loadSavedAvatar', () => {
-    it('should return default avatar when nothing is saved', () => {
-      const avatar = loadSavedAvatar();
+    it('should return default avatar when nothing is saved', async () => {
+      const avatar = await loadSavedAvatar();
       expect(avatar).toBe('robot');
     });
 
-    it('should return saved avatar when valid', () => {
+    it('should return saved avatar when valid', async () => {
       localStorage.setItem('NeuroChat-avatar', 'robot');
-      const avatar = loadSavedAvatar();
+      const avatar = await loadSavedAvatar();
       expect(avatar).toBe('robot');
     });
 
-    it('should return default avatar when saved value is invalid', () => {
+    it('should return default avatar when saved value is invalid', async () => {
       localStorage.setItem('NeuroChat-avatar', 'invalid');
-      const avatar = loadSavedAvatar();
+      const avatar = await loadSavedAvatar();
       expect(avatar).toBe('robot');
     });
   });
 
   describe('saveAvatar', () => {
-    it('should save avatar to localStorage', () => {
-      saveAvatar('robot');
+    it('should save avatar to localStorage', async () => {
+      await saveAvatar('robot');
       expect(localStorage.setItem).toHaveBeenCalledWith('NeuroChat-avatar', 'robot');
     });
   });
 
   describe('loadChildName', () => {
-    it('should return empty string when nothing is saved', () => {
-      const name = loadChildName();
+    it('should return empty string when nothing is saved', async () => {
+      const name = await loadChildName();
       expect(name).toBe('');
     });
 
-    it('should return saved name', () => {
+    it('should return saved name', async () => {
       localStorage.setItem('NeuroChat-child-name', 'Marie');
-      localStorage.getItem = vi.fn().mockReturnValue('Marie');
-      const name = loadChildName();
+      // No need to mock getItem, LocalStorageBackend.getItem calls actual localStorage.getItem
+      const name = await loadChildName();
       expect(name).toBe('Marie');
     });
   });
 
   describe('saveChildName', () => {
-    it('should save child name to localStorage', () => {
-      saveChildName('Marie');
+    it('should save child name to localStorage', async () => {
+      await saveChildName('Marie');
       expect(localStorage.setItem).toHaveBeenCalledWith('NeuroChat-child-name', 'Marie');
     });
   });

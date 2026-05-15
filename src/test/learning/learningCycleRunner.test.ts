@@ -34,8 +34,8 @@ describe('runLearningCycleForUser', () => {
   });
 
   it('generates proposals and creates a prompt version for manual cycles', async () => {
-    addConversationTurn('runner-user', 'assistant', 'Voici une très longue réponse qui devrait probablement être plus concise et directe pour mieux répondre à la demande de l’utilisateur sans perdre le fil.');
-    addConversationTurn('runner-user', 'user', 'Peux-tu faire plus court ?');
+    await addConversationTurn('runner-user', 'assistant', 'Voici une très longue réponse qui devrait probablement être plus concise et directe pour mieux répondre à la demande de l’utilisateur sans perdre le fil.');
+    await addConversationTurn('runner-user', 'user', 'Peux-tu faire plus court ?');
 
     const status = await runLearningCycleForUser('runner-user', { manual: true, currentPrompt: prompt, now: () => 1000 });
 
@@ -76,8 +76,8 @@ describe('runLearningCycleForUser', () => {
     });
     await getLearningStorage(userId).updateConfig({ monitoringPeriod: 2, maxCyclesPerDay: 5 });
 
-    addConversationTurn(userId, 'assistant', 'Voici une réponse volontairement très très très longue sans question utile ni référence au contexte précédent afin de simuler une baisse de qualité nette pour le monitoring.');
-    addConversationTurn(userId, 'assistant', 'Encore une réponse longue et peu proactive qui ne répond pas clairement et qui devrait faire baisser le score composite.');
+    await addConversationTurn(userId, 'assistant', 'Voici une réponse volontairement très très très longue sans question utile ni référence au contexte précédent afin de simuler une baisse de qualité nette pour le monitoring.');
+    await addConversationTurn(userId, 'assistant', 'Encore une réponse longue et peu proactive qui ne répond pas clairement et qui devrait faire baisser le score composite.');
 
     const status = await runLearningCycleForUser(userId, { manual: true, currentPrompt: prompt, now: () => 1000 });
 
@@ -90,7 +90,7 @@ describe('runLearningCycleForUser', () => {
 
   it('honors disabled automatic learning for non-manual cycles', async () => {
     await getLearningStorage('disabled-user').updateConfig({ enabled: false });
-    addConversationTurn('disabled-user', 'assistant', 'Réponse longue à raccourcir.');
+    await addConversationTurn('disabled-user', 'assistant', 'Réponse longue à raccourcir.');
 
     const status = await runLearningCycleForUser('disabled-user', { currentPrompt: prompt, now: () => 1000 });
 

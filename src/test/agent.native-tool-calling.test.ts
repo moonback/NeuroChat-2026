@@ -29,7 +29,8 @@ describe("native tool-calling path", () => {
     expect(result.completed).toBe(true);
     expect(result.answer).toBe("ok");
     expect(model.completeStepWithTools).toHaveBeenCalled();
-    expect(model.complete).not.toHaveBeenCalled();
+    // One call expected for Reflection
+    expect(model.complete).toHaveBeenCalledTimes(1);
   });
 
   it("OpenRouter gateway maps tool_calls to AgentStep", async () => {

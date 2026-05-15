@@ -226,37 +226,37 @@ Content 3
   });
 
   describe('Security Event Logging', () => {
-    it('should log security events', () => {
-      manager.logSecurityEvent('modification_attempt', {
+    it('should log security events', async () => {
+      await manager.logSecurityEvent('modification_attempt', {
         targetSection: 'IDENTITY & PERSONA',
         reason: 'Attempted to modify immutable section',
         timestamp: Date.now(),
         proposalId: 'proposal-123',
       });
 
-      const events = manager.getSecurityEvents();
+      const events = await manager.getSecurityEvents();
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe('modification_attempt');
       expect(events[0].targetSection).toBe('IDENTITY & PERSONA');
       expect(events[0].proposalId).toBe('proposal-123');
     });
 
-    it('should log validation rejections', () => {
-      manager.logSecurityEvent('validation_rejection', {
+    it('should log validation rejections', async () => {
+      await manager.logSecurityEvent('validation_rejection', {
         targetSection: 'SAFETY & PRIVACY',
         reason: 'Violates safety constraints',
         timestamp: Date.now(),
       });
 
-      const events = manager.getSecurityEvents();
+      const events = await manager.getSecurityEvents();
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe('validation_rejection');
     });
 
-    it('should limit stored events to 100', () => {
+    it('should limit stored events to 100', async () => {
       // Add 150 events
       for (let i = 0; i < 150; i++) {
-        manager.logSecurityEvent('modification_attempt', {
+        await manager.logSecurityEvent('modification_attempt', {
           targetSection: 'TEST',
           reason: `Event ${i}`,
           timestamp: Date.now(),
@@ -264,7 +264,9 @@ Content 3
       }
 
       const eventsKey = 'neurochat_security_events';
-      const stored = localStorage.getItem(eventsKey);
+      const stored = await (import.meta.env.VITE_ELECTRON ? 
+        window.neurochatElectron.db.get(eventsKey) : 
+        Promise.resolve(localStorage.getItem(eventsKey)));
       const events = JSON.parse(stored!);
       
       expect(events).toHaveLength(100);
@@ -273,17 +275,17 @@ Content 3
       expect(events[99].reason).toBe('Event 149');
     });
 
-    it('should retrieve limited number of events', () => {
+    it('should retrieve limited number of events', async () => {
       // Add 30 events
       for (let i = 0; i < 30; i++) {
-        manager.logSecurityEvent('modification_attempt', {
+        await manager.logSecurityEvent('modification_attempt', {
           targetSection: 'TEST',
           reason: `Event ${i}`,
           timestamp: Date.now(),
         });
       }
 
-      const events = manager.getSecurityEvents(10);
+      const events = await manager.getSecurityEvents(10);
       expect(events).toHaveLength(10);
       // Should get the most recent 10
       expect(events[0].reason).toBe('Event 20');

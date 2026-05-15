@@ -119,7 +119,7 @@ describe("Conversation Memory System", () => {
     await getLearningStorage("Marie").updateConfig({ triggerAfterTurns: 2, enabled: true });
 
     await addConversationTurn("Marie", "child", "Message 1");
-    addConversationTurn("Marie", "companion", "Message 2");
+    await addConversationTurn("Marie", "companion", "Message 2");
 
     await waitFor(() => expect(runner).toHaveBeenCalledWith("Marie"));
     expect(runner).toHaveBeenCalledTimes(1);
