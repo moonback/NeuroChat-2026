@@ -27,7 +27,8 @@ export function PromptVersionDisplay({ userId, accentColor, refreshKey = 0 }: Pr
       if (!cancelled) {
         setHistory(loaded);
         setCycles(learningData.cycleHistory.slice(-5).reverse());
-        setEvents(defaultSecurityLogger.getEvents(5));
+        const securityEvents = await defaultSecurityLogger.getEvents(5);
+        setEvents(securityEvents);
       }
     }
 
