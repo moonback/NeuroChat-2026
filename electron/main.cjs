@@ -6,6 +6,22 @@ const { shell } = require('electron');
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 
 const MAX_DISPLAY_SOURCES = 12;
+const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
+
+function openExternalUrlSafely(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    if (!ALLOWED_EXTERNAL_PROTOCOLS.has(parsed.protocol)) {
+      console.warn('[electron] blocked external URL with unsupported protocol', parsed.protocol);
+      return;
+    }
+    shell.openExternal(parsed.toString()).catch((error) => {
+      console.error('[electron] openExternal failed', error);
+    });
+  } catch (error) {
+    console.warn('[electron] blocked invalid external URL', rawUrl, error);
+  }
+}
 
 /**
  * Sans ce gestionnaire, getDisplayMedia() échoue souvent avec NotSupportedError
@@ -73,9 +89,7 @@ function createWindow() {
 
   win.once('ready-to-show', () => win.show());
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url).catch((error) => {
-      console.error('[electron] openExternal failed', error);
-    });
+    openExternalUrlSafely(url);
     return { action: 'deny' };
   });
 
@@ -83,9 +97,7 @@ function createWindow() {
     const currentUrl = win.webContents.getURL();
     if (currentUrl && url !== currentUrl) {
       event.preventDefault();
-      shell.openExternal(url).catch((error) => {
-        console.error('[electron] blocked navigation failed to open externally', error);
-      });
+      openExternalUrlSafely(url);
     }
   });
 

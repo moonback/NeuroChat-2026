@@ -1,12 +1,9 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { loadUserName, saveUserName } from "../lib/avatarConfig";
 import { 
   addConversationTurn, 
   clearConversationHistory, 
-  getConversationStats,
-  loadAllSessions,
-  getUserProfile,
-  ConversationSession
+  getConversationStats
 } from "../lib/conversationMemory";
 
 export function useConversationMemory() {
@@ -71,6 +68,12 @@ export function useConversationMemory() {
     }
     return session;
   }, [selectedSessionId, memoryData]);
+
+  useEffect(() => {
+    if (selectedSessionId && !selectedSession) {
+      setSelectedSessionId(null);
+    }
+  }, [selectedSessionId, selectedSession]);
 
   const addTurn = useCallback(
     (name: string, speaker: "user" | "assistant" | "child" | "companion", message: string) => {
