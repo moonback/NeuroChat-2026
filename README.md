@@ -4,6 +4,10 @@ NeuroChat est un assistant personnel professionnel multimodal qui vit sur votre 
 
 ---
 
+<div style="display: flex; margin: auto; justify-content: center; align-items: center; flex-direction: column;">
+    <img src="./public/header.png" alt="Logo NeuroChat" width="500">
+</div>
+
 ## 🚀 Badges
 
 ![build](https://img.shields.io/badge/build-passing-brightgreen)
