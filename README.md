@@ -17,7 +17,7 @@
 
 ## 🌟 Pourquoi NeuroChat ?
 
-La plupart des assistants IA vivent dans un onglet de navigateur et vous oublient dès que la page est fermée. **NeuroChat est différent.** Il s'exécute nativement sur votre bureau, se souvient de chaque conversation via une mémoire sémantique, manipule vos fichiers de manière autonome et apprend continuellement de vos retours pour s'améliorer — tout en gardant vos données 100% locales.
+La plupart des assistants IA vivent dans un onglet de navigateur et vous oublient dès que la page est fermée. **NeuroChat est différent.** Il s'exécute nativement sur votre bureau, se souvient de chaque conversation via une mémoire sémantique persistante (SQLite), manipule vos fichiers de manière autonome et apprend continuellement de vos retours pour s'améliorer — tout en gardant vos données 100% locales.
 
 ---
 
@@ -70,8 +70,9 @@ Utilisateur : "Liste les fichiers dans mon dossier projet"
 - **IPC Bidirectionnel** — Les résultats reviennent à l'IA via `sendClientContent()` avec `turnComplete: true`.
 
 ### 🧠 Mémoire à Long Terme & RAG
-NeuroChat se souvient de ce qui compte d'une session à l'autre.
-- **Vector Store Local** — Embeddings sécurisés (`text-embedding-004`, 3072 dims) stockés sur votre machine.
+NeuroChat se souvient de ce qui compte d'une session à l'autre grâce à une architecture robuste.
+- **Base de données SQLite** — Stockage performant et structuré de vos données (vecteurs, sessions, profils).
+- **Vector Store Local** — Embeddings sécurisés (`text-embedding-004`, 3072 dims) stockés nativement.
 - **Recherche Sémantique** — Retrouvez vos conversations passées par le sens, pas seulement par mots-clés.
 - **Résumés Hebdomadaires** — Synthèses auto-générées via DeepSeek v4 Flash (OpenRouter).
 - **Coffre des Conversations** — Parcourez, recherchez et gérez tout votre historique.
@@ -163,7 +164,7 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 | Dimensions Embeddings | 3072 (text-embedding-004) |
 | Taille max lecture fichier | 5 000 caractères |
 | Format Audio | PCM 16kHz mono |
-| Persistance | Illimitée (localStorage local) |
+| Persistance | SQLite (Desktop) / localStorage (Web) |
 
 ---
 
@@ -174,6 +175,7 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 - [x] Contrôle autonome du navigateur (v2)
 - [x] Moteur d'auto-évolution (NeuroLearning)
 - [x] Manipulation agentique du système de fichiers
+- [x] Migration vers SQLite (Performance & Scalabilité)
 - [x] Pont IPC bidirectionnel (`sendClientContent`)
 - [ ] Collaboration multi-agents
 - [ ] Marketplace de plugins pour skills communautaires
