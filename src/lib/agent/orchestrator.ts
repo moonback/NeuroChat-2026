@@ -2,6 +2,7 @@ import { executeToolCall } from "./executor";
 import { parseAgentStep } from "./parser";
 import { buildPlannerPrompt } from "./planner";
 import type { SkillRegistry } from "../skills/registry";
+import type { NativeToolCallingGateway } from "./modelGateway";
 import type { AgentModelGateway, AgentRunOptions, AgentRunResult, AgentExecutionState } from "./types";
 
 export class AgentOrchestrator {
@@ -28,9 +29,15 @@ export class AgentOrchestrator {
       options.onEvent?.({ type: "iteration_start", iteration: state.iteration });
       try {
         const prompt = buildPlannerPrompt(state, this.registry.list());
-        const raw = await this.model.complete(prompt, options.signal);
-        options.onEvent?.({ type: "model_response", iteration: state.iteration, raw });
-        const step = parseAgentStep(raw);
+        const nativeGateway = this.model as AgentModelGateway & Partial<NativeToolCallingGateway>;
+        const step = typeof nativeGateway.completeStepWithTools === "function"
+          ? await nativeGateway.completeStepWithTools(
+              prompt,
+              this.registry.list().map((skill) => ({ name: skill.name, description: skill.description, parameters: skill.parameters })),
+              options.signal,
+            )
+          : parseAgentStep(await this.model.complete(prompt, options.signal));
+        options.onEvent?.({ type: "model_response", iteration: state.iteration, raw: JSON.stringify(step) });
 
         state.transcript.push(`THOUGHT ${state.iteration}: ${step.thought}`);
 

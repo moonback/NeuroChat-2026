@@ -66,6 +66,11 @@ export function useAIConversation() {
     return service.run({ input, sessionId, userId, options });
   }, []);
 
+  const processUserText = useCallback(async (text: string, sessionId: string, userId: string) => {
+    if (!shouldAutoRunAgent(text)) return null;
+    return runAgentTask(text, sessionId, userId, { maxIterations: 6 });
+  }, [runAgentTask]);
+
   return {
     ...current,
     activeProvider,
@@ -73,5 +78,6 @@ export function useAIConversation() {
     stopSession,
     runAgentTask,
     shouldAutoRunAgent,
+    processUserText,
   };
 }

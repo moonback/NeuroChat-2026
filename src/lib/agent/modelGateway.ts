@@ -7,7 +7,7 @@ export interface OpenRouterGatewayOptions {
   maxPromptChars?: number;
 }
 
-export class OpenRouterAgentGateway implements AgentModelGateway {
+export class OpenRouterAgentGateway implements AgentModelGateway, NativeToolCallingGateway {
   private readonly systemPrompt: string;
   private readonly maxPromptChars: number;
 
@@ -25,6 +25,34 @@ export class OpenRouterAgentGateway implements AgentModelGateway {
     ];
     return chatWithOpenRouter(messages);
   }
+
+  async completeStepWithTools(prompt: string, tools: Array<{ name: string; description: string; parameters: object }>): Promise<AgentStep> {
+    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OpenRouter API Key missing");
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://neurochatia.vercel.app",
+        "X-Title": "NeuroChat",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        tools: tools.map((tool) => ({ type: "function", function: tool })),
+        tool_choice: "auto",
+      }),
+    });
+    if (!response.ok) throw new Error(`OpenRouter tools call failed: ${response.status}`);
+    const data = await response.json();
+    const message = data.choices?.[0]?.message;
+    const call = message?.tool_calls?.[0];
+    if (call?.function?.name) {
+      return { thought: "Tool selected by provider", toolCall: { name: call.function.name, arguments: JSON.parse(call.function.arguments ?? "{}") } };
+    }
+    return { thought: "Final answer by provider", finalAnswer: message?.content ?? "" };
+  }
 }
 
 export interface GeminiGatewayOptions {
@@ -32,7 +60,7 @@ export interface GeminiGatewayOptions {
   systemInstruction?: string;
 }
 
-export class GeminiAgentGateway implements AgentModelGateway {
+export class GeminiAgentGateway implements AgentModelGateway, NativeToolCallingGateway {
   private readonly ai: GoogleGenAI;
   private readonly model: string;
   private readonly systemInstruction: string;
@@ -52,6 +80,23 @@ export class GeminiAgentGateway implements AgentModelGateway {
       config: { systemInstruction: this.systemInstruction, temperature: 0.2 },
     });
     return resp.text ?? "";
+  }
+
+  async completeStepWithTools(prompt: string, tools: Array<{ name: string; description: string; parameters: object }>): Promise<AgentStep> {
+    const resp = await this.ai.models.generateContent({
+      model: this.model,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: this.systemInstruction,
+        temperature: 0.2,
+        tools: [{ functionDeclarations: tools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters })) }],
+      },
+    });
+    const call = resp.functionCalls?.[0];
+    if (call?.name) {
+      return { thought: "Tool selected by provider", toolCall: { name: call.name, arguments: (call.args as Record<string, unknown>) ?? {} } };
+    }
+    return { thought: "Final answer by provider", finalAnswer: resp.text ?? "" };
   }
 }
 

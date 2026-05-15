@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Bug, X, ChevronDown, ChevronUp, TestTube } from "lucide-react";
 import { testCommandPatterns } from "../lib/commandParser";
+import { loadAgentTraces } from "../lib/agent/traceStore";
 
 interface DebugLog {
   timestamp: number;
@@ -20,6 +21,7 @@ export function DebugPanel() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [logs, setLogs] = useState<DebugLog[]>([]);
   const [filter, setFilter] = useState<string>("all");
+  const [showAgentTraces, setShowAgentTraces] = useState(false);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -184,6 +186,12 @@ export function DebugPanel() {
               Test
             </button>
             <button
+              onClick={() => setShowAgentTraces((v) => !v)}
+              className="text-xs px-2 py-1 bg-violet-700 hover:bg-violet-600 rounded text-white transition-colors"
+            >
+              {showAgentTraces ? "Masquer traces" : "Traces agent"}
+            </button>
+            <button
               onClick={() => setLogs([])}
               className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 transition-colors"
             >
@@ -200,6 +208,16 @@ export function DebugPanel() {
 
         {isExpanded && (
           <>
+            {showAgentTraces && (
+              <div className="p-2 border-b border-slate-700 max-h-40 overflow-auto text-xs text-slate-300">
+                {loadAgentTraces().slice(-10).map((t) => (
+                  <div key={t.id} className="mb-2">
+                    <div className="text-violet-300">{new Date(t.timestamp).toLocaleTimeString()} · {t.userId} · {t.events.length} events</div>
+                    <div className="text-slate-400">session: {t.sessionId}</div>
+                  </div>
+                ))}
+              </div>
+            )}
             {/* Filters */}
             <div className="bg-slate-800/50 border-b border-slate-700 p-2 flex gap-2 overflow-x-auto">
               {["all", "BrowserControl", "CommandParser", "BrowserWindow", "AutoAmélioration", "App", "errors", "success"].map(
