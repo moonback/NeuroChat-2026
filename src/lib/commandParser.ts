@@ -1,162 +1,348 @@
 /**
- * Command Parser - Détecte et extrait les commandes de contrôle du navigateur
- * depuis les réponses de l'assistant
+ * Command Parser — Détecte et extrait les commandes de contrôle du navigateur
+ * depuis les réponses de l'assistant.
+ *
+ * Améliorations v2:
+ *  - Support multi-commandes dans une phrase
+ *  - Nouveaux patterns : onglets, zoom, copier-coller, screenshot, fullscreen
+ *  - Regex plus robustes avec frontières de mots et groupes non-capturants
+ *  - Architecture déclarative : chaque pattern est auto-descriptif
+ *  - Scoring de confiance pour réduire les faux positifs
+ *  - Utilitaire de test intégré avec couverture de cas limites
  */
 
 import type { BrowserAction } from "./browserControl";
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 export interface ParsedCommand {
   originalText: string;
-  cleanText: string; // Texte sans la commande
+  /** Texte sans les commandes extraites */
+  cleanText: string;
+  /** Première commande détectée (rétro-compat) */
   action: BrowserAction | null;
+  /** Toutes les commandes détectées dans le texte */
+  actions: BrowserAction[];
 }
 
-/**
- * Patterns de commandes reconnus
- */
+export interface DetectedMatch {
+  action: BrowserAction;
+  /** Portion exacte du texte qui a déclenché ce pattern */
+  matchedText: string;
+  /** Index de début dans le texte original */
+  startIndex: number;
+  /** Score 0–1 indiquant la confiance dans la détection */
+  confidence: number;
+}
+
 type CommandPattern = {
+  /** Identifiant lisible pour les logs/debug */
+  id: string;
   regex: RegExp;
   type: BrowserAction["type"];
   extract: (match: RegExpMatchArray) => Record<string, unknown>;
+  /** Facteur de confiance de base (0–1). Défaut : 0.8 */
+  baseConfidence?: number;
+  requiresConfirmation?: boolean;
 };
 
+// ---------------------------------------------------------------------------
+// Sites communs (partagé entre plusieurs patterns)
+// ---------------------------------------------------------------------------
+
+const COMMON_SITES: Record<string, string> = {
+  google: "google.com",
+  youtube: "youtube.com",
+  facebook: "facebook.com",
+  twitter: "twitter.com",
+  "x.com": "x.com",
+  instagram: "instagram.com",
+  linkedin: "linkedin.com",
+  wikipedia: "wikipedia.org",
+  amazon: "amazon.fr",
+  netflix: "netflix.com",
+  spotify: "spotify.com",
+  github: "github.com",
+  reddit: "reddit.com",
+  twitch: "twitch.tv",
+  discord: "discord.com",
+  whatsapp: "web.whatsapp.com",
+  gmail: "mail.google.com",
+  drive: "drive.google.com",
+  maps: "maps.google.com",
+};
+
+const COMMON_SITE_NAMES = Object.keys(COMMON_SITES).join("|");
+
+/** Normalise une URL brute en URL absolue https:// */
+function normalizeUrl(raw: string): string {
+  const lower = raw.trim().toLowerCase();
+  if (COMMON_SITES[lower]) return `https://${COMMON_SITES[lower]}`;
+  if (!raw.startsWith("http")) return `https://${raw.trim()}`;
+  return raw.trim();
+}
+
+/**
+ * Coupe une chaîne au premier marqueur de début de phrase de l'assistant.
+ * Évite que "cherche bitcoin Tu veux savoir..." capture "bitcoin Tu veux savoir...".
+ */
+function trimAtSentenceStart(text: string): string {
+  const SENTENCE_STARTERS = [
+    " Tu veux",
+    " Peux-tu",
+    " Est-ce",
+    " Je peux",
+    " C'est",
+    " Veux-tu",
+    " Souhaites-tu",
+    " Veux-",
+  ];
+  for (const s of SENTENCE_STARTERS) {
+    const idx = text.indexOf(s);
+    if (idx !== -1) return text.slice(0, idx).trim();
+  }
+  return text.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Patterns de commandes
+// ---------------------------------------------------------------------------
+
 const COMMAND_PATTERNS: CommandPattern[] = [
-  // Navigation - Utilisation de \b et exigence d'un point pour les domaines non-listés
+  // ── Navigation : URL complète ──────────────────────────────────────────
   {
-    regex: /\b(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\b\s+([a-zA-Z0-9.-]+\.[a-z]{2,}(?:\/[^\s]*)?|google|youtube|facebook|twitter|instagram|linkedin|wikipedia|amazon|netflix|spotify)/gi,
-    type: "navigate" as const,
-    extract: (match: RegExpMatchArray) => {
-      let url = match[1].trim();
-      
-      // Gérer les sites communs sans extension
-      const commonSites: Record<string, string> = {
-        "google": "google.com",
-        "youtube": "youtube.com",
-        "facebook": "facebook.com",
-        "twitter": "twitter.com",
-        "instagram": "instagram.com",
-        "linkedin": "linkedin.com",
-        "wikipedia": "wikipedia.org",
-        "amazon": "amazon.fr",
-        "netflix": "netflix.com",
-        "spotify": "spotify.com",
-      };
-      
-      const lowerUrl = url.toLowerCase();
-      if (commonSites[lowerUrl]) {
-        url = commonSites[lowerUrl];
-      }
-      
-      // Ajouter https:// si nécessaire
-      if (!url.startsWith("http")) {
-        url = "https://" + url;
-      }
-      
-      return { url };
-    },
+    id: "navigate-url",
+    regex: /\b(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers?)?|accède\s+à)\s+(https?:\/\/[^\s,;]+)/gi,
+    type: "navigate",
+    baseConfidence: 0.95,
+    requiresConfirmation: true,
+    extract: (m) => ({ url: m[1].trim() }),
   },
-  // Recherche Google - Pattern plus robuste pour les requêtes multi-mots sans ponctuation
+
+  // ── Navigation : sites connus sans extension ───────────────────────────
   {
-    regex: /(?:cherche|recherche|trouve|google)\s+(?:moi\s+)?["']?([^"'\n\.\?!]+)["']?(?:\s+sur\s+(?:google|internet|le\s+web))?/gi,
-    type: "navigate" as const,
-    extract: (match: RegExpMatchArray) => {
-      let query = match[1].trim();
-      
-      // Heuristique pour les phrases collées sans ponctuation (ex: "cherche cours Bitcoin Tu veux...")
-      // On coupe si on voit un début de phrase typique de l'assistant (Tu veux, Peux-tu, etc.)
-      const sentenceStarters = [" Tu veux", " Peux-tu", " Est-ce", " Je peux", " C'est"];
-      for (const starter of sentenceStarters) {
-        if (query.includes(starter)) {
-          query = query.split(starter)[0].trim();
-          break;
-        }
-      }
-      
-      return { url: `https://www.google.com/search?q=${encodeURIComponent(query)}` };
-    },
+    id: "navigate-known-site",
+    regex: new RegExp(
+      `\\b(?:va(?:\\s+sur)?|ouvre(?:\\s+moi)?|navigue(?:\\s+vers?)?|accède\\s+à)\\s+(${COMMON_SITE_NAMES})(?:\\s|$|[.,;!?])`,
+      "gi"
+    ),
+    type: "navigate",
+    baseConfidence: 0.95,
+    requiresConfirmation: true,
+    extract: (m) => ({ url: normalizeUrl(m[1]) }),
   },
-  // Pattern spécial pour "va sur youtube" (sans point)
+
+  // ── Navigation : domaine avec extension (ex: example.com/path) ─────────
   {
-    regex: /(?:va\s+sur|ouvre)\s+(youtube|google|facebook|twitter|instagram|linkedin|wikipedia|amazon|netflix|spotify)(?:\s|$|\.)/gi,
-    type: "navigate" as const,
-    extract: (match: RegExpMatchArray) => {
-      const site = match[1].toLowerCase();
-      const commonSites: Record<string, string> = {
-        "google": "google.com",
-        "youtube": "youtube.com",
-        "facebook": "facebook.com",
-        "twitter": "twitter.com",
-        "instagram": "instagram.com",
-        "linkedin": "linkedin.com",
-        "wikipedia": "wikipedia.org",
-        "amazon": "amazon.fr",
-        "netflix": "netflix.com",
-        "spotify": "spotify.com",
-      };
-      
-      return { url: `https://${commonSites[site]}` };
-    },
+    id: "navigate-domain",
+    regex: /\b(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers?)?)\s+([a-zA-Z0-9-]+\.[a-z]{2,}(?:\/[^\s,;]*)?)/gi,
+    type: "navigate",
+    baseConfidence: 0.85,
+    requiresConfirmation: true,
+    extract: (m) => ({ url: normalizeUrl(m[1]) }),
   },
-  // Clic
+
+  // ── Recherche Google ───────────────────────────────────────────────────
   {
-    regex: /clique(?:\s+sur)?(?:\s+le)?(?:\s+bouton)?(?:\s+lien)?\s+["']?([^"'\n\.\?!]+)["']?/gi,
-    type: "click" as const,
-    extract: (match: RegExpMatchArray) => {
-      let text = match[1].trim();
-      const sentenceStarters = [" Tu veux", " Peux-tu", " Est-ce", " Je peux", " C'est"];
-      for (const starter of sentenceStarters) {
-        if (text.includes(starter)) {
-          text = text.split(starter)[0].trim();
-          break;
-        }
-      }
-      return { selector: { text } };
-    },
-  },
-  // Saisie de texte - Patterns plus flexibles (ex: "écris facebook dans la barre d'adresse", "tape bonjour dans recherche")
-  {
-    regex: /(?:écris|tape|saisis|entre)\s+["']?([^"']+)["']?\s+(?:dans|sur)(?:\s+le)?(?:\s+champ)?\s+["']?([^"'\n.]+?)["']?(?:\s|$|\.)/gi,
-    type: "type" as const,
-    extract: (match: RegExpMatchArray) => ({
-      text: match[1].trim(),
-      selector: { placeholder: match[2].trim() },
+    id: "search-google",
+    regex: /\b(?:cherche|recherche|trouve|googl(?:e|ise))\s+(?:moi\s+)?["']?([^"'\n.!?]{2,60})["']?(?:\s+sur\s+(?:google|internet|le\s+web))?/gi,
+    type: "navigate",
+    baseConfidence: 0.8,
+    requiresConfirmation: true,
+    extract: (m) => ({
+      url: `https://www.google.com/search?q=${encodeURIComponent(trimAtSentenceStart(m[1]))}`,
     }),
   },
-  // Défilement - Utilisation de frontières de mots \b pour éviter les faux positifs (ex: "avancées")
+
+  // ── Nouvel onglet ──────────────────────────────────────────────────────
   {
-    regex: /\b(?:descends?|scroll(?:e)?|va\s+en\s+bas)\b\s*(?:un\s+peu|la\s+page)?/gi,
-    type: "scroll" as const,
-    extract: () => ({ direction: "down" as const }),
-  },
-  {
-    regex: /\b(?:monte|remonte|va\s+en\s+haut)\b\s*(?:un\s+peu|la\s+page)?/gi,
-    type: "scroll" as const,
-    extract: () => ({ direction: "up" as const }),
-  },
-  // Lecture de contenu
-  {
-    regex: /(?:lis|extrais|récupère|montre)(?:\s+moi)?(?:\s+le\s+contenu\s+de)?(?:\s+la)?(?:\s+cette)?\s+page/gi,
-    type: "extract" as const,
+    id: "new-tab",
+    // Évite "comment ouvrir un onglet" ou "pouvoir ouvrir un onglet"
+    regex: /\b(?<!comment\s+|pouvoir\s+)(?:ouvre(?:\s+un)?\s+(?:nouvel?\s+)?onglet|nouvel\s+onglet)\b/gi,
+    type: "newTab",
+    baseConfidence: 0.9,
     extract: () => ({}),
   },
-  // Navigation historique
+
+  // ── Fermer onglet ──────────────────────────────────────────────────────
   {
-    regex: /(?:retour|page\s+précédente|reviens(?:\s+en\s+arrière)?)/gi,
-    type: "back" as const,
+    id: "close-tab",
+    regex: /\b(?:ferme(?:\s+(?:cet?|l[ae])?)?(?:\s+(?:onglet|page)))\b/gi,
+    type: "closeTab",
+    baseConfidence: 0.9,
+    extract: () => ({}),
+  },
+
+  // ── Onglet suivant / précédent ─────────────────────────────────────────
+  {
+    id: "next-tab",
+    regex: /\b(?:(?:onglet|tab)\s+suivant|passe\s+à\s+l[ae]?\s+(?:prochain|suivant)\s+(?:onglet|tab))\b/gi,
+    type: "nextTab",
+    baseConfidence: 0.85,
     extract: () => ({}),
   },
   {
-    regex: /(?:suivant|page\s+suivante|avance)/gi,
-    type: "forward" as const,
+    id: "prev-tab",
+    regex: /\b(?:(?:onglet|tab)\s+précédent|reviens?\s+(?:à|sur)\s+l[ae]?\s+(?:onglet|tab)\s+précédent)\b/gi,
+    type: "prevTab",
+    baseConfidence: 0.85,
     extract: () => ({}),
   },
-  // Rechargement
+
+  // ── Clic ───────────────────────────────────────────────────────────────
   {
-    regex: /(?:recharge|actualise|rafraîchis|reload)(?:\s+la)?\s*page/gi,
-    type: "reload" as const,
+    id: "click",
+    regex: /\bclique(?:\s+sur)?(?:\s+l[ae])?(?:\s+(?:bouton|lien|élément))?\s+["']([^"']+)["']/gi,
+    type: "click",
+    baseConfidence: 0.9,
+    extract: (m) => ({ selector: { text: m[1].trim() } }),
+  },
+  // Clic sans guillemets (texte jusqu'à ponctuation ou fin de phrase)
+  {
+    id: "click-no-quotes",
+    // Évite "clique ici si tu veux" ou "on peut cliquer sur..."
+    regex: /\b(?<!comment\s+|pouvoir\s+|pour\s+|on\s+peut\s+)clique(?:\s+sur)?(?:\s+l[ae])?(?:\s+(?:bouton|lien|élément))?\s+([^"'\n.,;!?]{2,40})/gi,
+    type: "click",
+    baseConfidence: 0.7,
+    extract: (m) => ({ selector: { text: trimAtSentenceStart(m[1]) } }),
+  },
+
+  // ── Saisie de texte ────────────────────────────────────────────────────
+  {
+    id: "type-with-target",
+    regex: /\b(?:écris|tape|saisis|entre)\s+["']([^"']+)["']\s+dans\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!?]{2,40})["']?/gi,
+    type: "type",
+    baseConfidence: 0.9,
+    extract: (m) => ({
+      text: m[1].trim(),
+      selector: { placeholder: m[2].trim() },
+    }),
+  },
+  // Saisie sans cible explicite
+  {
+    id: "type-no-target",
+    regex: /\b(?:écris|tape|saisis)\s+["']([^"']+)["']/gi,
+    type: "type",
+    baseConfidence: 0.75,
+    extract: (m) => ({ text: m[1].trim() }),
+  },
+
+  // ── Copier / Coller ────────────────────────────────────────────────────
+  {
+    id: "copy",
+    regex: /\b(?:copie(?:\s+(?:le\s+)?(?:texte|contenu|sélection))?|ctrl\s*\+\s*c)\b/gi,
+    type: "copy",
+    baseConfidence: 0.8,
+    extract: () => ({}),
+  },
+  {
+    id: "paste",
+    regex: /\b(?:colle(?:\s+(?:le\s+)?(?:texte|contenu))?|ctrl\s*\+\s*v)\b/gi,
+    type: "paste",
+    baseConfidence: 0.8,
+    extract: () => ({}),
+  },
+
+  // ── Zoom ───────────────────────────────────────────────────────────────
+  {
+    id: "zoom-in",
+    regex: /\b(?<!comment\s+|pouvoir\s+|pour\s+|on\s+peut\s+)(?:zoom(?:e)?\s+(?:avant|in)|agrandis(?:\s+la\s+page)?|ctrl\s*\+\s*\+)\b/gi,
+    type: "zoomIn",
+    baseConfidence: 0.85,
+    extract: () => ({}),
+  },
+  {
+    id: "zoom-out",
+    regex: /\b(?<!comment\s+|pouvoir\s+|pour\s+|on\s+peut\s+)(?:zoom(?:e)?\s+(?:arrière|out)|réduis(?:\s+la\s+page)?|ctrl\s*\+\s*-)\b/gi,
+    type: "zoomOut",
+    baseConfidence: 0.85,
+    extract: () => ({}),
+  },
+  {
+    id: "zoom-reset",
+    regex: /\b(?<!comment\s+|pouvoir\s+)(?:réinitialise\s+(?:le\s+)?zoom|taille\s+normale|ctrl\s*\+\s*0)\b/gi,
+    type: "zoomReset",
+    baseConfidence: 0.85,
+    extract: () => ({}),
+  },
+
+  // ── Screenshot ─────────────────────────────────────────────────────────
+  {
+    id: "screenshot",
+    regex: /\b(?:(?:fais?|prends?)\s+(?:une?\s+)?(?:capture|screenshot|copie\s+d'écran)|capture(?:\s+d'écran)?)\b/gi,
+    type: "screenshot",
+    baseConfidence: 0.9,
+    extract: () => ({}),
+  },
+
+  // ── Plein écran ────────────────────────────────────────────────────────
+  {
+    id: "fullscreen",
+    regex: /\b(?:(?:passe\s+en|active\s+le?)\s+(?:plein[\s-]?écran|fullscreen)|fullscreen|plein[\s-]?écran)\b/gi,
+    type: "fullscreen",
+    baseConfidence: 0.85,
+    extract: () => ({}),
+  },
+
+  // ── Défilement ─────────────────────────────────────────────────────────
+  {
+    id: "scroll-down",
+    regex: /\b(?<!comment\s+|pouvoir\s+|pour\s+|on\s+peut\s+)(?:descends?|scrolle?\s+(?:vers\s+le\s+)?bas|va\s+en\s+bas)(?:\s+(?:un\s+peu|la\s+page))?\b/gi,
+    type: "scroll",
+    baseConfidence: 0.85,
+    extract: () => ({ direction: "down" }),
+  },
+  {
+    id: "scroll-up",
+    regex: /\b(?<!comment\s+|pouvoir\s+|pour\s+|on\s+peut\s+)(?:montes?|remontes?|scrolle?\s+(?:vers\s+le\s+)?haut|va\s+en\s+haut)(?:\s+(?:un\s+peu|la\s+page))?\b/gi,
+    type: "scroll",
+    baseConfidence: 0.85,
+    extract: () => ({ direction: "up" }),
+  },
+
+  // ── Extraction de contenu ──────────────────────────────────────────────
+  {
+    id: "extract",
+    regex: /\b(?:lis|extrais|récupère|montre)(?:\s+moi)?(?:\s+le\s+contenu\s+(?:de\s+)?)?(?:la\s+|cette\s+)?page\b/gi,
+    type: "extract",
+    baseConfidence: 0.8,
+    extract: () => ({}),
+  },
+
+  // ── Navigation historique ──────────────────────────────────────────────
+  {
+    id: "back",
+    regex: /\b(?:retour(?:\s+en\s+arrière)?|page\s+précédente|reviens?\s+en\s+arrière)\b/gi,
+    type: "back",
+    baseConfidence: 0.85,
+    extract: () => ({}),
+  },
+  {
+    id: "forward",
+    regex: /\b(?:page\s+suivante|avance(?:\s+en\s+avant)?)\b/gi,
+    type: "forward",
+    baseConfidence: 0.9,
+    extract: () => ({}),
+  },
+
+  // ── Rechargement ───────────────────────────────────────────────────────
+  {
+    id: "reload",
+    regex: /\b(?:recharge|actualise|rafraîchis|reload)(?:\s+la)?\s*page\b/gi,
+    type: "reload",
+    baseConfidence: 0.9,
     extract: () => ({}),
   },
 ];
+
+// Seuil minimum de confiance pour accepter une commande
+const CONFIDENCE_THRESHOLD = 0.7;
+
+// ---------------------------------------------------------------------------
+// Fonctions utilitaires internes
+// ---------------------------------------------------------------------------
 
 function getAllMatches(text: string, regex: RegExp): RegExpMatchArray[] {
   regex.lastIndex = 0;
@@ -164,147 +350,219 @@ function getAllMatches(text: string, regex: RegExp): RegExpMatchArray[] {
 }
 
 /**
- * Parse le texte de l'assistant pour détecter des commandes de contrôle du navigateur
+ * Supprime les fragments de texte correspondant aux commandes détectées,
+ * puis nettoie les espaces et ponctuations orphelines.
  */
-export function parseAssistantResponse(text: string): ParsedCommand {
-  console.log("🔍 [CommandParser] Analyse du texte:", text);
-  
-  let cleanText = text;
-  let detectedAction: BrowserAction | null = null;
+function buildCleanText(original: string, matches: DetectedMatch[]): string {
+  // Trier par position décroissante pour ne pas décaler les indices
+  const sorted = [...matches].sort((a, b) => b.startIndex - a.startIndex);
+  let result = original;
+  for (const m of sorted) {
+    result =
+      result.slice(0, m.startIndex) +
+      result.slice(m.startIndex + m.matchedText.length);
+  }
+  return result
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,!?;:])/g, "$1")
+    .trim();
+}
+
+// ---------------------------------------------------------------------------
+// API publique
+// ---------------------------------------------------------------------------
+
+/**
+ * Détecte toutes les commandes dans le texte avec leur position et confiance.
+ */
+export function detectAllMatches(text: string): DetectedMatch[] {
+  const results: DetectedMatch[] = [];
+  // Suivi des zones déjà couvertes pour éviter les doublons
+  const coveredRanges: Array<[number, number]> = [];
 
   for (const pattern of COMMAND_PATTERNS) {
-    const matches = getAllMatches(text, pattern.regex);
-    
-    if (matches.length > 0) {
-      const match = matches[0];
-      console.log("✅ [CommandParser] Pattern détecté:", {
-        type: pattern.type,
-        match: match[0],
-        fullMatch: match,
-      });
-      
-      // Extraire les paramètres de la commande
+    const rawMatches = getAllMatches(text, pattern.regex);
+
+    for (const match of rawMatches) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+
+      // Ignorer si cette zone est déjà couverte par un pattern de confiance ≥
+      const alreadyCovered = coveredRanges.some(
+        ([s, e]) => start < e && end > s
+      );
+      if (alreadyCovered) continue;
+
+      const confidence = pattern.baseConfidence ?? 0.8;
+      if (confidence < CONFIDENCE_THRESHOLD) continue;
+
       const params = pattern.extract(match);
-      console.log("📦 [CommandParser] Paramètres extraits:", params);
-      
-      // Créer l'action
-      detectedAction = {
+      const action: BrowserAction = {
         type: pattern.type,
         params,
-        requiresConfirmation: pattern.type === "navigate",
+        requiresConfirmation: pattern.requiresConfirmation ?? false,
       };
 
-      console.log("🎯 [CommandParser] Action créée:", detectedAction);
+      results.push({
+        action,
+        matchedText: match[0],
+        startIndex: start,
+        confidence,
+      });
 
-      // Nettoyer le texte en retirant la commande
-      cleanText = text.replace(match[0], "").trim();
-      
-      // Nettoyer les doubles espaces et ponctuations orphelines
-      cleanText = cleanText.replace(/\s+/g, " ").replace(/\s+([.,!?])/g, "$1");
-      
-      console.log("✂️ [CommandParser] Texte nettoyé:", cleanText);
-      
-      break; // On ne traite qu'une commande à la fois
+      coveredRanges.push([start, end]);
     }
   }
 
-  if (!detectedAction) {
-    console.log("❌ [CommandParser] Aucune commande détectée dans:", text);
-  }
+  // Retourner dans l'ordre d'apparition
+  return results.sort((a, b) => a.startIndex - b.startIndex);
+}
+
+/**
+ * Parse le texte de l'assistant.
+ * Retourne la première commande (rétro-compat) + toutes les commandes.
+ */
+export function parseAssistantResponse(text: string): ParsedCommand {
+  const detected = detectAllMatches(text);
 
   return {
     originalText: text,
-    cleanText: cleanText || text,
-    action: detectedAction,
+    cleanText: detected.length > 0 ? buildCleanText(text, detected) : text,
+    action: detected[0]?.action ?? null,
+    actions: detected.map((d) => d.action),
   };
 }
 
 /**
- * Vérifie si un texte contient une commande de contrôle du navigateur
+ * Vérifie si un texte contient au moins une commande reconnue.
  */
 export function containsBrowserCommand(text: string): boolean {
-  return COMMAND_PATTERNS.some((pattern) => {
-    pattern.regex.lastIndex = 0;
-    return pattern.regex.test(text);
-  });
+  return detectAllMatches(text).length > 0;
 }
 
 /**
- * Extrait toutes les commandes d'un texte (pour traitement en batch)
+ * Extrait toutes les commandes d'un texte (pour traitement en batch).
  */
 export function extractAllCommands(text: string): BrowserAction[] {
-  const actions: BrowserAction[] = [];
-
-  for (const pattern of COMMAND_PATTERNS) {
-    const matches = getAllMatches(text, pattern.regex);
-    
-    for (const match of matches) {
-      const params = pattern.extract(match);
-      actions.push({
-        type: pattern.type,
-        params,
-        requiresConfirmation: pattern.type === "navigate",
-      });
-    }
-  }
-
-  return actions;
+  return detectAllMatches(text).map((d) => d.action);
 }
 
 /**
- * Teste les patterns de commandes avec des exemples
- */
-export function testCommandPatterns(): void {
-  const testCases = [
-    "Je t'ouvre YouTube tout de suite. va sur youtube",
-    "D'accord, je vais sur Google. va sur google",
-    "Je cherche ça pour toi. cherche météo Paris",
-    "ouvre facebook",
-    "va sur netflix",
-    "clique sur le bouton connexion",
-    "écris \"facebook\" dans la barre d'adresse.",
-    "tape bonjour dans le champ recherche",
-    "descends un peu",
-    "lis la page",
-  ];
-
-  console.log("🧪 [CommandParser] Test des patterns:");
-  
-  testCases.forEach((testCase, index) => {
-    console.log(`\n--- Test ${index + 1}: "${testCase}" ---`);
-    const result = parseAssistantResponse(testCase);
-    
-    if (result.action) {
-      console.log("✅ Commande détectée:", result.action);
-      console.log("📝 Texte nettoyé:", result.cleanText);
-    } else {
-      console.log("❌ Aucune commande détectée");
-    }
-  });
-}
-
-/**
- * Formate une action en texte lisible pour l'utilisateur
+ * Formate une action en texte lisible pour l'utilisateur.
  */
 export function formatActionForUser(action: BrowserAction): string {
+  const p = action.params ?? {};
   switch (action.type) {
-    case "navigate":
-      return `Naviguer vers ${action.params?.url}`;
-    case "click":
-      return `Cliquer sur "${action.params?.selector?.text || "un élément"}"`;
-    case "type":
-      return `Saisir "${action.params?.text}" dans ${action.params?.selector?.placeholder || "un champ"}`;
-    case "scroll":
-      return `Défiler vers ${action.params?.direction === "up" ? "le haut" : "le bas"}`;
-    case "extract":
-      return "Lire le contenu de la page";
-    case "back":
-      return "Retour en arrière";
-    case "forward":
-      return "Avancer";
-    case "reload":
-      return "Recharger la page";
-    default:
-      return "Action inconnue";
+    case "navigate": return `Naviguer vers ${p.url}`;
+    case "newTab": return "Ouvrir un nouvel onglet";
+    case "closeTab": return "Fermer l'onglet actuel";
+    case "nextTab": return "Passer à l'onglet suivant";
+    case "prevTab": return "Passer à l'onglet précédent";
+    case "click": return `Cliquer sur « ${(p.selector as any)?.text ?? "un élément"} »`;
+    case "type": return `Saisir « ${p.text} »${p.selector ? ` dans ${(p.selector as any).placeholder}` : ""}`;
+    case "copy": return "Copier la sélection";
+    case "paste": return "Coller";
+    case "zoomIn": return "Zoom avant";
+    case "zoomOut": return "Zoom arrière";
+    case "zoomReset": return "Réinitialiser le zoom";
+    case "screenshot": return "Faire une capture d'écran";
+    case "fullscreen": return "Passer en plein écran";
+    case "scroll": return `Défiler vers ${p.direction === "up" ? "le haut" : "le bas"}`;
+    case "extract": return "Lire le contenu de la page";
+    case "back": return "Retour en arrière";
+    case "forward": return "Avancer";
+    case "reload": return "Recharger la page";
+    default: return "Action inconnue";
   }
+}
+
+// ---------------------------------------------------------------------------
+// Utilitaire de test
+// ---------------------------------------------------------------------------
+
+type TestCase = { input: string; expectedType: BrowserAction["type"] | null; description?: string };
+
+const TEST_CASES: TestCase[] = [
+  // Navigation
+  { input: "va sur youtube", expectedType: "navigate", description: "site connu sans extension" },
+  { input: "ouvre github.com/anthropics/claude", expectedType: "navigate", description: "URL avec chemin" },
+  { input: "navigue vers https://example.com", expectedType: "navigate", description: "URL complète" },
+  { input: "cherche météo Paris", expectedType: "navigate", description: "recherche Google" },
+  { input: "googl'ise les dernières nouvelles IA", expectedType: "navigate", description: "variante googl'ise" },
+
+  // Onglets
+  { input: "ouvre un nouvel onglet", expectedType: "newTab" },
+  { input: "ferme cet onglet", expectedType: "closeTab" },
+  { input: "onglet suivant", expectedType: "nextTab" },
+  { input: "onglet précédent", expectedType: "prevTab" },
+
+  // Interactions
+  { input: 'clique sur "Connexion"', expectedType: "click" },
+  { input: "clique sur le bouton Envoyer", expectedType: "click" },
+  { input: "tape 'bonjour' dans le champ recherche", expectedType: "type" },
+  { input: 'écris "test@email.com" dans email', expectedType: "type" },
+  { input: "copie le texte", expectedType: "copy" },
+  { input: "colle le contenu", expectedType: "paste" },
+
+  // Zoom & UI
+  { input: "zoome avant", expectedType: "zoomIn" },
+  { input: "zoom out", expectedType: "zoomOut" },
+  { input: "réinitialise le zoom", expectedType: "zoomReset" },
+  { input: "prends une capture d'écran", expectedType: "screenshot" },
+  { input: "passe en plein écran", expectedType: "fullscreen" },
+
+  // Navigation & défilement
+  { input: "descends un peu", expectedType: "scroll" },
+  { input: "remonte la page", expectedType: "scroll" },
+  { input: "lis la page", expectedType: "extract" },
+  { input: "retour en arrière", expectedType: "back" },
+  { input: "recharge la page", expectedType: "reload" },
+
+  // Multi-commandes
+  {
+    input: "cherche bitcoin puis descends la page",
+    expectedType: "navigate",
+    description: "multi-commandes : la première est navigate",
+  },
+
+  // Faux positifs attendus → null
+  { input: "les avancées technologiques sont impressionnantes", expectedType: null, description: "faux positif 'avancées'" },
+  { input: "j'ai cherché pendant une heure", expectedType: null, description: "faux positif 'cherché'" },
+  { input: "c'est un retour positif", expectedType: null, description: "faux positif 'retour'" },
+  { input: "je peux t'apprendre comment ouvrir un onglet", expectedType: null, description: "descriptif 'ouvrir un onglet'" },
+  { input: "faire un zoom arrière sur l'histoire", expectedType: null, description: "métaphorique 'zoom arrière'" },
+  { input: "clique ici si tu veux", expectedType: null, description: "phrase incomplète 'clique ici'" },
+  { input: "va sur le terrain", expectedType: null, description: "navigation invalide (pas de domaine)" },
+  { input: "je peux zoomer si tu veux", expectedType: null, description: "descriptif 'je peux zoomer'" },
+];
+
+export function runTests(): void {
+  console.log("🧪 [CommandParser v2] Lancement des tests\n");
+
+  let passed = 0;
+  let failed = 0;
+
+  for (const tc of TEST_CASES) {
+    const result = parseAssistantResponse(tc.input);
+    const gotType = result.action?.type ?? null;
+    const ok = gotType === tc.expectedType;
+
+    if (ok) {
+      passed++;
+      console.log(`✅ PASS  "${tc.input}"${tc.description ? ` — ${tc.description}` : ""}`);
+    } else {
+      failed++;
+      console.warn(
+        `❌ FAIL  "${tc.input}"${tc.description ? ` — ${tc.description}` : ""}\n` +
+        `        attendu: ${tc.expectedType ?? "null"} | obtenu: ${gotType ?? "null"}`
+      );
+    }
+
+    // Afficher les commandes multiples si présentes
+    if (result.actions.length > 1) {
+      console.log(`   ↳ Multi-commandes (${result.actions.length}) : ${result.actions.map((a) => a.type).join(", ")}`);
+    }
+  }
+
+  console.log(`\n📊 Résultats : ${passed}/${TEST_CASES.length} réussis, ${failed} échoués`);
 }

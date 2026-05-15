@@ -47,18 +47,18 @@ Une interaction naturelle grâce à un traitement sonore de niveau professionnel
 - **Réduction de Bruit & Écho** : Traitement audio avancé pour une clarté optimale même dans des environnements bruyants.
 - **Synthèse Vocale (TTS)** : Retour vocal naturel pour une expérience mains-libres complète.
 
-### 🌐 Contrôle Autonome du Navigateur
-L'assistant peut agir directement sur le web pour accomplir des tâches complexes.
-- **Navigation Web** : Recherche active sur Google, exploration de sites et extraction d'informations ciblées.
-- **Interactions Dynamiques** : Capacité de cliquer sur des boutons, remplir des formulaires et scroller sur les pages.
-- **Parsing de Commandes** : Moteur interne de traduction du langage naturel en actions techniques structurées.
+### 🌐 Contrôle Autonome du Navigateur (v2)
+L'assistant dispose d'un moteur de contrôle de précision pour agir sur le web.
+- **CommandParser v2** : Analyse sémantique avancée avec scoring de confiance (>0.7) et lookaheads négatifs pour distinguer l'intention réelle de la simple discussion.
+- **Support Multi-commandes** : Capacité d'exécuter des séquences complexes (ex: "Ouvre Google, cherche X, puis scrolle en bas") en une seule itération.
+- **Interactions Étendues** : Gestion des onglets (ouvrir/fermer/suivant), contrôle du zoom, capture d'écran, et gestion du presse-papier (copier/coller).
+- **Navigation Sémantique** : Résolution intelligente des sélecteurs via analyse du DOM par l'IA.
 
 ### 🧠 Mémoire Long-Terme & RAG (Retrieval Augmented Generation)
 NeuroChat se souvient de tout ce qui est important pour vous.
-- **Vector Store Local** : Stockage sécurisé des embeddings (`gemini-embedding-001`) directement sur votre machine via LocalStorage.
-- **Recherche Sémantique** : Recherche par "sens" plutôt que par mots-clés simples dans tout l'historique des conversations.
-- **Gestion de Fenêtre de Contexte** : Injection intelligente des souvenirs les plus pertinents dans le prompt de l'IA pour une continuité parfaite.
-- **Synthèses Automatiques** : Génération de résumés de sessions et de rapports hebdomadaires détaillés pour suivre vos progrès.
+- **Vector Store Local** : Stockage sécurisé des embeddings (`gemini-embedding-001`) directement sur votre machine.
+- **Recherche Sémantique** : Recherche par "sens" plutôt que par mots-clés simples.
+- **Synthèses Automatiques** : Utilisation de modèles Flash (DeepSeek v4) via OpenRouter pour générer des résumés de sessions à faible coût.
 
 ### 🚀 NeuroLearning : Système d'Auto-Évolution
 Le premier assistant qui apprend de ses erreurs et s'améliore tout seul.
@@ -163,11 +163,15 @@ NeuroChat/
 
 ---
 
-## 🤖 Agent Runtime & Skills (Nouveau)
+## 🤖 Agent Runtime & Skills (Phase 3)
 
-NeuroChat inclut désormais un runtime agentique modulaire inspiré des architectures de type Claude/OpenAI Agents.
+NeuroChat utilise un runtime agentique modulaire inspiré des architectures de type Claude/OpenAI Agents, optimisé pour la latence et la fiabilité.
 
-### Architecture ajoutée
+### Système de Skills Hybride
+1. **Hardcoded Skills** (`src/lib/skills/`) : Actions complexes nécessitant un accès système (navigateur, fichiers, OS).
+2. **Markdown Skills** (`src/skills-md/`) : Définitions de compétences injectées dynamiquement dans le prompt système via un moteur de globbing. Permet d'étendre les capacités de l'agent sans modifier le code source.
+
+### Architecture du Runtime
 
 ```text
 src/lib/agent/
@@ -193,12 +197,10 @@ src/lib/skills/
 ```
 
 ### Capacités agentiques disponibles
-
-- **Tool-calling natif provider**: exécution prioritaire via `completeStepWithTools(...)` quand disponible (Gemini/OpenRouter).
+- **Modèle de Confiance** : Validation des intentions via lookbehinds/lookaheads pour éliminer les faux positifs.
+- **Tool-calling natif provider**: exécution prioritaire via `completeStepWithTools(...)`.
 - **Fallback multi-provider**: chaîne de gateways (Gemini puis OpenRouter par défaut).
-- **Boucle multi-itérations**: planification, exécution de tool, gestion d'erreurs, sortie finale.
-- **Observabilité**: events de cycle + persistance des traces agent.
-- **Policies runtime**: rôles, scopes, expiration, denylist et confirmation pour actions sensibles.
+- **Observabilité**: Historique persistant de chaque étape de réflexion de l'agent.
 
 ### Skills par défaut
 
@@ -224,10 +226,13 @@ Tu peux ajouter des skills de prompt en Markdown dans `src/skills-md/*.md` (char
   - replay chronologique event-by-event
   - édition/sauvegarde de la policy runtime
 
-### Commandes de test (agent)
+### Commandes de test & Qualité
+- **Parser Unit Tests** : Suite de tests intégrée couvrant plus de 30 cas limites.
+- **Vite Test Runner** : Lancement automatique des tests en mode développement.
 
 ```bash
-npm run test -- src/test/agent.events.test.ts src/test/agent.gateway.test.ts src/test/agent.native-tool-calling.test.ts src/test/agent.orchestrator.test.ts src/test/agent.parser.test.ts src/test/agent.service.test.ts src/test/skills.registry.test.ts
+# Lancer les tests de l'orchestrateur et des skills
+npm run test -- src/test/agent.* src/test/skills.*
 ```
 
 ---

@@ -14,9 +14,16 @@ import { useBrowserControl } from "./hooks/useBrowserControl";
 import { BrowserControlPanel } from "./components/BrowserControlPanel";
 import { BrowserWindow } from "./components/BrowserWindow";
 import { DebugPanel } from "./components/DebugPanel";
-import { parseAssistantResponse } from "./lib/commandParser";
+import { parseAssistantResponse, runTests } from "./lib/commandParser";
+import { useEffect as useOnce } from "react";
 
 export default function App() {
+  // Exécuter les tests du CommandParser au démarrage (dev seulement)
+  useOnce(() => {
+    if (process.env.NODE_ENV === "development") {
+      runTests();
+    }
+  }, []);
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
   const [cameraActive, setCameraActive] = useState(false);
@@ -139,17 +146,22 @@ export default function App() {
             console.log("🌐 [App] Contrôle du navigateur activé, analyse du texte complet...");
             const parsed = parseAssistantResponse(fullText);
             
-            if (parsed.action) {
-              console.log("🎯 [App] Commande détectée dans le texte complet:", parsed.action);
-              try {
-                const result = await executeAction(parsed.action);
-                if (result.success) {
-                  console.log("✅ [App] Commande exécutée avec succès:", result.data);
-                } else {
-                  console.error("❌ [App] Échec de la commande:", result.error);
+            if (parsed.actions.length > 0) {
+              console.log(`🎯 [App] ${parsed.actions.length} commande(s) détectée(s)`);
+              
+              // Exécuter les commandes séquentiellement
+              for (const action of parsed.actions) {
+                try {
+                  console.log("🚀 [App] Exécution de:", action.type);
+                  const result = await executeAction(action);
+                  if (result.success) {
+                    console.log(`✅ [App] Commande ${action.type} exécutée avec succès`);
+                  } else {
+                    console.error(`❌ [App] Échec de la commande ${action.type}:`, result.error);
+                  }
+                } catch (error) {
+                  console.error(`💥 [App] Erreur lors de l'exécution de ${action.type}:`, error);
                 }
-              } catch (error) {
-                console.error("💥 [App] Erreur lors de l'exécution de la commande:", error);
               }
             } else {
               console.log("ℹ️ [App] Aucune commande détectée dans le texte complet");
