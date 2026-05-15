@@ -1,7 +1,157 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Database, X, RefreshCw, FileText, Share2, Brain, Activity, Trash2 } from 'lucide-react';
+import { Database, X, RefreshCw, FileText, Share2, Brain, Activity, Trash2, Search, ChevronDown, ChevronRight, Copy, Check } from 'lucide-react';
 import { getStorageBackend } from '../lib/storage';
+
+// --- Data Viewer Component ---
+const DataViewer = ({ data }: { data: any }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  if (!data) return <div className="text-slate-500 italic">Aucune donnée.</div>;
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) return <div className="text-slate-500 italic">Tableau vide.</div>;
+    
+    // Extract columns
+    const columns = Array.from(new Set(data.flatMap(item => Object.keys(item))));
+    
+    // Filter data
+    const filteredData = data.filter(item => 
+      JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+      <div className="flex flex-col h-full gap-4">
+        {/* Search Bar */}
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+          <input 
+            type="text" 
+            placeholder="Rechercher dans les données..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600"
+          />
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-auto rounded-xl border border-white/5 bg-slate-950/50 relative">
+          <table className="w-full text-left border-collapse min-w-max">
+            <thead className="sticky top-0 z-10 bg-slate-900/80 backdrop-blur-md border-b border-white/10">
+              <tr>
+                <th className="py-3 px-4 w-10"></th>
+                {columns.map(col => (
+                  <th key={col} className="py-3 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filteredData.map((row: any, idx: number) => {
+                const rowId = row.id || `row-${idx}`;
+                const isExpanded = expandedRows[rowId];
+                return (
+                  <React.Fragment key={rowId}>
+                    <tr 
+                      onClick={() => toggleRow(rowId)}
+                      className="hover:bg-white/[0.02] cursor-pointer transition-colors group"
+                    >
+                      <td className="py-3 px-4 text-slate-500">
+                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </td>
+                      {columns.map(col => {
+                        const val = row[col];
+                        let displayVal = String(val);
+                        let isComplex = false;
+                        
+                        if (val === null) displayVal = 'null';
+                        else if (val === undefined) displayVal = 'undefined';
+                        else if (Array.isArray(val)) {
+                          displayVal = `[Array(${val.length})]`;
+                          isComplex = true;
+                        }
+                        else if (typeof val === 'object') {
+                          displayVal = '{Object}';
+                          isComplex = true;
+                        }
+                        else if (typeof val === 'string' && val.length > 50) {
+                          displayVal = val.slice(0, 50) + '...';
+                        }
+
+                        return (
+                          <td key={col} className="py-3 px-4 text-sm">
+                            {isComplex ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                {displayVal}
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 font-mono text-xs">{displayVal}</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={columns.length + 1} className="p-0 border-t-0">
+                          <div className="bg-slate-900/50 p-4 border-l-2 border-blue-500 relative">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy(JSON.stringify(row, null, 2), rowId);
+                              }}
+                              className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                            >
+                              {copiedKey === rowId ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                            <pre className="text-xs font-mono text-blue-300 leading-relaxed overflow-x-auto">
+                              {JSON.stringify(row, null, 2)}
+                            </pre>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+          {filteredData.length === 0 && (
+            <div className="p-8 text-center text-slate-500 italic">Aucun résultat pour "{searchTerm}"</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Object view
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => handleCopy(JSON.stringify(data, null, 2), 'root')}
+        className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors z-10"
+      >
+        {copiedKey === 'root' ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+      </button>
+      <pre className="text-xs font-mono text-blue-300 bg-slate-950 p-6 rounded-2xl border border-white/5 leading-relaxed overflow-x-auto">
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    </div>
+  );
+};
 
 interface DatabaseInspectorProps {
   isOpen: boolean;
@@ -197,15 +347,15 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ isOpen, on
               <span className="text-sm font-medium animate-pulse">Chargement des données...</span>
             </div>
           ) : data ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="flex flex-col h-full space-y-4">
+              <div className="flex items-center justify-between shrink-0">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   {Array.isArray(data) ? `${data.length} entrées trouvées` : 'Objet de données'}
                 </span>
               </div>
-              <pre className="text-xs font-mono text-blue-300 bg-slate-950 p-6 rounded-2xl border border-white/5 leading-relaxed overflow-x-auto">
-                {JSON.stringify(data, null, 2)}
-              </pre>
+              <div className="flex-1 min-h-0">
+                <DataViewer data={data} />
+              </div>
             </div>
           ) : (
             <div className="h-full flex items-center justify-center text-slate-500 italic">

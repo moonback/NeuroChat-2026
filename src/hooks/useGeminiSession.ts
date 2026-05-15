@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { buildSystemPrompt } from "../lib/systemPrompt";
 import { AvatarId } from "../lib/avatarConfig";
 import { retrieveRelevantContext } from "../lib/ragSearch";
@@ -294,11 +294,38 @@ export function useGeminiSession() {
               },
               // Intégration des outils via Function Calling
               tools: [{
-                functionDeclarations: createDefaultSkillRegistry().list().map(skill => ({
-                  name: skill.name,
-                  description: skill.description,
-                  parameters: skill.parameters,
-                }))
+                functionDeclarations: createDefaultSkillRegistry().list().map(skill => {
+                  const mapType = (t: string): Type => {
+                    switch(t) {
+                      case "string": return Type.STRING;
+                      case "number": return Type.NUMBER;
+                      case "boolean": return Type.BOOLEAN;
+                      case "array": return Type.ARRAY;
+                      case "object": return Type.OBJECT;
+                      default: return Type.STRING;
+                    }
+                  };
+                  
+                  const mappedProperties: Record<string, any> = {};
+                  if (skill.parameters?.properties) {
+                    for (const [key, prop] of Object.entries(skill.parameters.properties)) {
+                      mappedProperties[key] = {
+                        type: mapType(prop.type),
+                        description: prop.description
+                      };
+                    }
+                  }
+
+                  return {
+                    name: skill.name,
+                    description: skill.description,
+                    parameters: {
+                      type: Type.OBJECT,
+                      properties: mappedProperties,
+                      required: skill.parameters?.required || [],
+                    },
+                  };
+                })
               }],
               // Active la transcription de la réponse IA pour la sauvegarder en mémoire
               outputAudioTranscription: {},
