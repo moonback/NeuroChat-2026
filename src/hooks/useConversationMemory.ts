@@ -7,9 +7,8 @@ import {
 } from "../lib/conversationMemory";
 
 export function useConversationMemory() {
-  const initialUserName = useMemo(() => loadUserName(), []);
-  const [userName, setUserName] = useState<string>(initialUserName);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(!initialUserName);
+  const [userName, setUserName] = useState<string>(() => loadUserName());
+  const [showWelcomeModal, setShowWelcomeModal] = useState(() => !loadUserName());
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [memoryRevision, setMemoryRevision] = useState(0);
