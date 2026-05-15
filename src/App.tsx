@@ -40,9 +40,21 @@ export default function App() {
   const [visualActivity, setVisualActivity] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
   
+  const lastVisionNudgeTimeRef = useRef<number>(0);
+  
   const triggerVisualActivity = () => {
     setVisualActivity(true);
     setTimeout(() => setVisualActivity(false), 800);
+    
+    // Proactive AI reaction logic
+    const now = Date.now();
+    const COOLDOWN_MS = 30000; // 30 seconds between proactive vision comments
+    
+    if (status === "listening" && !isSpeaking && (now - lastVisionNudgeTimeRef.current > COOLDOWN_MS)) {
+      console.log("👁️ [App] Envoi d'un signal de vision proactif à l'IA...");
+      lastVisionNudgeTimeRef.current = now;
+      sendTextMessage("[SYSTEM] Vision : Un mouvement ou un changement visuel significatif a été détecté. Réagis spontanément si c'est pertinent.");
+    }
   };
 
   const avatar = AVATARS[avatarId];
