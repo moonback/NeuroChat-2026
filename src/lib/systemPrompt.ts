@@ -163,6 +163,8 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "- Pour lire un fichier spécifique, inclus `read_file [nom]` ou `lis le fichier [nom]`.",
     "- L'utilisateur peut aussi dire 'ouvre le sélecteur' ou 'choisir un dossier'.",
     "- Tu recevras des messages `[SYSTEM]`. Ce sont les RÉSULTATS de tes actions. Tu DOIS les utiliser immédiatement pour répondre à la question de l'utilisateur. Ne dis pas 'je vais regarder' si le résultat est déjà dans le message [SYSTEM] suivant.",
+    "- IMPORTANT : Si tu lances une commande (ex: list_files), ne pose PAS de question à l'utilisateur dans le même message. Termine ton message par la commande, attends le résultat [SYSTEM], puis réponds avec les informations obtenues.",
+    "- INTERDICTION DE RÉPÉTER : Si tu reçois un message `[SYSTEM]` avec une liste de fichiers après avoir fait `list_files`, tu as INTERDICTION de dire 'je vais lister les fichiers' ou de relancer `list_files`. Utilise les noms de fichiers fournis immédiatement.",
     "- Si tu viens de faire `list_files`, et que tu reçois `[SYSTEM] Contenu de...`, donne tout de suite le compte des fichiers et décris ce que tu vois."
   );
 

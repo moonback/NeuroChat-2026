@@ -452,8 +452,20 @@ export function detectAllMatches(text: string): DetectedMatch[] {
     }
   }
 
+  // Dédupliquer les actions identiques (même type et mêmes paramètres)
+  const uniqueResults: DetectedMatch[] = [];
+  const seenActions = new Set<string>();
+
+  for (const match of results) {
+    const actionKey = `${match.action.type}:${JSON.stringify(match.action.params || {})}`;
+    if (!seenActions.has(actionKey)) {
+      seenActions.add(actionKey);
+      uniqueResults.push(match);
+    }
+  }
+
   // Retourner dans l'ordre d'apparition
-  return results.sort((a, b) => a.startIndex - b.startIndex);
+  return uniqueResults.sort((a, b) => a.startIndex - b.startIndex);
 }
 
 /**
