@@ -6,7 +6,7 @@
   <img src="./public/header.png" alt="Bannière NeuroChat" width="100%">
 
   ![build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)
-  ![version](https://img.shields.io/badge/version-2.1.0--beta--multi-blueviolet?style=for-the-badge)
+  ![version](https://img.shields.io/badge/version-2.1.1--beta--multi-blueviolet?style=for-the-badge)
   ![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
   ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)
 
@@ -72,11 +72,17 @@ NeuroChat se souvient de ce qui compte d'une session à l'autre grâce à une ar
 - **Recherche Sémantique** — Retrouvez vos conversations passées par le sens.
 - **Résumés Hebdomadaires** — Synthèses auto-générées via DeepSeek v4 Flash.
 
-### 🚀 NeuroLearning : Moteur d'Auto-Évolution
-L'assistant qui apprend de ses erreurs et s'améliore de lui-même.
-- **Feedback Implicite** — Détecte les signaux de satisfaction utilisateur.
-- **Cycles d'Apprentissage** — Analyse périodique pour auto-améliorer le prompt système.
-- **Interface Transparente** — Visualisez les améliorations appliquées et leur raisonnement.
+### 🚀 NeuroLearning : Moteur d'Auto-Évolution (v2.1)
+L'assistant qui apprend de ses erreurs et s'améliore de lui-même de manière autonome.
+- **Feedback Implicite** : Détecte les signaux de satisfaction ou d'interruption utilisateur.
+- **Modèles de Propositions** : Nouveaux scénarios intelligents (empathie, concision, proactivité, simplification technique).
+- **Few-shot Learning** : Intégration dynamique d'exemples de réussites passées dans les nouvelles instructions.
+- **Cycles d'Apprentissage** : Analyse périodique pour auto-améliorer le prompt système avec filtrage par sévérité.
+
+### 🛠️ Outils de Transparence & Debug
+- **Database Inspector** : Nouvel outil intégré pour visualiser en temps réel le contenu de la base SQLite (sessions, vecteurs, traces, apprentissage).
+- **Nettoyage Centralisé** : Possibilité de vider intelligemment la base de données avec rafraîchissement automatique de l'application.
+- **Agent Traces** : Visualisation granulaire de chaque étape de réflexion et d'action des agents.
 
 ---
 
@@ -166,12 +172,14 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 - [x] Interaction vocale multimodale (Gemini Live)
 - [x] Mémoire long terme avec RAG
 - [x] Contrôle autonome du navigateur (v2)
-- [x] Moteur d'auto-évolution (NeuroLearning)
+- [x] Moteur d'auto-évolution amélioré (v2.1)
 - [x] Manipulation agentique du système de fichiers
 - [x] Migration vers SQLite (Performance & Scalabilité)
 - [x] Pont IPC bidirectionnel (`sendClientContent`)
 - [x] Architecture hiérarchique Multi-Agents (v2.1)
 - [x] Migration vers `<webview>` (Bypass CSP/Frame-ancestors)
+- [x] Outil d'inspection de base de données intégré
+- [x] Nettoyage de base de données avec actualisation auto
 - [ ] Marketplace de plugins pour skills communautaires
 - [ ] Intégration du protocole MCP (Model Context Protocol)
 - [ ] Support des modèles locaux via Ollama (Privacy First)
