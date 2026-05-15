@@ -52,7 +52,7 @@ export function useConversationMemory() {
     const data = getConversationStats(userName);
     console.log(`[useConversationMemory] ✅ Données calculées: ${data.totalSessions} sessions`);
     return data;
-  }, [userName, showMemoryModal, memoryRevision]); // Refresh when memory changes
+  }, [userName, memoryRevision]); // Refresh when memory changes
 
   const selectedSession = useMemo(() => {
     console.log(`[useConversationMemory] 🔍 Recherche de la session sélectionnée: ${selectedSessionId}`);
