@@ -148,7 +148,7 @@ export async function runLearningCycleForUser(
   }
 
   const optimizer = new PromptOptimizer({ maxProposals: data.config.maxProposalsPerCycle, now });
-  const proposals = optimizer.generateProposals(report, {
+  const proposals = await optimizer.generateProposals(report, {
     userId,
     maxProposals: data.config.maxProposalsPerCycle,
     now,

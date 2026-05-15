@@ -63,7 +63,7 @@ export class PromptOptimizer {
     this.now = options.now ?? (() => Date.now());
   }
 
-  generateProposals(report: PerformanceReport, options: PromptOptimizerOptions = {}): ImprovementProposal[] {
+  async generateProposals(report: PerformanceReport, options: PromptOptimizerOptions = {}): Promise<ImprovementProposal[]> {
     const userId = options.userId;
     const maxProposals = options.maxProposals ?? this.maxProposals;
     const selected = PROPOSAL_TEMPLATES
@@ -71,27 +71,28 @@ export class PromptOptimizer {
       .sort((a, b) => this.priorityFor(report, b) - this.priorityFor(report, a))
       .slice(0, maxProposals);
 
-    const proposals = selected.map((template, index) => ({
-      id: `proposal_${template.id}_${this.now()}_${index}`,
-      targetSection: template.targetSection,
-      proposedChange: this.withSuccessfulPatternHint(template.change, userId),
-      justification: template.justification(report),
-      motivatingData: {
-        patterns: report.patterns
-          .filter((pattern) => pattern.type === 'failure')
-          .map((pattern) => pattern.description)
-          .slice(0, 5),
-        metrics: {
-          concisionRatio: report.metrics.concisionRatio,
-          contextAwareness: report.metrics.contextAwareness,
-          proactivity: report.metrics.proactivity,
-          userSatisfaction: report.metrics.userSatisfaction,
-          compositeQualityScore: report.metrics.compositeQualityScore,
+    const proposals: ImprovementProposal[] = [];
+    for (let index = 0; index < selected.length; index++) {
+      const template = selected[index];
+      proposals.push({
+        id: `proposal_${template.id}_${this.now()}_${index}`,
+        targetSection: template.targetSection,
+        proposedChange: await this.withSuccessfulPatternHint(template.change, userId),
+        justification: template.justification(report),
+        motivatingData: {
+          patterns: report.patterns.filter((pattern) => pattern.type === 'failure').map((pattern) => pattern.description).slice(0, 5),
+          metrics: {
+            concisionRatio: report.metrics.concisionRatio,
+            contextAwareness: report.metrics.contextAwareness,
+            proactivity: report.metrics.proactivity,
+            userSatisfaction: report.metrics.userSatisfaction,
+            compositeQualityScore: report.metrics.compositeQualityScore,
+          },
         },
-      },
-      createdAt: this.now(),
-      status: 'pending' as const,
-    }));
+        createdAt: this.now(),
+        status: 'pending' as const,
+      });
+    }
 
     logAutoImprovement("Optimisation", "PromptOptimizer — propositions retenues", {
       userId: userId ?? "(anon)",
@@ -108,8 +109,8 @@ export class PromptOptimizer {
     return proposals;
   }
 
-  extractSuccessfulPatterns(userId: string, limit: number = 3): string[] {
-    return loadVectorStore()
+  async extractSuccessfulPatterns(userId: string, limit: number = 3): Promise<string[]> {
+    return (await loadVectorStore())
       .filter((entry) => entry.metadata.userName === userId && entry.metadata.speaker === 'assistant')
       .sort((a, b) => b.metadata.timestamp - a.metadata.timestamp)
       .slice(0, limit)
@@ -117,10 +118,10 @@ export class PromptOptimizer {
       .filter(Boolean);
   }
 
-  private withSuccessfulPatternHint(change: string, userId?: string): string {
+  private async withSuccessfulPatternHint(change: string, userId?: string): Promise<string> {
     if (!userId) return change;
 
-    const successfulPatterns = this.extractSuccessfulPatterns(userId, 1);
+    const successfulPatterns = await this.extractSuccessfulPatterns(userId, 1);
     if (successfulPatterns.length === 0) return change;
 
     const exemplar = successfulPatterns[0].slice(0, 120);
