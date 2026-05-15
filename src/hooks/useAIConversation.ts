@@ -18,6 +18,11 @@ interface SessionOptions {
   browserControlEnabled?: boolean;
 }
 
+function shouldAutoRunAgent(text: string): boolean {
+  const t = text.toLowerCase();
+  return t.startsWith("tool:") || t.includes("utilise un outil") || t.includes("ouvre le navigateur") || t.includes("cherche dans ma mémoire");
+}
+
 export function useAIConversation() {
   const gemini = useGeminiSession();
   const openRouter = useOpenRouterSession();
@@ -67,5 +72,6 @@ export function useAIConversation() {
     startSession,
     stopSession,
     runAgentTask,
+    shouldAutoRunAgent,
   };
 }
