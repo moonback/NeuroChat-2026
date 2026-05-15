@@ -2,6 +2,8 @@ import { useState, useCallback, useRef } from "react";
 import { useGeminiSession } from "./useGeminiSession";
 import { useOpenRouterSession } from "./useOpenRouterSession";
 import { AvatarId } from "../lib/avatarConfig";
+import { getAgentService } from "../lib/agent/service";
+import type { AgentRunOptions, AgentRunResult } from "../lib/agent/types";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -16,23 +18,62 @@ interface SessionOptions {
   browserControlEnabled?: boolean;
 }
 
+function shouldAutoRunAgent(text: string): boolean {
+  const t = text.toLowerCase();
+  return t.startsWith("tool:") || t.includes("utilise un outil") || t.includes("ouvre le navigateur") || t.includes("cherche dans ma mémoire");
+}
+
 export function useAIConversation() {
   const gemini = useGeminiSession();
   const openRouter = useOpenRouterSession();
   const [activeProvider, setActiveProvider] = useState<"gemini" | "openrouter">("gemini");
   const optionsRef = useRef<SessionOptions | null>(null);
 
+  const runAgentTask = useCallback(async (
+    input: string,
+    sessionId: string,
+    userId: string,
+    options?: AgentRunOptions,
+  ): Promise<AgentRunResult> => {
+    const service = getAgentService();
+    return service.run({ input, sessionId, userId, options });
+  }, []);
+
+  const processUserText = useCallback(async (text: string, sessionId: string, userId: string) => {
+    if (!shouldAutoRunAgent(text)) return null;
+    return runAgentTask(text, sessionId, userId, { maxIterations: 6 });
+  }, [runAgentTask]);
+
   const startSession = useCallback(async (options: SessionOptions) => {
     optionsRef.current = options;
     setActiveProvider("gemini");
-    
-    const success = await gemini.startSession(options);
+
+    const enhancedOptions: SessionOptions = {
+      ...options,
+      onTranscription: (text, finished) => {
+        options.onTranscription(text, finished);
+        if (finished && options.userName) {
+          void processUserText(text, `live-${Date.now()}`, options.userName)
+            .then((agentResult) => {
+              if (!agentResult) return;
+              options.onAudioResponse("", agentResult.answer);
+              options.onTurnComplete();
+            })
+            .catch((err) => {
+              console.warn("[AgentLive] auto-run failed", err);
+              options.onInterrupted();
+            });
+        }
+      },
+    };
+
+    const success = await gemini.startSession(enhancedOptions);
     if (!success) {
       console.warn("Gemini failed to start, switching to OpenRouter fallback...");
       setActiveProvider("openrouter");
-      await openRouter.startSession(options);
+      await openRouter.startSession(enhancedOptions);
     }
-  }, [gemini, openRouter]);
+  }, [gemini, openRouter, processUserText]);
 
   const stopSession = useCallback((onStopRecording?: () => void, userName?: string) => {
     if (activeProvider === "gemini") {
@@ -42,10 +83,6 @@ export function useAIConversation() {
     }
   }, [activeProvider, gemini, openRouter]);
 
-  // If gemini enters an error state that isn't permission-related, try switching to OpenRouter
-  // This is tricky because we need to detect the error from the hook.
-  
-  // For now, let's just expose the active one's properties
   const current = activeProvider === "gemini" ? gemini : openRouter;
 
   return {
@@ -53,5 +90,8 @@ export function useAIConversation() {
     activeProvider,
     startSession,
     stopSession,
+    runAgentTask,
+    shouldAutoRunAgent,
+    processUserText,
   };
 }

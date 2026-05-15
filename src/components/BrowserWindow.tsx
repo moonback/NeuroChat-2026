@@ -127,6 +127,7 @@ export function BrowserWindow({
               <div className="flex-1 bg-slate-700/50 rounded-lg px-4 py-2 flex items-center gap-2">
                 <span className="text-xs text-slate-400">🔒</span>
                 <input
+                  id="browser-url-input"
                   type="text"
                   value={inputUrl}
                   onChange={(e) => setInputUrl(e.target.value)}

@@ -22,7 +22,7 @@ export class AudioRecorder implements IAudioRecorder {
       });
       
       // Load and register the AudioWorklet
-      await this.audioContext.audioWorklet.addModule('/audio-processor.js');
+      await this.audioContext.audioWorklet.addModule('./audio-processor.js');
       
       this.source = this.audioContext.createMediaStreamSource(this.stream);
       this.workletNode = new AudioWorkletNode(this.audioContext, 'audio-processor');

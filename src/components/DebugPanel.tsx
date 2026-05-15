@@ -6,6 +6,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Bug, X, ChevronDown, ChevronUp, TestTube } from "lucide-react";
 import { testCommandPatterns } from "../lib/commandParser";
+import { loadAgentTraces } from "../lib/agent/traceStore";
+import { getAgentMonitoringSnapshot } from "../lib/agent/monitoring";
+import { loadSkillPolicyConfig, saveSkillPolicyConfig } from "../lib/skills/policyStore";
 
 interface DebugLog {
   timestamp: number;
@@ -20,7 +23,16 @@ export function DebugPanel() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [logs, setLogs] = useState<DebugLog[]>([]);
   const [filter, setFilter] = useState<string>("all");
+  const [showAgentTraces, setShowAgentTraces] = useState(false);
+  const [traceUserFilter, setTraceUserFilter] = useState("all");
+  const [traceSessionFilter, setTraceSessionFilter] = useState("all");
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const isMounted = useRef(true);
+  const pendingLogsRef = useRef<DebugLog[]>([]);
+  const flushTimerRef = useRef<number | null>(null);
+  const [showPolicyEditor, setShowPolicyEditor] = useState(false);
+  const [showMonitoring, setShowMonitoring] = useState(false);
+  const [policyDraft, setPolicyDraft] = useState(() => JSON.stringify(loadSkillPolicyConfig(), null, 2));
 
   useEffect(() => {
     return () => { isMounted.current = false; };
@@ -61,7 +73,7 @@ export function DebugPanel() {
         data: args.length > 1 ? args.slice(1) : undefined,
       };
 
-      setLogs((prev) => [...prev.slice(-49), newLog]);
+      pendingLogsRef.current.push(newLog);
     }
   }, []);
 
@@ -84,17 +96,17 @@ export function DebugPanel() {
 
     console.log = (...args: any[]) => {
       originalLog(...args);
-      deferCapture("info", args);
+      if (isOpen && isExpanded) deferCapture("info", args);
     };
 
     console.error = (...args: any[]) => {
       originalError(...args);
-      deferCapture("error", args);
+      if (isOpen && isExpanded) deferCapture("error", args);
     };
 
     console.warn = (...args: any[]) => {
       originalWarn(...args);
-      deferCapture("warning", args);
+      if (isOpen && isExpanded) deferCapture("warning", args);
     };
 
     return () => {
@@ -102,7 +114,20 @@ export function DebugPanel() {
       console.error = originalError;
       console.warn = originalWarn;
     };
-  }, [deferCapture]);
+  }, [deferCapture, isOpen, isExpanded]);
+
+
+  useEffect(() => {
+    flushTimerRef.current = window.setInterval(() => {
+      if (!isMounted.current || pendingLogsRef.current.length === 0) return;
+      const chunk = pendingLogsRef.current.splice(0, pendingLogsRef.current.length);
+      setLogs((prev) => [...prev, ...chunk].slice(-200));
+    }, 250);
+
+    return () => {
+      if (flushTimerRef.current) window.clearInterval(flushTimerRef.current);
+    };
+  }, []);
 
   const filteredLogs = logs.filter((log) => {
     if (filter === "all") return true;
@@ -152,6 +177,7 @@ export function DebugPanel() {
   return (
     <AnimatePresence>
       <motion.div
+        id="debug-panel"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -20 }}
@@ -184,6 +210,24 @@ export function DebugPanel() {
               Test
             </button>
             <button
+              onClick={() => setShowAgentTraces((v) => !v)}
+              className="text-xs px-2 py-1 bg-violet-700 hover:bg-violet-600 rounded text-white transition-colors"
+            >
+              {showAgentTraces ? "Masquer traces" : "Traces agent"}
+            </button>
+            <button
+              onClick={() => setShowPolicyEditor((v) => !v)}
+              className="text-xs px-2 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-white transition-colors"
+            >
+              {showPolicyEditor ? "Masquer policy" : "Policy"}
+            </button>
+            <button
+              onClick={() => setShowMonitoring((v) => !v)}
+              className="text-xs px-2 py-1 bg-cyan-700 hover:bg-cyan-600 rounded text-white transition-colors"
+            >
+              {showMonitoring ? "Masquer monitoring" : "Monitoring"}
+            </button>
+            <button
               onClick={() => setLogs([])}
               className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 transition-colors"
             >
@@ -200,6 +244,68 @@ export function DebugPanel() {
 
         {isExpanded && (
           <>
+            {showMonitoring && (() => {
+              const snapshot = getAgentMonitoringSnapshot();
+              return (
+                <div className="p-2 border-b border-slate-700 grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Runs</div><div className="text-cyan-300 text-sm">{snapshot.totalRuns}</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Success rate</div><div className="text-cyan-300 text-sm">{snapshot.successRate.toFixed(1)}%</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Succès / Échecs</div><div className="text-cyan-300 text-sm">{snapshot.successfulRuns} / {snapshot.failedRuns}</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Avg itérations</div><div className="text-cyan-300 text-sm">{snapshot.avgIterations.toFixed(2)}</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Avg tool calls</div><div className="text-cyan-300 text-sm">{snapshot.avgToolCalls.toFixed(2)}</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Dernier run</div><div className="text-cyan-300 text-sm">{snapshot.lastRunAt ? new Date(snapshot.lastRunAt).toLocaleTimeString() : "-"}</div></div>
+                </div>
+              );
+            })()}
+            {showPolicyEditor && (
+              <div className="p-2 border-b border-slate-700 space-y-2">
+                <div className="text-xs text-emerald-300">Policy management (roles/scopes/expiry/denylist)</div>
+                <textarea className="w-full h-32 bg-slate-950 text-slate-200 text-xs p-2 rounded border border-slate-700" value={policyDraft} onChange={(e) => setPolicyDraft(e.target.value)} />
+                <button className="text-xs px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white" onClick={() => { try { saveSkillPolicyConfig(JSON.parse(policyDraft)); } catch (e) { console.error("Policy JSON invalide", e); } }}>Sauvegarder policy</button>
+              </div>
+            )}
+            {showAgentTraces && (() => {
+              const traces = loadAgentTraces();
+              const users = Array.from(new Set(traces.map((t) => t.userId)));
+              const sessions = Array.from(new Set(traces.map((t) => t.sessionId)));
+              const filtered = traces
+                .filter((t) => traceUserFilter === "all" || t.userId === traceUserFilter)
+                .filter((t) => traceSessionFilter === "all" || t.sessionId === traceSessionFilter)
+                .slice(-20)
+                .sort((a, b) => a.timestamp - b.timestamp);
+              const selected = filtered.find((t) => t.id === selectedTraceId) ?? filtered[filtered.length - 1];
+
+              return (
+                <div className="p-2 border-b border-slate-700 text-xs text-slate-300 space-y-2">
+                  <div className="flex gap-2">
+                    <select className="bg-slate-800 border border-slate-600 rounded px-2 py-1" value={traceUserFilter} onChange={(e) => setTraceUserFilter(e.target.value)}>
+                      <option value="all">Tous users</option>
+                      {users.map((u) => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                    <select className="bg-slate-800 border border-slate-600 rounded px-2 py-1" value={traceSessionFilter} onChange={(e) => setTraceSessionFilter(e.target.value)}>
+                      <option value="all">Toutes sessions</option>
+                      {sessions.map((sid) => <option key={sid} value={sid}>{sid}</option>)}
+                    </select>
+                  </div>
+                  <div className="max-h-24 overflow-auto space-y-1">
+                    {filtered.map((t) => (
+                      <button key={t.id} onClick={() => setSelectedTraceId(t.id)} className="w-full text-left p-1 rounded hover:bg-slate-800">
+                        <div className="text-violet-300">{new Date(t.timestamp).toLocaleTimeString()} · {t.userId} · {t.events.length} events</div>
+                        <div className="text-slate-400">session: {t.sessionId}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {selected && (
+                    <div className="max-h-28 overflow-auto bg-slate-950/70 rounded p-2 border border-slate-700">
+                      <div className="text-slate-400 mb-1">Replay chronologique</div>
+                      {selected.events.map((ev, idx) => (
+                        <pre key={idx} className="text-[10px] text-slate-300 whitespace-pre-wrap">{JSON.stringify(ev, null, 2)}</pre>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* Filters */}
             <div className="bg-slate-800/50 border-b border-slate-700 p-2 flex gap-2 overflow-x-auto">
               {["all", "BrowserControl", "CommandParser", "BrowserWindow", "AutoAmélioration", "App", "errors", "success"].map(

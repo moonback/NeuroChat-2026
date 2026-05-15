@@ -163,6 +163,75 @@ NeuroChat/
 
 ---
 
+## 🤖 Agent Runtime & Skills (Nouveau)
+
+NeuroChat inclut désormais un runtime agentique modulaire inspiré des architectures de type Claude/OpenAI Agents.
+
+### Architecture ajoutée
+
+```text
+src/lib/agent/
+├── types.ts               # Contrats AgentStep, events, run options
+├── orchestrator.ts        # Boucle plan → tool → observation → réponse
+├── planner.ts             # Construction du prompt de planification
+├── parser.ts              # Validation/parse des steps modèle
+├── executor.ts            # Exécution des tool calls via SkillRegistry
+├── modelGateway.ts        # Gemini/OpenRouter + fallback + tool-calling natif
+├── createAgentRuntime.ts  # Wiring runtime par défaut
+├── service.ts             # Service singleton d'exécution agent
+└── traceStore.ts          # Persistance locale des traces agent
+
+src/lib/skills/
+├── types.ts               # Contrats SkillDefinition/permissions/schema
+├── registry.ts            # Enregistrement, recherche, exécution, cooldown
+├── policies.ts            # Authorizer + confirmation runtime
+├── policyStore.ts         # Persistance config policy
+├── browser/               # Skills navigateur
+├── memory/                # Skills mémoire
+├── desktop/               # Skills desktop
+└── ai/                    # Skills IA utilitaires
+```
+
+### Capacités agentiques disponibles
+
+- **Tool-calling natif provider**: exécution prioritaire via `completeStepWithTools(...)` quand disponible (Gemini/OpenRouter).
+- **Fallback multi-provider**: chaîne de gateways (Gemini puis OpenRouter par défaut).
+- **Boucle multi-itérations**: planification, exécution de tool, gestion d'erreurs, sortie finale.
+- **Observabilité**: events de cycle + persistance des traces agent.
+- **Policies runtime**: rôles, scopes, expiration, denylist et confirmation pour actions sensibles.
+
+### Skills par défaut
+
+- `open_website`
+- `extract_page`
+- `retrieve_context`
+- `save_memory_note`
+- `get_desktop_info`
+- `summarize_text`
+
+Tu peux ajouter des skills de prompt en Markdown dans `src/skills-md/*.md` (chargées automatiquement dans le system prompt).
+
+### Intégration UI
+
+- `useAIConversation` expose:
+  - `runAgentTask(...)`
+  - `processUserText(...)`
+  - `shouldAutoRunAgent(...)`
+- Le mode live déclenche automatiquement l’agent sur certaines intentions, puis injecte la réponse dans le flux UI/audio.
+- Le `DebugPanel` permet:
+  - inspection des traces agent
+  - filtres user/session
+  - replay chronologique event-by-event
+  - édition/sauvegarde de la policy runtime
+
+### Commandes de test (agent)
+
+```bash
+npm run test -- src/test/agent.events.test.ts src/test/agent.gateway.test.ts src/test/agent.native-tool-calling.test.ts src/test/agent.orchestrator.test.ts src/test/agent.parser.test.ts src/test/agent.service.test.ts src/test/skills.registry.test.ts
+```
+
+---
+
 ## 🤝 Contribuer
 
 Nous accueillons les contributions avec plaisir ! Veuillez consulter notre [GUIDE DE CONTRIBUTION](file:///c:/Users/Mayss/Documents/GitHub/NeuroChat/CONTRIBUTING.md) pour plus de détails sur le workflow et les standards de code.

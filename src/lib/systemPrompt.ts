@@ -1,6 +1,7 @@
 import type { AvatarId } from "./avatarConfig";
 import { AVATARS } from "./avatarConfig";
 import { buildMemoryContext } from "./conversationMemory";
+import { buildMarkdownSkillsPromptSection } from "./skills/markdownSkills";
 
 export type EmotionState = "professional" | "empathetic" | "energetic" | "calm" | "concise";
 export type ConversationMode = "productivity" | "general" | "brainstorming" | "support" | "organization";
@@ -61,6 +62,8 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
   const memoryContext = buildMemoryContext(userName);
   const temporalContext = buildDateTimeContext(new Date());
 
+  const markdownSkillsSection = buildMarkdownSkillsPromptSection();
+
   const sections = [
     "### IDENTITY & PERSONA",
     `Tu es ${avatar.personalityName}, un assistant personnel intelligent et proactif pour le projet NeuroChat.`,
@@ -99,6 +102,10 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "### TEMPORAL CONTEXT",
     temporalContext,
   ];
+
+  if (markdownSkillsSection) {
+    sections.push(markdownSkillsSection);
+  }
 
   if (weeklySummary) {
     sections.push(weeklySummary);

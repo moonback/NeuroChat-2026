@@ -9,9 +9,9 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((error) => {
+    navigator.serviceWorker.register('./sw.js').catch((error) => {
       console.error('Service Worker registration failed:', error);
     });
   });

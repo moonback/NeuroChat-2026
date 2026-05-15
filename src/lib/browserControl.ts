@@ -465,21 +465,61 @@ export class BrowserController {
       return null;
     }
 
+    // 1. Sélecteur CSS direct
     if (selector.selector) {
       return document.querySelector(selector.selector);
     }
 
-    if (selector.text) {
-      const elements = Array.from(document.querySelectorAll("*"));
-      return elements.find((el) => el.textContent?.includes(selector.text!)) || null;
+    // 2. Mappages sémantiques pour les éléments de l'interface NeuroChat
+    const semanticMap: Record<string, string> = {
+      "barre d'adresse": "#browser-url-input",
+      "barre adresse": "#browser-url-input",
+      "url": "#browser-url-input",
+      "adresse": "#browser-url-input",
+      "champ d'adresse": "#browser-url-input",
+      "recherche": "input[type='search'], input[name='q'], input[placeholder*='recherche' i]",
+    };
+
+    const hint = (selector.placeholder || selector.text || "").toLowerCase().replace(/^(la|le|l'|un|une|le\s+champ)\s+/, "").trim();
+    
+    if (semanticMap[hint]) {
+      const el = document.querySelector(semanticMap[hint]);
+      if (el) return el;
     }
 
-    if (selector.role) {
-      return document.querySelector(`[role="${selector.role}"]`);
-    }
-
+    // 3. Recherche par Placeholder (insensible à la casse)
     if (selector.placeholder) {
-      return document.querySelector(`[placeholder="${selector.placeholder}"]`);
+      const p = selector.placeholder.toLowerCase();
+      // Chercher une correspondance exacte ou partielle insensible à la casse
+      const inputs = Array.from(document.querySelectorAll("input, textarea"));
+      const match = inputs.find(el => {
+        const placeholder = el.getAttribute("placeholder")?.toLowerCase();
+        return placeholder === p || (placeholder && placeholder.includes(p));
+      });
+      if (match) return match;
+    }
+
+    // 4. Recherche par Rôle
+    if (selector.role) {
+      const el = document.querySelector(`[role="${selector.role}"]`);
+      if (el) return el;
+    }
+
+    // 5. Recherche par Texte (en excluant le panneau de debug)
+    if (selector.text) {
+      const searchText = selector.text.toLowerCase();
+      const elements = Array.from(document.querySelectorAll("button, a, input, [role='button'], span, p, h1, h2, h3, h4, h5, h6, label"));
+      
+      return elements.find((el) => {
+        // Exclure les éléments du panneau de débogage
+        if (el.closest("#debug-panel")) return false;
+        
+        const content = el.textContent?.toLowerCase() || "";
+        const title = el.getAttribute("title")?.toLowerCase() || "";
+        const ariaLabel = el.getAttribute("aria-label")?.toLowerCase() || "";
+        
+        return content.includes(searchText) || title.includes(searchText) || ariaLabel.includes(searchText);
+      }) || null;
     }
 
     return null;
