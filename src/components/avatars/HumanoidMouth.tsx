@@ -74,18 +74,18 @@ export const HumanoidMouth = React.memo<HumanoidMouthProps>(({
           <stop offset="100%" stopColor="#0a0202" />
         </linearGradient>
         
-        {/* Volumetric upper lip - realistic human pink/red */}
+        {/* Volumetric upper lip - neutral boyish tone */}
         <linearGradient id="h-upper-lip" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#e58e82" />
-          <stop offset="60%" stopColor="#cc665a" />
-          <stop offset="100%" stopColor="#8c3329" />
+          <stop offset="0%" stopColor="#d49b8c" />
+          <stop offset="60%" stopColor="#b57665" />
+          <stop offset="100%" stopColor="#8c4738" />
         </linearGradient>
 
-        {/* Volumetric lower lip - realistic human pink/red */}
+        {/* Volumetric lower lip - neutral boyish tone */}
         <linearGradient id="h-lower-lip" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#f5aba3" />
-          <stop offset="40%" stopColor="#e58e82" />
-          <stop offset="100%" stopColor="#b34b3e" />
+          <stop offset="0%" stopColor="#e5a897" />
+          <stop offset="40%" stopColor="#c78472" />
+          <stop offset="100%" stopColor="#9e5241" />
         </linearGradient>
       </defs>
 

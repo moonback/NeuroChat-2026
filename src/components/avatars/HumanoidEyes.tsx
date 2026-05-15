@@ -145,11 +145,11 @@ export const HumanoidEyes = React.memo<HumanoidEyesProps>(({
             {/* Soft Skin Socket shadow (Ambient Occlusion) - no longer pure black */}
             <ellipse cx={0} cy={1} rx={eyeRx + 4} ry={eyeRy + 3} fill="#5e281b" opacity={0.3} style={{ filter: "blur(3px)" }} />
 
-            {/* Brow ridge - warmer human shadow */}
+            {/* Brow ridge - curved boyish eyebrow */}
             <path
-              d={`M ${-eyeRx - 6} ${-eyeRy - 6} Q 0 ${-eyeRy - 12} ${eyeRx + 6} ${-eyeRy - 6}`}
-              fill="none" stroke="#875340" strokeWidth={3} strokeLinecap="round" opacity={0.5}
-              style={{ filter: "blur(1px)" }}
+              d={`M ${-eyeRx - 8} ${-eyeRy - 2} Q -2 ${-eyeRy - 16} ${eyeRx + 8} ${-eyeRy - 5}`}
+              fill="none" stroke="#522b1c" strokeWidth={4} strokeLinecap="round" opacity={0.7}
+              style={{ filter: "blur(1.5px)" }}
             />
 
             {/* Sclera/Base background of the eye (White instead of black) */}
@@ -202,11 +202,11 @@ export const HumanoidEyes = React.memo<HumanoidEyesProps>(({
             {/* Soft Skin Socket shadow (Ambient Occlusion) */}
             <ellipse cx={0} cy={1} rx={eyeRx + 4} ry={eyeRy + 3} fill="#5e281b" opacity={0.3} style={{ filter: "blur(3px)" }} />
 
-            {/* Brow ridge - warmer human shadow */}
+            {/* Brow ridge - curved boyish eyebrow */}
             <path
-              d={`M ${-eyeRx - 6} ${-eyeRy - 6} Q 0 ${-eyeRy - 12} ${eyeRx + 6} ${-eyeRy - 6}`}
-              fill="none" stroke="#875340" strokeWidth={3} strokeLinecap="round" opacity={0.5}
-              style={{ filter: "blur(1px)" }}
+              d={`M ${-eyeRx - 8} ${-eyeRy - 5} Q 2 ${-eyeRy - 16} ${eyeRx + 8} ${-eyeRy - 2}`}
+              fill="none" stroke="#522b1c" strokeWidth={4} strokeLinecap="round" opacity={0.7}
+              style={{ filter: "blur(1.5px)" }}
             />
 
             {/* Sclera/Base background of the eye (White instead of black) */}

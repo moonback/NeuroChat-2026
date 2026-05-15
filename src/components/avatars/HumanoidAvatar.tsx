@@ -25,6 +25,7 @@ import { HumanoidShell } from "./HumanoidShell";
 import { HumanoidEyes } from "./HumanoidEyes";
 import { HumanoidMouth } from "./HumanoidMouth";
 import { HumanoidHalo } from "./HumanoidHalo";
+import { HumanoidHair } from "./HumanoidHair";
 import { RobotEffects } from "./RobotEffects";
 
 export function HumanoidAvatar({
@@ -156,14 +157,7 @@ export function HumanoidAvatar({
         filter: `drop-shadow(0 12px 36px ${theme.accentColor}50)`,
       }}
     >
-      {/* Dark atmospheric background (optional — comment out if your UI provides bg) */}
-      <defs>
-        <radialGradient id="hav-bg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#1e2e48" stopOpacity="0.85" />
-          <stop offset="100%" stopColor="#0c1525" stopOpacity="0.95" />
-        </radialGradient>
-      </defs>
-      <rect width="200" height="200" fill="url(#hav-bg)" rx="16" />
+      {/* Background has been removed to be fully transparent */}
 
       <g transform={`translate(${headTiltX}, ${headTiltY})`}>
         {/* Atmospheric halo rings */}
@@ -181,6 +175,9 @@ export function HumanoidAvatar({
           breathScale={breathing.scale}
           breathOffsetY={breathing.offsetY}
         />
+
+        {/* Organic human hair */}
+        <HumanoidHair time={state.time} />
 
         {/* Organic LED eyes */}
         <HumanoidEyes

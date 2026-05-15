@@ -90,89 +90,117 @@ export const HumanoidShell = React.memo<HumanoidShellProps>(({
 
       {/* Neck */}
       <path
-        d="M 72 165 Q 76 185 83 192 Q 100 198 117 192 Q 124 185 128 165"
+        d="M 65 155 Q 70 190 85 200 Q 100 205 115 200 Q 130 190 135 155"
         fill="url(#h-neck)"
         opacity={0.95}
       />
       {/* Neck texture layer */}
       <path
-        d="M 72 165 Q 76 185 83 192 Q 100 198 117 192 Q 124 185 128 165"
+        d="M 65 155 Q 70 190 85 200 Q 100 205 115 200 Q 130 190 135 155"
         fill="url(#h-neck)"
         opacity={0.5}
         filter="url(#h-texture)"
       />
 
-      {/* Head outer shell with texture */}
+      {/* Realistic human face shape path */}
+      {/* Outer Head Shell */}
       <g filter="url(#h-texture)">
-        <ellipse cx="100" cy="100" rx="78" ry="93" fill="url(#h-head-top)" opacity={0.98} />
+        <path
+          d="M 100 10 C 145 10, 175 35, 175 90 C 175 130, 155 165, 130 185 C 115 195, 85 195, 70 185 C 45 165, 25 130, 25 90 C 25 35, 55 10, 100 10 Z"
+          fill="url(#h-head-top)" opacity={0.98}
+        />
       </g>
 
-      {/* Face surface (front-facing plane) with texture */}
+      {/* Face surface (front-facing plane) */}
       <g filter="url(#h-texture)">
-        <ellipse cx="100" cy="105" rx="68" ry="84" fill="url(#h-face-grad)" opacity={0.95} />
+        <path
+          d="M 100 15 C 140 15, 165 40, 165 95 C 165 130, 145 160, 125 180 C 110 190, 90 190, 75 180 C 55 160, 35 130, 35 95 C 35 40, 60 15, 100 15 Z"
+          fill="url(#h-face-grad)" opacity={0.95}
+        />
       </g>
 
-      {/* Subsurface Scattering edge glow (simulates light passing through skin/shell) */}
-      <ellipse cx="100" cy="105" rx="68" ry="84" fill="none" stroke="#ff8c6b" strokeWidth={3} opacity={0.15} style={{ filter: "blur(4px)" }} />
+      {/* Subsurface Scattering edge glow */}
+      <path
+        d="M 100 15 C 140 15, 165 40, 165 95 C 165 130, 145 160, 125 180 C 110 190, 90 190, 75 180 C 55 160, 35 130, 35 95 C 35 40, 60 15, 100 15 Z"
+        fill="none" stroke="#ff8c6b" strokeWidth={4} opacity={0.15} style={{ filter: "blur(4px)" }}
+      />
 
       {/* Rim light (cinematic backlighting) */}
-      <ellipse cx="100" cy="100" rx="78" ry="93" fill="url(#h-rim-light)" />
-
-      {/* Forehead structure lines */}
-      <path d="M 76 60 Q 100 52 124 60" fill="none" stroke="#ffe0d1" strokeWidth={0.8} opacity={0.35} />
-      <path d="M 82 70 Q 100 64 118 70" fill="none" stroke="#ffebcc" strokeWidth={0.6} opacity={0.25} />
-      {/* Inner groove shadows for lines */}
-      <path d="M 76 61 Q 100 53 124 61" fill="none" stroke="#633226" strokeWidth={1} opacity={0.2} />
-
-      {/* Specular Cheekbone highlights */}
-      <ellipse cx="58" cy="118" rx="20" ry="12" fill="white" opacity={0.15} style={{ filter: "blur(4px)" }} />
-      <ellipse cx="142" cy="118" rx="20" ry="12" fill="white" opacity={0.15} style={{ filter: "blur(4px)" }} />
-      <ellipse cx="58" cy="116" rx="10" ry="6" fill="white" opacity={0.25} style={{ filter: "blur(2px)" }} />
-      <ellipse cx="142" cy="116" rx="10" ry="6" fill="white" opacity={0.25} style={{ filter: "blur(2px)" }} />
-
-      {/* Sharp Top highlight */}
-      <ellipse cx="85" cy="62" rx="35" ry="22" fill="white" opacity={0.2} style={{ filter: "blur(5px)" }} />
-      <ellipse cx="80" cy="55" rx="15" ry="8" fill="white" opacity={0.35} style={{ filter: "blur(2px)" }} />
-
-      {/* Nose bridge and deep shadows */}
       <path
-        d="M 94 88 Q 90 110 88 120 Q 95 128 100 130 Q 105 128 112 120 Q 110 110 106 88"
-        fill="#8c4738" opacity={0.15}
-        style={{ filter: "blur(2px)" }}
+        d="M 100 10 C 145 10, 175 35, 175 90 C 175 130, 155 165, 130 185 C 115 195, 85 195, 70 185 C 45 165, 25 130, 25 90 C 25 35, 55 10, 100 10 Z"
+        fill="url(#h-rim-light)"
+      />
+
+      {/* Forehead structure lines (Softer, less robotic) */}
+      <path d="M 80 60 Q 100 55 120 60" fill="none" stroke="#ffe0d1" strokeWidth={0.8} opacity={0.2} />
+      <path d="M 85 68 Q 100 64 115 68" fill="none" stroke="#ffebcc" strokeWidth={0.6} opacity={0.15} />
+
+      {/* Specular Cheekbone highlights (Very soft for realism, no more clown cheeks) */}
+      <ellipse cx="65" cy="120" rx="25" ry="15" fill="#ffffff" opacity={0.08} style={{ filter: "blur(6px)" }} />
+      <ellipse cx="135" cy="120" rx="25" ry="15" fill="#ffffff" opacity={0.08} style={{ filter: "blur(6px)" }} />
+
+      {/* Sharp Top highlight (Forehead reflection) */}
+      <ellipse cx="90" cy="50" rx="25" ry="15" fill="white" opacity={0.15} style={{ filter: "blur(6px)" }} />
+      <ellipse cx="85" cy="45" rx="10" ry="6" fill="white" opacity={0.25} style={{ filter: "blur(3px)" }} />
+
+      {/* Nose bridge and deep shadows (Softer, organic transition) */}
+      <path
+        d="M 94 92 Q 90 110 88 120 Q 95 128 100 130 Q 105 128 112 120 Q 110 110 106 92"
+        fill="#8c4738" opacity={0.1}
+        style={{ filter: "blur(3px)" }}
       />
       <path
-        d="M 95 90 Q 92 110 90 120 Q 95 127 100 128 Q 105 127 110 120 Q 108 110 105 90"
-        fill="#cc9076" opacity={0.25}
+        d="M 95 95 Q 92 110 90 120 Q 95 125 100 126 Q 105 125 110 120 Q 108 110 105 95"
+        fill="#cc9076" opacity={0.15}
+        style={{ filter: "blur(1px)" }}
       />
-      {/* Nose tip specular */}
-      <ellipse cx="100" cy="123" rx="12" ry="8" fill="url(#h-nose-tip)" opacity={0.65} />
-      <ellipse cx="96" cy="120" rx="4" ry="2.5" fill="white" opacity={0.4} />
+      
+      {/* Nose tip specular (Softer, no harsh dot) */}
+      <ellipse cx="100" cy="122" rx="9" ry="6" fill="#ffffff" opacity={0.2} style={{ filter: "blur(2px)" }} />
+      <ellipse cx="98" cy="120" rx="3" ry="1.5" fill="white" opacity={0.3} style={{ filter: "blur(1px)" }} />
 
       {/* Jaw definition with ambient occlusion */}
       <path
-        d="M 28 118 Q 33 158 55 174 Q 78 186 100 188 Q 122 186 145 174 Q 167 158 172 118"
-        fill="none" stroke="#4a271d" strokeWidth={3} opacity={0.2} style={{ filter: "blur(3px)" }}
+        d="M 35 118 Q 40 155 60 170 Q 80 182 100 184 Q 120 182 140 170 Q 160 155 165 118"
+        fill="none" stroke="#4a271d" strokeWidth={4} opacity={0.15} style={{ filter: "blur(4px)" }}
       />
       <path
-        d="M 28 118 Q 33 155 55 170 Q 78 182 100 184 Q 122 182 145 170 Q 167 155 172 118"
-        fill="none" stroke="#e5b299" strokeWidth={1} opacity={0.3}
+        d="M 35 118 Q 40 155 60 170 Q 80 182 100 184 Q 120 182 140 170 Q 160 155 165 118"
+        fill="none" stroke="#e5b299" strokeWidth={1} opacity={0.2}
       />
 
-      {/* Ear / side panel left - warmer metallic tone */}
+      {/* Realistic Human Ears (Left & Right) */}
       <g filter="url(#h-texture)">
-        <ellipse cx="23" cy="108" rx="11" ry="26" fill="#a88574" opacity={0.9} />
-      </g>
-      <ellipse cx="23" cy="108" rx="11" ry="26" fill="none" stroke="#4a271d" strokeWidth={1.5} opacity={0.4} />
-      <ellipse cx="23" cy="108" rx="5" ry="18" fill="#ffd8c4" opacity={0.3} />
-      <ellipse cx="21" cy="102" rx="2" ry="4" fill="white" opacity={0.2} />
+        {/* Left Ear */}
+        <path
+          d="M 28 95 C 18 90, 12 105, 15 115 C 17 125, 22 130, 30 125 Z"
+          fill="url(#h-head-top)"
+        />
+        <path
+          d="M 28 95 C 18 90, 12 105, 15 115 C 17 125, 22 130, 30 125 Z"
+          fill="none" stroke="#a55d48" strokeWidth={2} opacity={0.4} style={{ filter: "blur(1px)" }}
+        />
+        {/* Inner ear shadow left */}
+        <path
+          d="M 25 100 C 18 100, 18 115, 25 115"
+          fill="none" stroke="#633226" strokeWidth={2} opacity={0.5} style={{ filter: "blur(1px)" }}
+        />
 
-      {/* Ear / side panel right - warmer metallic tone */}
-      <g filter="url(#h-texture)">
-        <ellipse cx="177" cy="108" rx="11" ry="26" fill="#a88574" opacity={0.9} />
+        {/* Right Ear */}
+        <path
+          d="M 172 95 C 182 90, 188 105, 185 115 C 183 125, 178 130, 170 125 Z"
+          fill="url(#h-head-top)"
+        />
+        <path
+          d="M 172 95 C 182 90, 188 105, 185 115 C 183 125, 178 130, 170 125 Z"
+          fill="none" stroke="#a55d48" strokeWidth={2} opacity={0.4} style={{ filter: "blur(1px)" }}
+        />
+        {/* Inner ear shadow right */}
+        <path
+          d="M 175 100 C 182 100, 182 115, 175 115"
+          fill="none" stroke="#633226" strokeWidth={2} opacity={0.5} style={{ filter: "blur(1px)" }}
+        />
       </g>
-      <ellipse cx="177" cy="108" rx="11" ry="26" fill="none" stroke="#4a271d" strokeWidth={1.5} opacity={0.4} />
-      <ellipse cx="177" cy="108" rx="5" ry="18" fill="#ffd8c4" opacity={0.3} />
-      <ellipse cx="179" cy="102" rx="2" ry="4" fill="white" opacity={0.2} />
 
       {/* Accent edge glow (Audio reactive) */}
       <ellipse
