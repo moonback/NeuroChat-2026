@@ -1,11 +1,18 @@
 export type SkillCategory = "browser" | "memory" | "desktop" | "ai" | "system";
 
-export type JsonSchema = {
+export type JsonPrimitiveType = "string" | "number" | "boolean" | "object" | "array";
+
+export interface JsonSchemaProperty {
+  type: JsonPrimitiveType;
+  description?: string;
+}
+
+export interface JsonSchema {
   type: "object";
-  properties: Record<string, unknown>;
+  properties: Record<string, JsonSchemaProperty>;
   required?: string[];
   additionalProperties?: boolean;
-};
+}
 
 export interface SkillPermission {
   resource: string;
@@ -38,3 +45,15 @@ export interface SkillExecutionResult<TResult = unknown> {
   elapsedMs: number;
   timestamp: number;
 }
+
+export type PermissionAuthorizer = (
+  permissions: SkillPermission[],
+  context: SkillContext,
+  skillName: string,
+) => Promise<boolean>;
+
+export type ConfirmationHandler = (
+  skill: SkillDefinition,
+  context: SkillContext,
+  params: unknown,
+) => Promise<boolean>;
