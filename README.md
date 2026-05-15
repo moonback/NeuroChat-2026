@@ -34,11 +34,12 @@ Parlez naturellement avec votre assistant grâce à l'audio full-duplex propuls�
 | **Transcription Live** | Transcription en temps réel de votre voix et de celle de l'assistant |
 | **Synthèse Vocale (TTS)** | Voix naturelles avec plusieurs profils configurables (Puck, etc.) |
 
-### 👁️ Vision Contextuelle
-NeuroChat voit ce que vous voyez et comprend votre contexte visuel.
+### 👁️ Vision Contextuelle & Intelligence Visuelle (v2.1)
+NeuroChat voit ce que vous voyez et comprend votre contexte visuel de manière intelligente.
+- **Moteur de Vision Smart** — Fréquence d'analyse adaptative (de 0.1 à 2.5 fps) basée sur la détection de mouvement par luminance pour optimiser le CPU et la précision.
 - **Partage d'écran** — Capture via `desktopCapturer` d'Electron pour une analyse d'écran en temps réel.
 - **Support Multi-Caméra** — Basculez dynamiquement entre vos caméras frontale, arrière ou externe.
-- **Pipeline Vidéo Optimisé** — Frames JPEG envoyées à Gemini avec un taux de rafraîchissement adaptatif.
+- **Analyse Continue** — L'assistant peut suivre une action visuelle fluide grâce à l'augmentation automatique du taux de rafraîchissement.
 
 ### 🌐 Orchestration Multi-Agents & Web (v2.1)
 NeuroChat utilise désormais une architecture hiérarchique `Supervisor` -> `Agents Spécialisés` pour résoudre des tâches complexes.
@@ -183,7 +184,7 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 - [ ] Marketplace de plugins pour skills communautaires
 - [ ] Intégration du protocole MCP (Model Context Protocol)
 - [ ] Support des modèles locaux via Ollama (Privacy First)
-- [ ] Intelligence visuelle augmentée (analyse de flux vidéo continu)
+- [x] Intelligence visuelle augmentée (Fréquence adaptative & détection intelligente)
 
 ---
 
