@@ -29,33 +29,6 @@ export function useAIConversation() {
   const [activeProvider, setActiveProvider] = useState<"gemini" | "openrouter">("gemini");
   const optionsRef = useRef<SessionOptions | null>(null);
 
-  const startSession = useCallback(async (options: SessionOptions) => {
-    optionsRef.current = options;
-    setActiveProvider("gemini");
-    
-    const success = await gemini.startSession(options);
-    if (!success) {
-      console.warn("Gemini failed to start, switching to OpenRouter fallback...");
-      setActiveProvider("openrouter");
-      await openRouter.startSession(options);
-    }
-  }, [gemini, openRouter]);
-
-  const stopSession = useCallback((onStopRecording?: () => void, userName?: string) => {
-    if (activeProvider === "gemini") {
-      gemini.stopSession(onStopRecording, userName);
-    } else {
-      openRouter.stopSession(onStopRecording);
-    }
-  }, [activeProvider, gemini, openRouter]);
-
-  // If gemini enters an error state that isn't permission-related, try switching to OpenRouter
-  // This is tricky because we need to detect the error from the hook.
-  
-  // For now, let's just expose the active one's properties
-  const current = activeProvider === "gemini" ? gemini : openRouter;
-
-
   const runAgentTask = useCallback(async (
     input: string,
     sessionId: string,
@@ -70,6 +43,47 @@ export function useAIConversation() {
     if (!shouldAutoRunAgent(text)) return null;
     return runAgentTask(text, sessionId, userId, { maxIterations: 6 });
   }, [runAgentTask]);
+
+  const startSession = useCallback(async (options: SessionOptions) => {
+    optionsRef.current = options;
+    setActiveProvider("gemini");
+
+    const enhancedOptions: SessionOptions = {
+      ...options,
+      onTranscription: (text, finished) => {
+        options.onTranscription(text, finished);
+        if (finished && options.userName) {
+          void processUserText(text, `live-${Date.now()}`, options.userName)
+            .then((agentResult) => {
+              if (!agentResult) return;
+              options.onAudioResponse("", agentResult.answer);
+              options.onTurnComplete();
+            })
+            .catch((err) => {
+              console.warn("[AgentLive] auto-run failed", err);
+              options.onInterrupted();
+            });
+        }
+      },
+    };
+
+    const success = await gemini.startSession(enhancedOptions);
+    if (!success) {
+      console.warn("Gemini failed to start, switching to OpenRouter fallback...");
+      setActiveProvider("openrouter");
+      await openRouter.startSession(enhancedOptions);
+    }
+  }, [gemini, openRouter, processUserText]);
+
+  const stopSession = useCallback((onStopRecording?: () => void, userName?: string) => {
+    if (activeProvider === "gemini") {
+      gemini.stopSession(onStopRecording, userName);
+    } else {
+      openRouter.stopSession(onStopRecording);
+    }
+  }, [activeProvider, gemini, openRouter]);
+
+  const current = activeProvider === "gemini" ? gemini : openRouter;
 
   return {
     ...current,

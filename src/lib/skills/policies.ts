@@ -1,6 +1,6 @@
 import type { ConfirmationHandler, PermissionAuthorizer, SkillContext, SkillPermission } from "./types";
 
-const SESSION_POLICY_KEY = "neurochat_skill_policy_v2";
+import { loadSkillPolicyConfig } from "./policyStore";
 
 interface PolicyRecord {
   roles: string[];
@@ -10,18 +10,7 @@ interface PolicyRecord {
 }
 
 function loadPolicy(): PolicyRecord {
-  try {
-    const raw = localStorage.getItem(SESSION_POLICY_KEY);
-    const parsed = raw ? (JSON.parse(raw) as Partial<PolicyRecord>) : {};
-    return {
-      roles: parsed.roles ?? ["user"],
-      expiresAt: parsed.expiresAt,
-      allow: parsed.allow ?? {},
-      deny: parsed.deny ?? ["open_website"],
-    };
-  } catch {
-    return { roles: ["user"], allow: {}, deny: ["open_website"] };
-  }
+  return loadSkillPolicyConfig();
 }
 
 export const defaultPermissionAuthorizer: PermissionAuthorizer = async (permissions, context, skillName) => {

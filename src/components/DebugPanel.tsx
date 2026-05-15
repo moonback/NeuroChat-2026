@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Bug, X, ChevronDown, ChevronUp, TestTube } from "lucide-react";
 import { testCommandPatterns } from "../lib/commandParser";
 import { loadAgentTraces } from "../lib/agent/traceStore";
+import { loadSkillPolicyConfig, saveSkillPolicyConfig } from "../lib/skills/policyStore";
 
 interface DebugLog {
   timestamp: number;
@@ -22,7 +23,12 @@ export function DebugPanel() {
   const [logs, setLogs] = useState<DebugLog[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [showAgentTraces, setShowAgentTraces] = useState(false);
+  const [traceUserFilter, setTraceUserFilter] = useState("all");
+  const [traceSessionFilter, setTraceSessionFilter] = useState("all");
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const isMounted = useRef(true);
+  const [showPolicyEditor, setShowPolicyEditor] = useState(false);
+  const [policyDraft, setPolicyDraft] = useState(() => JSON.stringify(loadSkillPolicyConfig(), null, 2));
 
   useEffect(() => {
     return () => { isMounted.current = false; };
@@ -192,6 +198,12 @@ export function DebugPanel() {
               {showAgentTraces ? "Masquer traces" : "Traces agent"}
             </button>
             <button
+              onClick={() => setShowPolicyEditor((v) => !v)}
+              className="text-xs px-2 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-white transition-colors"
+            >
+              {showPolicyEditor ? "Masquer policy" : "Policy"}
+            </button>
+            <button
               onClick={() => setLogs([])}
               className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 transition-colors"
             >
@@ -208,16 +220,55 @@ export function DebugPanel() {
 
         {isExpanded && (
           <>
-            {showAgentTraces && (
-              <div className="p-2 border-b border-slate-700 max-h-40 overflow-auto text-xs text-slate-300">
-                {loadAgentTraces().slice(-10).map((t) => (
-                  <div key={t.id} className="mb-2">
-                    <div className="text-violet-300">{new Date(t.timestamp).toLocaleTimeString()} · {t.userId} · {t.events.length} events</div>
-                    <div className="text-slate-400">session: {t.sessionId}</div>
-                  </div>
-                ))}
+            {showPolicyEditor && (
+              <div className="p-2 border-b border-slate-700 space-y-2">
+                <div className="text-xs text-emerald-300">Policy management (roles/scopes/expiry/denylist)</div>
+                <textarea className="w-full h-32 bg-slate-950 text-slate-200 text-xs p-2 rounded border border-slate-700" value={policyDraft} onChange={(e) => setPolicyDraft(e.target.value)} />
+                <button className="text-xs px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white" onClick={() => { try { saveSkillPolicyConfig(JSON.parse(policyDraft)); } catch (e) { console.error("Policy JSON invalide", e); } }}>Sauvegarder policy</button>
               </div>
             )}
+            {showAgentTraces && (() => {
+              const traces = loadAgentTraces();
+              const users = Array.from(new Set(traces.map((t) => t.userId)));
+              const sessions = Array.from(new Set(traces.map((t) => t.sessionId)));
+              const filtered = traces
+                .filter((t) => traceUserFilter === "all" || t.userId === traceUserFilter)
+                .filter((t) => traceSessionFilter === "all" || t.sessionId === traceSessionFilter)
+                .slice(-20)
+                .sort((a, b) => a.timestamp - b.timestamp);
+              const selected = filtered.find((t) => t.id === selectedTraceId) ?? filtered[filtered.length - 1];
+
+              return (
+                <div className="p-2 border-b border-slate-700 text-xs text-slate-300 space-y-2">
+                  <div className="flex gap-2">
+                    <select className="bg-slate-800 border border-slate-600 rounded px-2 py-1" value={traceUserFilter} onChange={(e) => setTraceUserFilter(e.target.value)}>
+                      <option value="all">Tous users</option>
+                      {users.map((u) => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                    <select className="bg-slate-800 border border-slate-600 rounded px-2 py-1" value={traceSessionFilter} onChange={(e) => setTraceSessionFilter(e.target.value)}>
+                      <option value="all">Toutes sessions</option>
+                      {sessions.map((sid) => <option key={sid} value={sid}>{sid}</option>)}
+                    </select>
+                  </div>
+                  <div className="max-h-24 overflow-auto space-y-1">
+                    {filtered.map((t) => (
+                      <button key={t.id} onClick={() => setSelectedTraceId(t.id)} className="w-full text-left p-1 rounded hover:bg-slate-800">
+                        <div className="text-violet-300">{new Date(t.timestamp).toLocaleTimeString()} · {t.userId} · {t.events.length} events</div>
+                        <div className="text-slate-400">session: {t.sessionId}</div>
+                      </button>
+                    ))}
+                  </div>
+                  {selected && (
+                    <div className="max-h-28 overflow-auto bg-slate-950/70 rounded p-2 border border-slate-700">
+                      <div className="text-slate-400 mb-1">Replay chronologique</div>
+                      {selected.events.map((ev, idx) => (
+                        <pre key={idx} className="text-[10px] text-slate-300 whitespace-pre-wrap">{JSON.stringify(ev, null, 2)}</pre>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* Filters */}
             <div className="bg-slate-800/50 border-b border-slate-700 p-2 flex gap-2 overflow-x-auto">
               {["all", "BrowserControl", "CommandParser", "BrowserWindow", "AutoAmélioration", "App", "errors", "success"].map(
