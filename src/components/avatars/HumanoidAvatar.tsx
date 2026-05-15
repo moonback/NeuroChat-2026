@@ -153,9 +153,6 @@ export function HumanoidAvatar({
     <svg
       viewBox="0 0 200 200"
       className="w-full h-full"
-      style={{
-        filter: `drop-shadow(0 12px 36px ${theme.accentColor}50)`,
-      }}
     >
       {/* Background has been removed to be fully transparent */}
 

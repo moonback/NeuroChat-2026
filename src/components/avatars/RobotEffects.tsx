@@ -19,7 +19,7 @@ export const RobotEffects: React.FC<RobotEffectsProps> = React.memo(({
   if (!glitchActive && status !== "error") return null;
 
   return (
-    <g style={{ mixBlendMode: "screen", pointerEvents: "none" }}>
+    <g style={{ pointerEvents: "none" }}>
       {/* Chromatic aberration and glitch effects */}
       {glitchActive && (
         <g transform={`translate(${glitchOffsetX}, ${glitchOffsetY})`}>

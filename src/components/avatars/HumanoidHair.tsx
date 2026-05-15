@@ -292,9 +292,6 @@ export const HumanoidHair = React.memo<HumanoidHairProps>(({ time }) => {
           fill="url(#h-hair-highlight)"
           opacity="0.28"
           filter="url(#h-soft-blur)"
-          style={{
-            mixBlendMode: "screen",
-          }}
         />
       </g>
     </g>
