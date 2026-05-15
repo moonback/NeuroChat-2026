@@ -15,6 +15,7 @@ import { BrowserControlPanel } from "./components/BrowserControlPanel";
 import { BrowserWindow } from "./components/BrowserWindow";
 import { DebugPanel } from "./components/DebugPanel";
 import { AgentChat } from "./components/AgentChat";
+import { DatabaseInspector } from "./components/DatabaseInspector";
 import { parseAssistantResponse, runTests } from "./lib/commandParser";
 import { useEffect as useOnce } from "react";
 
@@ -37,6 +38,8 @@ export default function App() {
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
   
   const [visualActivity, setVisualActivity] = useState(false);
+  const [showDatabase, setShowDatabase] = useState(false);
+  
   const triggerVisualActivity = () => {
     setVisualActivity(true);
     setTimeout(() => setVisualActivity(false), 800);
@@ -445,6 +448,13 @@ export default function App() {
         userName={userName}
         updateUserName={updateUserName}
         onShowMemory={() => setShowMemoryModal(true)}
+        onShowDatabase={() => setShowDatabase(true)}
+      />
+
+      <DatabaseInspector 
+        isOpen={showDatabase} 
+        onClose={() => setShowDatabase(false)} 
+        userId={userName}
       />
 
       {/* Browser Control Panel */}

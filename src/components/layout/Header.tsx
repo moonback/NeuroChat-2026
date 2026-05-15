@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Brain, User, LogOut } from "lucide-react";
+import { Sparkles, Brain, User, LogOut, Database } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { AvatarConfig } from "../../lib/avatarConfig";
 
@@ -9,6 +9,7 @@ interface HeaderProps {
   userName: string | null;
   updateUserName: (name: string) => void;
   onShowMemory: () => void;
+  onShowDatabase: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,7 +17,8 @@ export const Header: React.FC<HeaderProps> = ({
   status,
   userName,
   updateUserName,
-  onShowMemory
+  onShowMemory,
+  onShowDatabase
 }) => {
   return (
     <nav className="relative z-50 flex items-center justify-between px-4 py-3 sm:px-10 sm:py-6 lg:px-16">
@@ -93,6 +95,19 @@ export const Header: React.FC<HeaderProps> = ({
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
+              )}
+
+              {/* Database Button (Debug) */}
+              {userName && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onShowDatabase}
+                  className="hidden sm:flex items-center justify-center bg-slate-800/80 hover:bg-slate-700 border border-slate-700/50 p-2.5 rounded-2xl transition-all shadow-xl backdrop-blur-md group"
+                  title="Database Inspector"
+                >
+                  <Database className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
+                </motion.button>
               )}
 
               {/* Memory Button */}

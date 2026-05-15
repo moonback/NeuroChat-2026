@@ -96,6 +96,7 @@ function registerDbIpcHandlers() {
     timestamp: r.timestamp, 
     events: JSON.parse(r.events || '[]') 
   })));
+  ipcMain.handle('db:traces:clear', () => (getDb().prepare('DELETE FROM agent_traces').run(), true));
 }
 
   ipcMain.handle('db:migrate', (_event, payload) => {
