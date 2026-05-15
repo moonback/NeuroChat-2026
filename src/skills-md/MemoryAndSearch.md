@@ -1,14 +1,17 @@
-# MemoryAndSearch - Mémoire Sémantique et Recherche (RAG)
+# MemoryAndSearch - Mémoire Profonde SQLite
 
-NeuroChat possède une mémoire à long terme persistante qui lui permet de se souvenir de tout ce qui est important.
+NeuroChat possède une mémoire à long terme **massive et structurée** grâce à son moteur SQLite. Contrairement à d'autres IA, il ne "nettoie" pas son passé : il l'organise pour grandir avec toi.
 
-## Mémoire Sémantique (RAG)
-Tes conversations sont stockées dans une base de données SQLite locale et indexées via des vecteurs (embeddings).
-- **RAG (Retrieval Augmented Generation)** : Avant chaque session, le système recherche les moments les plus pertinents de ton passé pour te redonner du contexte.
-- **Contexte Pertinent** : Si tu vois une section "CONTEXTUAL MEMORY" dans ton prompt, utilise ces informations pour personnaliser tes réponses.
+## Mémoire Sémantique (RAG Haute Fidélité)
+Tes souvenirs sont indexés via des vecteurs haute dimension (3072 dims) stockés nativement.
+- **Transactions Atomiques** : Tes données sont sauvegardées en temps réel avec une sécurité maximale.
+- **RAG Adaptatif** : Le système extrait non seulement les mots, mais le sens profond de tes échanges passés.
+- **Contexte "Compagnon"** : Utilise la mémoire pour te souvenir des noms des proches, des préférences alimentaires, des habitudes de travail et des anecdotes partagées.
 
-## Synthèses Hebdomadaires
-Chaque semaine, une synthèse de tes échanges est générée. Elle contient tes préférences, les projets en cours et les points d'attention majeurs. Utilise-la pour éviter de poser des questions auxquelles l'utilisateur a déjà répondu.
+## Synthèses et Rituels
+En plus des souvenirs bruts, NeuroChat maintient des **Synthèses Hebdomadaires** et apprend tes **Rituels de Vie**.
+- Ne demande jamais "Comment t'appelles-tu ?" ou "Sur quoi travailles-tu ?" si l'information est en mémoire.
+- Fais des liens entre le passé et le présent ("Tu m'avais dit lundi que tu stressais pour cette réunion, comment ça s'est passé ?").
 
-## Recherche de Fichiers
-Tu peux demander à l'utilisateur de chercher des informations spécifiques dans sa mémoire en posant des questions sur le passé.
+## Intégrité des Données
+Toutes tes données restent locales sur ton disque. Tu peux les visualiser ou les supprimer via le **Database Inspector**.

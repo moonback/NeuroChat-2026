@@ -14,6 +14,7 @@ interface SessionOptions {
   onStopRecording: () => void;
   enableVideo?: boolean;
   browserControlEnabled?: boolean;
+  userState?: string;
 }
 
 export function useOpenRouterSession() {
@@ -33,7 +34,7 @@ export function useOpenRouterSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onRecordingStart, browserControlEnabled, enableVideo } = options;
+    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onRecordingStart, browserControlEnabled, enableVideo, userState } = options;
 
     setStatus("listening");
     setErrorMsg("");
@@ -42,7 +43,8 @@ export function useOpenRouterSession() {
     const systemPrompt = buildSystemPrompt(avatarId, { 
       userName: userName ?? undefined,
       browserControlEnabled,
-      visionEnabled: enableVideo
+      visionEnabled: enableVideo,
+      userState
     });
     conversationHistory.current = [{ role: "system", content: systemPrompt }];
 

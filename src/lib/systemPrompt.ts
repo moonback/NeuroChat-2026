@@ -11,6 +11,7 @@ export interface PromptContextOptions {
   emotion?: EmotionState;
   mode?: ConversationMode;
   /** Optional RAG context block from semanticSearch (injected by useGeminiSession) */
+  userState?: string;
   ragContext?: string;
   /** Optional weekly summary block (injected by useGeminiSession) */
   weeklySummary?: string;
@@ -67,7 +68,7 @@ function getModeInstruction(mode: ConversationMode): string {
  */
 export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOptions | string = {}): string {
   const normalizedOptions: PromptContextOptions = typeof options === "string" ? { userName: options } : options;
-  const { userName = "", emotion = "professional", mode = "general", ragContext, weeklySummary, browserControlEnabled = false, visionEnabled = false } = normalizedOptions;
+  const { userName = "", emotion = "professional", mode = "general", userState = "", ragContext, weeklySummary, browserControlEnabled = false, visionEnabled = false } = normalizedOptions;
   const avatar = AVATARS[avatarId];
   const memoryContext = buildMemoryContext(userName);
   const temporalContext = buildDateTimeContext(new Date());
@@ -114,7 +115,8 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "### CURRENT CONFIGURATION",
     `État émotionnel: ${emotion} (${getEmotionInstruction(emotion)}).`,
     `Mode opérationnel: ${mode} (${getModeInstruction(mode)}).`,
-    `Traits: ${avatar.emotionalTraits.join(", ")}.`
+    `Traits: ${avatar.emotionalTraits.join(", ")}.`,
+    userState ? `CONTEXTE UTILISATEUR: ${userState}` : ""
   );
 
   sections.push(
@@ -122,7 +124,7 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "Sortie = Texte parlé pur. Pas de métadonnées, pas de commentaires, juste la réponse vocale directe."
   );
 
-  return sections.join("\n\n");
+  return sections.filter(Boolean).join("\n\n");
 }
 
 export function getDefaultSystemPrompt(): string {

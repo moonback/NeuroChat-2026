@@ -16,6 +16,7 @@ interface SessionOptions {
   onStopRecording: () => void;
   enableVideo?: boolean;
   browserControlEnabled?: boolean;
+  userState?: string;
 }
 
 function shouldAutoRunAgent(text: string): boolean {

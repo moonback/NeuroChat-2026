@@ -17,6 +17,7 @@ import { DebugPanel } from "./components/DebugPanel";
 import { AgentChat } from "./components/AgentChat";
 import { DatabaseInspector } from "./components/DatabaseInspector";
 import { parseAssistantResponse, runTests } from "./lib/commandParser";
+import { EmotionEngine } from "./lib/EmotionEngine";
 import { useEffect as useOnce } from "react";
 
 export default function App() {
@@ -41,11 +42,13 @@ export default function App() {
   const [visualActivity, setVisualActivity] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
   const [pipExpanded, setPipExpanded] = useState(false);
+  const emotionEngineRef = useRef(new EmotionEngine());
   
   const lastVisionNudgeTimeRef = useRef<number>(0);
   
-  const triggerVisualActivity = () => {
+  const triggerVisualActivity = (intensity = 0.5) => {
     setVisualActivity(true);
+    emotionEngineRef.current.addMotionSignal(intensity);
     setTimeout(() => setVisualActivity(false), 800);
     
     // Proactive AI reaction logic
@@ -61,6 +64,18 @@ export default function App() {
 
   const avatar = AVATARS[avatarId];
 
+  const {
+    status,
+    errorMsg,
+    setErrorMsg,
+    startSession,
+    stopSession,
+    sendTextMessage,
+    activeProvider,
+    agentEvents,
+    runAgentTask
+  } = useAIConversation();
+
   // Initialize hooks
   const {
     isSpeaking,
@@ -70,6 +85,13 @@ export default function App() {
     startRecording,
     stopRecording
   } = useAudioSession();
+
+  // Feed audio level to emotion engine
+  useEffect(() => {
+    if (status === "listening") {
+      emotionEngineRef.current.addAudioSignal(audioLevel);
+    }
+  }, [audioLevel, status]);
 
   const {
     userName,
@@ -84,18 +106,6 @@ export default function App() {
     setSelectedSessionId,
     addTurn
   } = useConversationMemory();
-
-  const {
-    status,
-    errorMsg,
-    setErrorMsg,
-    startSession,
-    stopSession,
-    sendTextMessage,
-    activeProvider,
-    agentEvents,
-    runAgentTask
-  } = useAIConversation();
 
   // Browser control hook
   const {
@@ -123,6 +133,7 @@ export default function App() {
       userName,
       enableVideo: cameraActive,
       browserControlEnabled,
+      userState: emotionEngineRef.current.getSystemContext(),
       onAudioResponse: async (base64, aiText) => {
         if (base64) playAudio(base64);
         // Accumule les fragments de transcription IA (outputTranscription)
