@@ -15,9 +15,31 @@ export interface ParsedCommand {
  * Patterns de commandes reconnus
  */
 const COMMAND_PATTERNS = [
-  // Navigation - patterns plus flexibles et robustes
+  // Visualisation de données (UI Dynamique) - FALLBACK ROBUSTE
   {
-    regex: /(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\s+([a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:\/[^\s]*)?)/gi,
+    regex: /visualise\s*:\s*(\{[\s\S]*?\})(?:\s|$)/gi,
+    type: "render_ui" as const,
+    extract: (match: RegExpMatchArray) => {
+      try {
+        // Nettoyage agressif du JSON au cas où l'IA aurait ajouté du texte après
+        const jsonStr = match[1].trim();
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        console.error("❌ [CommandParser] Erreur de parsing JSON pour render_ui:", e);
+        // Tentative de récupération : on cherche la dernière accolade fermante
+        try {
+          const lastBrace = match[1].lastIndexOf("}");
+          if (lastBrace !== -1) {
+             return JSON.parse(match[1].substring(0, lastBrace + 1));
+          }
+        } catch {}
+        return { error: "JSON invalide" };
+      }
+    },
+  },
+  // Navigation - exige des termes plus explicites pour éviter les collisions avec le langage naturel
+  {
+    regex: /\b(?:va\s+sur|ouvre\s+le\s+site|navigue\s+vers)\s+([a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:\/[^\s]*)?)/gi,
     type: "navigate" as const,
     extract: (match: RegExpMatchArray) => {
       let url = match[1].trim();
@@ -51,7 +73,7 @@ const COMMAND_PATTERNS = [
   },
   // Recherche Google
   {
-    regex: /(?:cherche|recherche|trouve|google)\s+(?:moi\s+)?["']?([^"'\n]+?)["']?(?:\s+sur\s+(?:google|internet|le\s+web))?(?:\s|$|\.)/gi,
+    regex: /\b(?:cherche|recherche|trouve|google)\s+(?:moi\s+)?["']?([^"'\n]+?)["']?(?:\s+sur\s+(?:google|internet|le\s+web))?(?:\s|$|\.)/gi,
     type: "navigate" as const,
     extract: (match: RegExpMatchArray) => {
       const query = encodeURIComponent(match[1].trim());
@@ -60,7 +82,7 @@ const COMMAND_PATTERNS = [
   },
   // Pattern spécial pour "va sur youtube" (sans point)
   {
-    regex: /(?:va\s+sur|ouvre)\s+(youtube|google|facebook|twitter|instagram|linkedin|wikipedia|amazon|netflix|spotify)(?:\s|$|\.)/gi,
+    regex: /\b(?:va\s+sur|ouvre)\s+(youtube|google|facebook|twitter|instagram|linkedin|wikipedia|amazon|netflix|spotify)(?:\s|$|\.)/gi,
     type: "navigate" as const,
     extract: (match: RegExpMatchArray) => {
       const site = match[1].toLowerCase();
@@ -82,7 +104,7 @@ const COMMAND_PATTERNS = [
   },
   // Clic
   {
-    regex: /clique(?:\s+sur)?(?:\s+le)?(?:\s+bouton)?(?:\s+lien)?\s+["']?([^"'\n]+?)["']?(?:\s|$|\.)/gi,
+    regex: /\bclique(?:\s+sur)?(?:\s+le)?(?:\s+bouton)?(?:\s+lien)?\s+["']?([^"'\n]+?)["']?(?:\s|$|\.)/gi,
     type: "click" as const,
     extract: (match: RegExpMatchArray) => ({
       selector: { text: match[1].trim() },
@@ -99,12 +121,12 @@ const COMMAND_PATTERNS = [
   },
   // Défilement
   {
-    regex: /(?:descends?|scroll(?:e)?|va(?:\s+en\s+bas)?)\s*(?:un\s+peu|la\s+page)?/gi,
+    regex: /\b(?:descends?|scroll(?:e)?|va(?:\s+en\s+bas)?)\s*(?:un\s+peu|la\s+page)?/gi,
     type: "scroll" as const,
     extract: () => ({ direction: "down" as const }),
   },
   {
-    regex: /(?:monte|remonte|va(?:\s+en\s+haut)?)\s*(?:un\s+peu|la\s+page)?/gi,
+    regex: /\b(?:monte|remonte|va(?:\s+en\s+haut)?)\s*(?:un\s+peu|la\s+page)?/gi,
     type: "scroll" as const,
     extract: () => ({ direction: "up" as const }),
   },

@@ -15,6 +15,7 @@ import { BrowserControlPanel } from "./components/BrowserControlPanel";
 import { BrowserWindow } from "./components/BrowserWindow";
 import { DebugPanel } from "./components/DebugPanel";
 import { parseAssistantResponse } from "./lib/commandParser";
+import { DynamicUI, type UIData } from "./components/DynamicUI";
 
 export default function App() {
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
@@ -27,6 +28,7 @@ export default function App() {
   const screenCaptureServiceRef = useRef<ScreenCaptureService | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
+  const [dynamicUIData, setDynamicUIData] = useState<UIData | null>(null);
 
   const avatar = AVATARS[avatarId];
 
@@ -135,14 +137,28 @@ export default function App() {
           }
           
           // PARSER ICI avec le texte complet
-          if (browserControlEnabled && fullText) {
-            console.log("🌐 [App] Contrôle du navigateur activé, analyse du texte complet...");
+          if (fullText) {
+            console.log("🤖 [App] Analyse du texte complet pour commandes...");
             const parsed = parseAssistantResponse(fullText);
             
             if (parsed.action) {
               console.log("🎯 [App] Commande détectée dans le texte complet:", parsed.action);
-              try {
-                const result = await executeAction(parsed.action);
+              
+              // Support hybride (Tool Call ou Texte Fallback)
+              if (parsed.action.type === "render_ui") {
+                console.log("🎯 [App] Affichage UI via texte détecté");
+                setDynamicUIData(parsed.action.params as UIData);
+                return;
+              }
+
+              // Pour les actions navigateur, vérifier si le contrôle est activé
+                if (!browserControlEnabled) {
+                  console.log("ℹ️ [App] Action navigateur ignorée car le contrôle est désactivé");
+                  return;
+                }
+
+                try {
+                  const result = await executeAction(parsed.action);
                 if (result.success) {
                   console.log("✅ [App] Commande exécutée avec succès:", result.data);
                 } else {
@@ -167,6 +183,12 @@ export default function App() {
           stopAudio();
         } else {
           console.log(`🔇 Bruit ignoré (${audioLevel.toFixed(2)} <= ${threshold})`);
+        }
+      },
+      onToolCall: (name, args) => {
+        if (name === "render_ui") {
+          console.log("🎯 [App] Tool Call détecté: render_ui", args);
+          setDynamicUIData(args as UIData);
         }
       },
       onRecordingStart: (sendInput) => {
@@ -417,6 +439,13 @@ export default function App() {
 
       {/* Debug Panel */}
       <DebugPanel />
+
+      {/* Dynamic UI Visualizations */}
+      <DynamicUI 
+        data={dynamicUIData} 
+        onClose={() => setDynamicUIData(null)} 
+        accentColor={avatar.colors[0]} 
+      />
 
 
       {/* Main Interaction Area */}

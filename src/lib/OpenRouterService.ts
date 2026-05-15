@@ -4,12 +4,13 @@ export interface OpenRouterMessage {
 }
 
 const MODELS = [
-  "minimax/minimax-m2.5:free",
-  "mistralai/mistral-7b-instruct:free",
-  "meta-llama/llama-3-8b-instruct:free",
-  "microsoft/phi-3-mini-128k-instruct:free",
-  "qwen/qwen-2-7b-instruct:free",
-  "huggingfaceh4/zephyr-7b-beta:free"
+  "google/gemma-2-9b-it:free",
+  "mistralai/mistral-7b-instruct-v0.3:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "qwen/qwen-2.5-7b-instruct:free",
+  "nousresearch/hermes-3-llama-3.1-405b:free",
+  "microsoft/phi-3-medium-128k-instruct:free",
+  "huggingfaceh4/zephyr-7b-beta:free",
 ];
 
 export async function chatWithOpenRouter(messages: OpenRouterMessage[]) {
@@ -28,7 +29,7 @@ export async function chatWithOpenRouter(messages: OpenRouterMessage[]) {
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://neurochatia.vercel.app", // Some free models require a referer
+          "HTTP-Referer": "https://neurochatia.vercel.app",
           "X-Title": "NeuroChat",
         },
         body: JSON.stringify({
@@ -53,7 +54,7 @@ export async function chatWithOpenRouter(messages: OpenRouterMessage[]) {
         const errorData = await response.json().catch(() => ({}));
         const msg = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
         console.warn(`[OpenRouter] Error with ${model}: ${msg}`);
-        continue; // Try next model on any error
+        continue;
       }
 
       const data = await response.json();
@@ -66,7 +67,6 @@ export async function chatWithOpenRouter(messages: OpenRouterMessage[]) {
     } catch (err) {
       console.error(`[OpenRouter] Exception with model ${model}:`, err);
       lastError = err instanceof Error ? err : new Error(String(err));
-      // Continue to next model
     }
   }
 

@@ -22,6 +22,7 @@ export interface BrowserAction {
     | "reload"
     | "fill_form"
     | "submit_form"
+    | "render_ui"
     | "wait";
   params?: Record<string, any>;
   requiresConfirmation?: boolean;

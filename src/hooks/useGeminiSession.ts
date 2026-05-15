@@ -21,6 +21,7 @@ interface SessionOptions {
   onTranscription: (text: string, finished: boolean) => void;
   onTurnComplete: () => void;
   onInterrupted: () => void;
+  onToolCall?: (name: string, args: any) => void;
   onRecordingStart: (sendInput: (base64: string, type: 'audio' | 'video') => void) => void;
   onStopRecording: () => void;
   enableVideo?: boolean;
@@ -139,7 +140,7 @@ export function useGeminiSession() {
         const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
         
         const session = await ai.live.connect({
-          model: "gemini-3.1-flash-live-preview",
+          model: "gemini-2.0-flash-exp",
           callbacks: {
             onopen: () => {
               console.log("✅ Session ouverte !");
@@ -161,7 +162,30 @@ export function useGeminiSession() {
             },
             onmessage: (message: any) => {
               const serverContent = message.serverContent;
+              if (serverContent) {
+                console.log("📦 [Gemini RAW]", serverContent);
+              }
+
+              // ── TOOL CALL HANDLING ──
               const modelTurn = serverContent?.modelTurn;
+              const toolCallPart = modelTurn?.parts?.find((p: any) => p.toolCall || p.functionCall);
+              if (toolCallPart && options.onToolCall) {
+                const toolCall = toolCallPart.toolCall || toolCallPart.functionCall;
+                console.log("🛠️ [GeminiSession] Tool call reçu:", toolCall.name);
+                options.onToolCall(toolCall.name, toolCall.args);
+                
+                // Répondre à l'outil immédiatement (requis par l'API)
+                if (sessionRef.current) {
+                  sessionRef.current.sendToolResponse({
+                    functionResponses: [{
+                      name: toolCall.name,
+                      response: { result: "ok" },
+                      id: toolCall.id
+                    }]
+                  });
+                }
+              }
+
               const parts = modelTurn?.parts;
 
               // Log COMPLET du message brut pour identifier la structure exacte
@@ -232,6 +256,30 @@ export function useGeminiSession() {
             }
           },
           config: {
+            tools: [
+              {
+                functionDeclarations: [
+                  {
+                    name: "render_ui",
+                    description: "Affiche une interface visuelle (graphique, tableau ou carte) à l'utilisateur.",
+                    parameters: {
+                      type: "object" as any,
+                      properties: {
+                        type: { type: "string" as any, enum: ["bar-chart", "line-chart", "table", "stat-card"] },
+                        title: { type: "string" as any },
+                        description: { type: "string" as any },
+                        labels: { type: "array" as any, items: { type: "string" as any } },
+                        values: { type: "array" as any, items: { type: "number" as any } },
+                        columns: { type: "array" as any, items: { type: "string" as any } },
+                        rows: { type: "array" as any, items: { type: "array" as any, items: { type: "string" as any } } },
+                        trend: { type: "number" as any }
+                      },
+                      required: ["type", "title"]
+                    }
+                  }
+                ]
+              }
+            ],
             systemInstruction: {
               parts: [{
                 text: buildSystemPrompt(avatarId, {

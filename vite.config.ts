@@ -27,10 +27,7 @@ export default defineConfig(({mode}) => {
       hmr:
         process.env.DISABLE_HMR === 'true' || process.env.VITE_DISABLE_HMR === 'true'
           ? false
-          : {
-              protocol: 'ws',
-              host: '127.0.0.1',
-            },
+          : true,
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };
