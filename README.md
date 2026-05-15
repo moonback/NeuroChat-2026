@@ -10,7 +10,10 @@
   ![version](https://img.shields.io/badge/version-2.3.0--companion-blueviolet?style=for-the-badge)
   ![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
   ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)
-
+  ![vitest](https://img.shields.io/badge/vitest-running-yellow?style=for-the-badge)
+  ![tests](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)
+  24 test files passed (24)
+  138 tests passed (138)
   **[Fonctionnalités](#-fonctionnalités)** · **[Démarrage Rapide](#-démarrage-rapide)** · **[Architecture](#-architecture)** · **[Runtime Agentique](#-runtime-agentique--skills)** · **[Contribution](#-contribution)**
 </div>
 
