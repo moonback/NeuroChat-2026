@@ -44,3 +44,35 @@ export class OpenRouterAgentGateway implements AgentModelGateway {
     return chatWithOpenRouter(messages);
   }
 }
+
+export interface FallbackGatewayOptions {
+  continueOnError?: (error: unknown) => boolean;
+}
+
+export class FallbackAgentGateway implements AgentModelGateway {
+  constructor(
+    private readonly gateways: AgentModelGateway[],
+    private readonly options: FallbackGatewayOptions = {},
+  ) {}
+
+  async complete(prompt: string, signal?: AbortSignal): Promise<string> {
+    if (this.gateways.length === 0) {
+      throw new Error("FallbackAgentGateway requires at least one gateway");
+    }
+
+    let lastError: Error | null = null;
+    for (const gateway of this.gateways) {
+      try {
+        return await gateway.complete(prompt, signal);
+      } catch (error: unknown) {
+        const shouldContinue = this.options.continueOnError ? this.options.continueOnError(error) : true;
+        if (!shouldContinue) {
+          throw error instanceof Error ? error : new Error(String(error));
+        }
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+
+    throw lastError ?? new Error("All gateways failed");
+  }
+}
