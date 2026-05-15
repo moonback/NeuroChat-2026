@@ -9,12 +9,12 @@ interface PolicyRecord {
   deny: string[];
 }
 
-function loadPolicy(): PolicyRecord {
+async function loadPolicy(): Promise<PolicyRecord> {
   return loadSkillPolicyConfig();
 }
 
 export const defaultPermissionAuthorizer: PermissionAuthorizer = async (permissions, context, skillName) => {
-  const policy = loadPolicy();
+  const policy = await loadPolicy();
   if (policy.expiresAt && Date.now() > policy.expiresAt) return false;
   if (policy.deny.includes(skillName)) return false;
 

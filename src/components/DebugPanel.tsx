@@ -32,11 +32,27 @@ export function DebugPanel() {
   const flushTimerRef = useRef<number | null>(null);
   const [showPolicyEditor, setShowPolicyEditor] = useState(false);
   const [showMonitoring, setShowMonitoring] = useState(false);
-  const [policyDraft, setPolicyDraft] = useState(() => JSON.stringify(loadSkillPolicyConfig(), null, 2));
+  const [policyDraft, setPolicyDraft] = useState("{\n  \"roles\": [\"user\"],\n  \"allow\": {},\n  \"deny\": [\"open_website\"]\n}");
+  const [traceData, setTraceData] = useState<any[]>([]);
+  const [monitoringSnapshot, setMonitoringSnapshot] = useState<any>(null);
 
   useEffect(() => {
     return () => { isMounted.current = false; };
   }, []);
+
+  useEffect(() => {
+    loadSkillPolicyConfig().then((cfg) => setPolicyDraft(JSON.stringify(cfg, null, 2))).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!showAgentTraces) return;
+    loadAgentTraces().then(setTraceData).catch(() => setTraceData([]));
+  }, [showAgentTraces]);
+
+  useEffect(() => {
+    if (!showMonitoring) return;
+    getAgentMonitoringSnapshot().then(setMonitoringSnapshot).catch(() => setMonitoringSnapshot(null));
+  }, [showMonitoring, traceData]);
 
   const captureLog = useCallback((level: "info" | "success" | "warning" | "error", args: any[]) => {
     if (!isMounted.current) return;
@@ -245,7 +261,7 @@ export function DebugPanel() {
         {isExpanded && (
           <>
             {showMonitoring && (() => {
-              const snapshot = getAgentMonitoringSnapshot();
+              const snapshot = monitoringSnapshot ?? { totalRuns: 0, successfulRuns: 0, failedRuns: 0, successRate: 0, avgIterations: 0, avgToolCalls: 0, lastRunAt: undefined };
               return (
                 <div className="p-2 border-b border-slate-700 grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Runs</div><div className="text-cyan-300 text-sm">{snapshot.totalRuns}</div></div>
@@ -261,11 +277,11 @@ export function DebugPanel() {
               <div className="p-2 border-b border-slate-700 space-y-2">
                 <div className="text-xs text-emerald-300">Policy management (roles/scopes/expiry/denylist)</div>
                 <textarea className="w-full h-32 bg-slate-950 text-slate-200 text-xs p-2 rounded border border-slate-700" value={policyDraft} onChange={(e) => setPolicyDraft(e.target.value)} />
-                <button className="text-xs px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white" onClick={() => { try { saveSkillPolicyConfig(JSON.parse(policyDraft)); } catch (e) { console.error("Policy JSON invalide", e); } }}>Sauvegarder policy</button>
+                <button className="text-xs px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white" onClick={async () => { try { await saveSkillPolicyConfig(JSON.parse(policyDraft)); } catch (e) { console.error("Policy JSON invalide", e); } }}>Sauvegarder policy</button>
               </div>
             )}
             {showAgentTraces && (() => {
-              const traces = loadAgentTraces();
+              const traces = traceData;
               const users = Array.from(new Set(traces.map((t) => t.userId)));
               const sessions = Array.from(new Set(traces.map((t) => t.sessionId)));
               const filtered = traces
