@@ -48,12 +48,12 @@ export default function App() {
     
     // Proactive AI reaction logic
     const now = Date.now();
-    const COOLDOWN_MS = 30000; // 30 seconds (ultra-selective, reacts only to major novelty)
+    const COOLDOWN_MS = 60000; // 60 seconds minimum between vision checks
     
     if (status === "listening" && !isSpeaking && (now - lastVisionNudgeTimeRef.current > COOLDOWN_MS)) {
-      console.log("👁️ [App] Envoi signal [VISION_NUDGE] (Analyse émotionnelle active)...");
+      console.log("👁️ [App] Envoi signal [VISION_NUDGE]...");
       lastVisionNudgeTimeRef.current = now;
-      sendTextMessage("[VISION_NUDGE]");
+      sendTextMessage("[VISION_NUDGE] Un changement majeur a été détecté dans la scène. Regarde l'image et interviens UNIQUEMENT si tu vois quelque chose de vraiment nouveau (nouvelle personne, nouvel objet, changement de lieu). Si la scène est banale ou similaire à avant, reste SILENCIEUX et ne dis rien.");
     }
   };
 
