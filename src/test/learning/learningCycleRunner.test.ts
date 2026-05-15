@@ -37,6 +37,20 @@ describe('runLearningCycleForUser', () => {
     await addConversationTurn('runner-user', 'assistant', 'Voici une très longue réponse qui devrait probablement être plus concise et directe pour mieux répondre à la demande de l’utilisateur sans perdre le fil.');
     await addConversationTurn('runner-user', 'user', 'Peux-tu faire plus court ?');
 
+    // Add feedback signals to trigger optimization (concision trigger)
+    const storage = getLearningStorage('runner-user');
+    await storage.updateFeedback({
+      userId: 'runner-user',
+      signals: [{
+        category: 'user_interruption',
+        sentiment: 'negative',
+        turnIndex: 0,
+        timestamp: 1000,
+        text: 'Too long!'
+      }],
+      lastUpdated: 1000
+    });
+
     const status = await runLearningCycleForUser('runner-user', { manual: true, currentPrompt: prompt, now: () => 1000 });
 
     expect(status.errors).toEqual([]);

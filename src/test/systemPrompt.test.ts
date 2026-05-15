@@ -6,35 +6,35 @@ describe('systemPrompt', () => {
     it('should build prompt with avatar personality', () => {
       const prompt = buildSystemPrompt('robot');
       expect(prompt).toContain('NeuroChat');
-      expect(prompt).toContain('assistant personnel intelligent');
+      expect(prompt).toContain('compagnon intelligent');
     });
 
-    it('should include child name when provided', () => {
+    it('should include user name when provided', () => {
       const prompt = buildSystemPrompt('robot', 'Marie');
       expect(prompt).toContain('Marie');
-      expect(prompt).toContain('Prénom: Marie');
+      expect(prompt).toContain('Utilisateur: Marie');
     });
 
-    it('should handle missing child name', () => {
+    it('should handle missing user name', () => {
       const prompt = buildSystemPrompt('robot', '');
-      expect(prompt).toContain('Prénom inconnu');
+      expect(prompt).toContain('Utilisateur inconnu');
     });
 
-    it('should include safety guidelines', () => {
+    it('should include operational rules', () => {
       const prompt = buildSystemPrompt('robot');
-      expect(prompt).toContain('SAFETY');
-      expect(prompt).toContain('adresse');
+      expect(prompt).toContain('CORE OPERATIONAL RULES');
+      expect(prompt).toContain('Honnêteté technique');
     });
 
     it('should include concision rules', () => {
       const prompt = buildSystemPrompt('robot');
-      expect(prompt).toContain('Maximum 35 mots');
-      expect(prompt).toContain('Maximum 2 phrases');
+      expect(prompt).toContain('Concision Flexible');
+      expect(prompt).toContain('20-30 mots');
     });
 
-    it('should include interaction guidelines', () => {
+    it('should include proactivity guidelines', () => {
       const prompt = buildSystemPrompt('robot');
-      expect(prompt).toContain('mini question');
+      expect(prompt).toContain('Proactivité');
     });
 
 
