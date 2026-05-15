@@ -47,29 +47,13 @@ export function useConversationMemory() {
 
   // Compute stats and session list
   const memoryData = useMemo(() => {
-    console.log("[useConversationMemory] 📊 Calcul des données de mémoire...");
-    if (!userName) {
-      console.log("[useConversationMemory] ⚠️ Pas de nom d'utilisateur, données nulles");
-      return null;
-    }
-    const data = getConversationStats(userName);
-    console.log(`[useConversationMemory] ✅ Données calculées: ${data.totalSessions} sessions`);
-    return data;
+    if (!userName) return null;
+    return getConversationStats(userName);
   }, [userName, memoryRevision]); // Refresh when memory changes
 
   const selectedSession = useMemo(() => {
-    console.log(`[useConversationMemory] 🔍 Recherche de la session sélectionnée: ${selectedSessionId}`);
-    if (!selectedSessionId || !memoryData) {
-      console.log("[useConversationMemory] ℹ️ Aucune session sélectionnée");
-      return null;
-    }
-    const session = memoryData.sessions.find(s => s.id === selectedSessionId) || null;
-    if (session) {
-      console.log(`[useConversationMemory] ✅ Session trouvée: ${session.topic} (${session.turns.length} tours)`);
-    } else {
-      console.log("[useConversationMemory] ⚠️ Session non trouvée");
-    }
-    return session;
+    if (!selectedSessionId || !memoryData) return null;
+    return memoryData.sessions.find(s => s.id === selectedSessionId) || null;
   }, [selectedSessionId, memoryData]);
 
   useEffect(() => {
