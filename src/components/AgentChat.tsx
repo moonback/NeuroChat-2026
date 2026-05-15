@@ -1,13 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { AgentEvent } from "../lib/agent/types";
-import { Activity, User, Globe, Folder, Bot, ChevronRight } from "lucide-react";
+import { Activity, User, Globe, Folder, Bot, ChevronRight, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 
 interface AgentChatProps {
   events: AgentEvent[];
 }
 
 export function AgentChat({ events }: AgentChatProps) {
+  const [isMinimized, setIsMinimized] = useState(false);
+  
   if (events.length === 0) return null;
 
   const getAgentIcon = (agentId?: string) => {
@@ -29,13 +31,29 @@ export function AgentChat({ events }: AgentChatProps) {
   };
 
   return (
-    <div className="absolute top-24 left-4 w-80 max-h-[60vh] bg-slate-900/80 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl overflow-y-auto flex flex-col p-4 gap-3 z-40">
-      <h3 className="text-sm font-medium text-slate-200 flex items-center gap-2 mb-2 border-b border-white/10 pb-2">
-        <Activity className="w-4 h-4 text-blue-400" />
-        NeuroChat Multi-Agents
-      </h3>
+    <motion.div 
+      initial={{ x: -100, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      className={`absolute top-24 left-4 w-80 bg-slate-900/80 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl flex flex-col z-40 transition-all duration-300 ${isMinimized ? 'h-12 overflow-hidden' : 'max-h-[60vh]'}`}
+    >
+      <div 
+        className="flex items-center justify-between p-3 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-colors"
+        onClick={() => setIsMinimized(!isMinimized)}
+      >
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-blue-400" />
+          <h3 className="text-sm font-medium text-slate-200">
+            NeuroChat Agents ({events.length})
+          </h3>
+        </div>
+        <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+          {isMinimized ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </button>
+      </div>
       
-      <AnimatePresence>
+      {!isMinimized && (
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+          <AnimatePresence>
         {events.map((ev, i) => {
           let content = null;
           
@@ -95,7 +113,9 @@ export function AgentChat({ events }: AgentChatProps) {
             </motion.div>
           );
         })}
-      </AnimatePresence>
-    </div>
-  );
+        </AnimatePresence>
+      </div>
+    )}
+  </motion.div>
+);
 }
