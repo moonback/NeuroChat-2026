@@ -76,12 +76,26 @@ function registerDbIpcHandlers() {
   ipcMain.handle('db:learning:save', (_event, userId, encryptedData, lastUpdated) => (getDb().prepare('INSERT OR REPLACE INTO learning_data(user_id, encrypted_data, last_updated) VALUES(?, ?, ?)').run(userId, encryptedData, lastUpdated), true));
   ipcMain.handle('db:learning:clear', (_event, userId) => (getDb().prepare('DELETE FROM learning_data WHERE user_id = ?').run(userId), true));
 
-  ipcMain.handle('db:summaries:load', () => getDb().prepare('SELECT * FROM weekly_summaries ORDER BY generated_at ASC').all().map((r) => ({ ...r, topics: JSON.parse(r.topics || '[]') })));
+  ipcMain.handle('db:summaries:load', () => getDb().prepare('SELECT * FROM weekly_summaries ORDER BY generated_at ASC').all().map((r) => ({ 
+    weekId: r.week_id, 
+    dateRange: r.date_range, 
+    text: r.text, 
+    topics: JSON.parse(r.topics || '[]'),
+    generatedAt: r.generated_at,
+    sessionCount: r.session_count,
+    turnCount: r.turn_count
+  })));
   ipcMain.handle('db:summaries:save', (_event, summary) => (getDb().prepare('INSERT OR REPLACE INTO weekly_summaries(week_id, date_range, text, topics, generated_at, session_count, turn_count) VALUES(?, ?, ?, ?, ?, ?, ?)').run(summary.weekId, summary.dateRange, summary.text, JSON.stringify(summary.topics || []), summary.generatedAt, summary.sessionCount || 0, summary.turnCount || 0), true));
   ipcMain.handle('db:summaries:clear', () => (getDb().prepare('DELETE FROM weekly_summaries').run(), true));
 
   ipcMain.handle('db:traces:save', (_event, trace) => (getDb().prepare('INSERT OR REPLACE INTO agent_traces(id, session_id, user_id, timestamp, events) VALUES(?, ?, ?, ?, ?)').run(trace.id, trace.sessionId, trace.userId, trace.timestamp, JSON.stringify(trace.events || [])), true));
-  ipcMain.handle('db:traces:load', () => getDb().prepare('SELECT * FROM agent_traces ORDER BY timestamp DESC LIMIT 200').all().map((r) => ({ id: r.id, sessionId: r.session_id, userId: r.user_id, timestamp: r.timestamp, events: JSON.parse(r.events || '[]') })));
+  ipcMain.handle('db:traces:load', () => getDb().prepare('SELECT * FROM agent_traces ORDER BY timestamp DESC LIMIT 200').all().map((r) => ({ 
+    id: r.id, 
+    sessionId: r.session_id, 
+    userId: r.user_id, 
+    timestamp: r.timestamp, 
+    events: JSON.parse(r.events || '[]') 
+  })));
 }
 
   ipcMain.handle('db:migrate', (_event, payload) => {
