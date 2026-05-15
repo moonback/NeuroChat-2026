@@ -21,7 +21,7 @@
 
 | Priorité | Fonctionnalité | Description | Statut |
 | :--- | :--- | :--- | :--- |
-| **P0** | **Migration SQLite** | Performance massive pour la mémoire à long terme (sessions & vecteurs). | 🚧 En cours |
+| **P0** | **Migration SQLite** | Performance massive pour la mémoire à long terme (sessions & vecteurs). | ✅ Terminé |
 | **P0** | **Analyse Émotionnelle** | Détecter l'humeur et l'énergie via la voix et les expressions faciales. | 📋 Planifié |
 | **P0** | **Rituels de Vie** | Apprentissage des habitudes et adaptation du ton selon le cycle quotidien. | ✅ Terminé |
 | **P1** | **Refonte UI Premium** | Design "Glassmorphism" et avatar émotionnel réactif à la vision. | ✅ Terminé |

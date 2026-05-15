@@ -32,6 +32,10 @@ export class LocalStorageBackend implements StorageBackend {
     current.push(entry);
     localStorage.setItem(VECTOR_KEY, JSON.stringify(current));
   }
+
+  async saveVectors(entries: VectorDbEntry[]): Promise<void> {
+    localStorage.setItem(VECTOR_KEY, JSON.stringify(entries));
+  }
   async clearVectors(userName?: string): Promise<void> {
     if (!userName) return localStorage.removeItem(VECTOR_KEY);
     const current = await this.loadVectors();

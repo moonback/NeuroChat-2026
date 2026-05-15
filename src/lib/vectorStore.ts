@@ -64,11 +64,17 @@ async function saveVectorStore(entries: VectorEntry[]): Promise<void> {
     if (limited.length < entries.length) {
       console.log(`[VectorStore] ⚠️ Limitation à ${MAX_VECTOR_ENTRIES} vecteurs (${entries.length - limited.length} supprimé(s))`);
     }
-    await getStorageBackend().clearVectors();
-    for (const e of limited) {
-      await getStorageBackend().addVector({ id: e.id, text: e.text, vector: e.vector, sessionId: e.metadata.sessionId, userName: e.metadata.userName, speaker: e.metadata.speaker, timestamp: e.metadata.timestamp });
-    }
-    console.log("[VectorStore] ✅ Vecteurs sauvegardés avec succès");
+    const dbEntries = limited.map(e => ({
+      id: e.id,
+      text: e.text,
+      vector: e.vector,
+      sessionId: e.metadata.sessionId,
+      userName: e.metadata.userName,
+      speaker: e.metadata.speaker,
+      timestamp: e.metadata.timestamp
+    }));
+    await getStorageBackend().saveVectors(dbEntries);
+    console.log("[VectorStore] ✅ Vecteurs sauvegardés avec succès (batch)");
   } catch (error) {
     console.error("[VectorStore] ❌ Échec de la sauvegarde:", error);
   }

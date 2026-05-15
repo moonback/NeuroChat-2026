@@ -28,6 +28,7 @@ export interface StorageBackend {
 
   loadVectors(userName?: string): Promise<VectorDbEntry[]>;
   addVector(entry: VectorDbEntry): Promise<void>;
+  saveVectors(entries: VectorDbEntry[]): Promise<void>;
   clearVectors(userName?: string): Promise<void>;
 
   loadSessions(): Promise<ConversationSession[]>;

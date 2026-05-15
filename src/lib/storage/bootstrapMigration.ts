@@ -34,7 +34,12 @@ export async function runOneShotStorageMigration(): Promise<void> {
 
   const backend = getStorageBackend();
   const done = await backend.getItem('migration_v1_done');
-  if (done === 'true') return;
+  if (done === 'true') {
+    console.log("🚀 [Migration] SQLite déjà actif (v1).");
+    return;
+  }
+
+  console.log("📦 [Migration] Détection de données LocalStorage à migrer vers SQLite...");
 
   const vectorsRaw = window.localStorage.getItem('neurochat_v2_vectors');
   const sessionsRaw = window.localStorage.getItem('neurochat_v2_memory');
@@ -73,8 +78,10 @@ export async function runOneShotStorageMigration(): Promise<void> {
     },
   };
 
+  console.log(`📦 [Migration] Envoi de ${payload.vectors.length} vecteurs et ${payload.sessions.length} sessions...`);
   await backend.migrate(payload);
 
+  console.log("✅ [Migration] Succès ! Nettoyage du LocalStorage...");
   LEGACY_KEYS.forEach((k) => window.localStorage.removeItem(k));
   Object.keys(readLegacyLearningData(window.localStorage)).forEach((k) => window.localStorage.removeItem(k));
 }

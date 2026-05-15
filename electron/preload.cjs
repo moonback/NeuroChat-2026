@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
     delete: (key) => ipcRenderer.invoke('db:kv:delete', key),
     loadVectors: (userName) => ipcRenderer.invoke('db:vectors:load', userName),
     addVector: (entry) => ipcRenderer.invoke('db:vectors:add', entry),
+    saveVectors: (entries) => ipcRenderer.invoke('db:vectors:save', entries),
     clearVectors: (userName) => ipcRenderer.invoke('db:vectors:clear', userName),
     loadSessions: () => ipcRenderer.invoke('db:sessions:loadAll'),
     saveSessions: (sessions) => ipcRenderer.invoke('db:sessions:save', sessions),

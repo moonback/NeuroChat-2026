@@ -30,6 +30,7 @@ declare global {
         delete: (key: string) => Promise<boolean>;
         loadVectors: (userName?: string) => Promise<any[]>;
         addVector: (entry: any) => Promise<boolean>;
+        saveVectors: (entries: any[]) => Promise<boolean>;
         clearVectors: (userName?: string) => Promise<boolean>;
         loadSessions: () => Promise<any[]>;
         saveSessions: (sessions: any[]) => Promise<boolean>;

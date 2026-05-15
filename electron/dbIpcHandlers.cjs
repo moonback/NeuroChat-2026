@@ -30,6 +30,19 @@ function registerDbIpcHandlers() {
       .run(entry.id, entry.text, vectorBuffer, entry.sessionId, entry.userName, entry.speaker, entry.timestamp);
     return true;
   });
+  ipcMain.handle('db:vectors:save', (_event, entries) => {
+    const db = getDb();
+    const stmt = db.prepare('INSERT OR REPLACE INTO vectors(id, text, vector, session_id, user_name, speaker, timestamp) VALUES(?, ?, ?, ?, ?, ?, ?)');
+    const tx = db.transaction((data) => {
+      db.prepare('DELETE FROM vectors').run(); // Clear existing as per saveVectorStore behavior
+      for (const e of data) {
+        const vectorBuffer = Buffer.from(Float64Array.from(e.vector).buffer);
+        stmt.run(e.id, e.text, vectorBuffer, e.sessionId, e.userName, e.speaker, e.timestamp);
+      }
+    });
+    tx(entries);
+    return true;
+  });
   ipcMain.handle('db:vectors:clear', (_event, userName) => {
     if (userName) getDb().prepare('DELETE FROM vectors WHERE user_name = ?').run(userName);
     else getDb().prepare('DELETE FROM vectors').run();
