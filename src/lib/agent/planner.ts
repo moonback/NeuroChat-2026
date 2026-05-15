@@ -14,10 +14,16 @@ export function buildPlannerPrompt(state: AgentExecutionState, skills: SkillDefi
   const transcript = state.transcript.slice(-10).join("\n");
   const workingMemory = JSON.stringify(state.workingMemory, null, 2);
 
+  const systemIdentity = state.activeProfile?.systemPrompt 
+    ? state.activeProfile.systemPrompt 
+    : [
+        "You are NeuroChat, a desktop-native multimodal AI agent.",
+        "You prioritize precision, safe execution, memory continuity, and actionable assistance.",
+      ].join("\n");
+
   return [
     "# IDENTITY LAYER",
-    "You are NeuroChat, a desktop-native multimodal AI agent.",
-    "You prioritize precision, safe execution, memory continuity, and actionable assistance.",
+    systemIdentity,
     "",
     "# OPERATIONAL RULES",
     "- Never invent observations.",

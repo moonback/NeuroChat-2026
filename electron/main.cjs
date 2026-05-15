@@ -183,6 +183,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webviewTag: true,
     },
     show: false,
   });
@@ -210,6 +211,20 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Allow framing of external websites in the browser control panel
+  session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
+    const responseHeaders = { ...details.responseHeaders };
+    
+    Object.keys(responseHeaders).forEach(key => {
+      const lower = key.toLowerCase();
+      if (lower === 'x-frame-options' || lower === 'content-security-policy') {
+        delete responseHeaders[key];
+      }
+    });
+
+    callback({ cancel: false, responseHeaders });
+  });
+
   registerDisplayMediaHandler();
   ensureDb(app);
   registerIpcHandlers();

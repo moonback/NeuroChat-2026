@@ -158,12 +158,12 @@ export function BrowserWindow({
           {/* Browser Content */}
           <div className="flex-1 bg-white relative overflow-hidden">
             {currentUrl ? (
-              <iframe
-                ref={iframeRef}
+              <webview
+                ref={iframeRef as any}
                 src={currentUrl}
                 className="w-full h-full border-0"
                 title="Browser Window"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                allowpopups={"true" as any}
               />
             ) : (
               <div className="flex items-center justify-center h-full bg-slate-900">

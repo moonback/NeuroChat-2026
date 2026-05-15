@@ -1,12 +1,12 @@
 import { createDefaultSkillRegistry } from "../skills";
-import { AgentOrchestrator } from "./orchestrator";
+import { AgentSupervisor } from "./supervisor";
 import { FallbackAgentGateway, GeminiAgentGateway, OpenRouterAgentGateway } from "./modelGateway";
 
-export function createDefaultAgentRuntime(): AgentOrchestrator {
+export function createDefaultAgentRuntime(): AgentSupervisor {
   const gateway = new FallbackAgentGateway([
-    new GeminiAgentGateway(),
     new OpenRouterAgentGateway(),
+    new GeminiAgentGateway(),
   ]);
   const registry = createDefaultSkillRegistry();
-  return new AgentOrchestrator(gateway, registry);
+  return new AgentSupervisor(gateway, registry);
 }

@@ -47,6 +47,7 @@ export interface StorageBackend {
 
   saveTrace(trace: AgentTraceEntry): Promise<void>;
   loadTraces(): Promise<AgentTraceEntry[]>;
+  clearTraces(): Promise<void>;
 
   migrate(payload: MigrationPayload): Promise<void>;
 }

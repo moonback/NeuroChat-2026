@@ -6,7 +6,7 @@
   <img src="./public/header.png" alt="Bannière NeuroChat" width="100%">
 
   ![build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)
-  ![version](https://img.shields.io/badge/version-2.1.0--beta-blueviolet?style=for-the-badge)
+  ![version](https://img.shields.io/badge/version-2.1.0--beta--multi-blueviolet?style=for-the-badge)
   ![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
   ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)
 
@@ -40,49 +40,42 @@ NeuroChat voit ce que vous voyez et comprend votre contexte visuel.
 - **Support Multi-Caméra** — Basculez dynamiquement entre vos caméras frontale, arrière ou externe.
 - **Pipeline Vidéo Optimisé** — Frames JPEG envoyées à Gemini avec un taux de rafraîchissement adaptatif.
 
-### 🌐 Contrôle Autonome du Navigateur (v2)
-Donnez des ordres vocaux pour naviguer sur le web sans aucune interaction manuelle.
-- **CommandParser v2** — Analyse sémantique avec score de confiance (>0.7) et filtres pour distinguer le langage naturel des commandes réelles.
-- **Séquençage Multi-Commandes** — *"Cherche les actus IA, puis scrolle vers le bas"* s'exécute comme un pipeline.
-- **Contrôle Total** — Gestion des onglets, zoom, captures d'écran, presse-papier, défilement, navigation.
-- **Couverture de tests 32/34** — Suite de tests de régression intégrée lancée à chaque démarrage.
+### 🌐 Orchestration Multi-Agents & Web (v2.1)
+NeuroChat utilise désormais une architecture hiérarchique `Supervisor` -> `Agents Spécialisés` pour résoudre des tâches complexes.
 
-### 📂 Système de Fichiers Agentique (NOUVEAU)
+| Agent | Rôle & Compétences |
+|:---|:---|
+| **Superviseur** | Orchestrateur central. Analyse la requête, planifie les étapes et délègue aux agents spécialisés. |
+| **Chercheur Web** | Spécialiste de la navigation. Utilise le moteur `<webview>` pour contourner les restrictions CSP et extraire des données. |
+| **Gestionnaire de Fichiers** | Manipule le système local (lecture, écriture, suppression) via un pont IPC sécurisé. |
+
+- **Moteur WebView Avancé** — Migration de `<iframe>` vers `<webview>` pour une isolation parfaite et un contournement natif des en-têtes `X-Frame-Options` et `Content-Security-Policy`.
+- **Interface AgentChat** — Visualisation en temps réel du discours interne des agents, des appels d'outils et des résultats d'exécution avec mode réduit/étendu.
+- **Passerelle Modèle Résiliente** — Failover intelligent entre Gemini 2.5 Flash (Voix) et OpenRouter/DeepSeek (Agentique) avec support natif du Tool Calling (JSON garanti).
+- **Séquençage Autonome** — Capacité à enchaîner des tâches complexes : *"Cherche les actus IA sur le web, résume-les et enregistre le résultat dans un fichier actus.md"*.
+
+### 📂 Système de Fichiers Agentique
 L'assistant manipule votre système de fichiers local via un pont IPC sécurisé.
 
-```
-Utilisateur : "Liste les fichiers dans mon dossier projet"
-→ L'IA émet `list_files` → BrowserController exécute via IPC
-→ Electron lit le dossier → Résultat injecté via sendClientContent()
-→ L'IA répond : "J'ai trouvé 17 fichiers, dont..."
-```
-
-| Commande | Description |
+| Skill | Description |
 |:---|:---|
 | `pick_workdir` | Ouvre le sélecteur de dossier natif de l'OS |
-| `list_files` | Liste le contenu du répertoire |
-| `read_file <nom>` | Lit le contenu d'un fichier (jusqu'à 5 Ko) |
-| `write_file <nom>` | Écrit ou crée un fichier |
-| `delete_file <nom>` | Supprime un fichier ou un dossier |
-
-- **Dossier de travail persistant** — Le dossier sélectionné est mémorisé d'une session à l'autre.
-- **Résolution intelligente des chemins** — Les chemins relatifs sont auto-résolus par rapport au `currentWorkdir`.
-- **IPC Bidirectionnel** — Les résultats reviennent à l'IA via `sendClientContent()` avec `turnComplete: true`.
+| `list_files` | Liste le contenu du répertoire courant |
+| `read_file` | Lit le contenu textuel d'un fichier |
+| `write_file` | Crée ou modifie un fichier |
+| `delete_file` | Supprime un fichier ou un dossier |
 
 ### 🧠 Mémoire à Long Terme & RAG
 NeuroChat se souvient de ce qui compte d'une session à l'autre grâce à une architecture robuste.
-- **Base de données SQLite** — Stockage performant et structuré de vos données (vecteurs, sessions, profils).
+- **Base de données SQLite** — Stockage performant et structuré (vecteurs, sessions, profils).
 - **Vector Store Local** — Embeddings sécurisés (`text-embedding-004`, 3072 dims) stockés nativement.
-- **Recherche Sémantique** — Retrouvez vos conversations passées par le sens, pas seulement par mots-clés.
-- **Résumés Hebdomadaires** — Synthèses auto-générées via DeepSeek v4 Flash (OpenRouter).
-- **Coffre des Conversations** — Parcourez, recherchez et gérez tout votre historique.
+- **Recherche Sémantique** — Retrouvez vos conversations passées par le sens.
+- **Résumés Hebdomadaires** — Synthèses auto-générées via DeepSeek v4 Flash.
 
 ### 🚀 NeuroLearning : Moteur d'Auto-Évolution
 L'assistant qui apprend de ses erreurs et s'améliore de lui-même.
-- **Feedback Implicite** — Détecte les signaux de satisfaction (répétitions, corrections, suivis).
-- **Cycles d'Apprentissage** — L'analyse périodique génère des propositions d'amélioration du prompt système.
-- **Surveillance de Régression** — Rollback automatique si une version du prompt est moins performante.
-- **Historique des Versions** : Suivi complet de l'évolution de la personnalité et des capacités.
+- **Feedback Implicite** — Détecte les signaux de satisfaction utilisateur.
+- **Cycles d'Apprentissage** — Analyse périodique pour auto-améliorer le prompt système.
 - **Interface Transparente** — Visualisez les améliorations appliquées et leur raisonnement.
 
 ---
@@ -177,9 +170,12 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 - [x] Manipulation agentique du système de fichiers
 - [x] Migration vers SQLite (Performance & Scalabilité)
 - [x] Pont IPC bidirectionnel (`sendClientContent`)
-- [ ] Collaboration multi-agents
+- [x] Architecture hiérarchique Multi-Agents (v2.1)
+- [x] Migration vers `<webview>` (Bypass CSP/Frame-ancestors)
 - [ ] Marketplace de plugins pour skills communautaires
 - [ ] Intégration du protocole MCP (Model Context Protocol)
+- [ ] Support des modèles locaux via Ollama (Privacy First)
+- [ ] Intelligence visuelle augmentée (analyse de flux vidéo continu)
 
 ---
 

@@ -1,5 +1,14 @@
 import type { SkillExecutionResult } from "../skills/types";
 
+export interface AgentProfile {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  allowedSkills: string[]; // '*' for all, or array of skill names
+}
+
+
 export type AgentStatus = 
   | "IDLE" 
   | "PLANNING" 
@@ -41,6 +50,9 @@ export interface AgentExecutionState {
   dynamicPolicies: string[];
   transcript: string[];
   toolResults: SkillExecutionResult[];
+  activeAgentId?: string;
+  activeAgentName?: string;
+  activeProfile?: AgentProfile;
 }
 
 export interface AgentModelGateway {
@@ -48,11 +60,13 @@ export interface AgentModelGateway {
 }
 
 export type AgentEvent =
-  | { type: "iteration_start"; iteration: number }
-  | { type: "model_response"; iteration: number; raw: string }
-  | { type: "tool_result"; iteration: number; result: SkillExecutionResult }
-  | { type: "loop_error"; iteration: number; message: string }
-  | { type: "completed"; iteration: number; completed: boolean; answer: string };
+  | { type: "agent_start"; agentId: string; agentName: string; input: string }
+  | { type: "iteration_start"; iteration: number; agentId?: string; agentName?: string }
+  | { type: "model_response"; iteration: number; raw: string; agentId?: string; agentName?: string }
+  | { type: "tool_result"; iteration: number; result: SkillExecutionResult; agentId?: string; agentName?: string }
+  | { type: "loop_error"; iteration: number; message: string; agentId?: string; agentName?: string }
+  | { type: "delegation_start"; iteration: number; targetAgentId: string; targetAgentName: string; task: string; agentId?: string; agentName?: string }
+  | { type: "completed"; iteration: number; completed: boolean; answer: string; agentId?: string; agentName?: string };
 
 export interface AgentRunOptions {
   maxIterations?: number;
@@ -60,6 +74,7 @@ export interface AgentRunOptions {
   initialPolicies?: string[];
   signal?: AbortSignal;
   onEvent?: (event: AgentEvent) => void;
+  activeProfile?: AgentProfile;
 }
 
 export interface AgentRunResult {

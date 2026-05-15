@@ -104,7 +104,7 @@ export interface NativeToolCallingGateway {
   completeStepWithTools(prompt: string, tools: Array<{ name: string; description: string; parameters: object }>, signal?: AbortSignal): Promise<AgentStep>;
 }
 
-export class FallbackAgentGateway implements AgentModelGateway {
+export class FallbackAgentGateway implements AgentModelGateway, NativeToolCallingGateway {
   constructor(private readonly gateways: AgentModelGateway[]) {}
 
   async complete(prompt: string, signal?: AbortSignal): Promise<string> {
@@ -118,5 +118,25 @@ export class FallbackAgentGateway implements AgentModelGateway {
       }
     }
     throw lastError ?? new Error("All gateways failed");
+  }
+
+  async completeStepWithTools(
+    prompt: string,
+    tools: Array<{ name: string; description: string; parameters: object }>,
+    signal?: AbortSignal
+  ): Promise<AgentStep> {
+    if (this.gateways.length === 0) throw new Error("FallbackAgentGateway requires at least one gateway");
+    let lastError: Error | null = null;
+    for (const gateway of this.gateways) {
+      const nativeGateway = gateway as AgentModelGateway & Partial<NativeToolCallingGateway>;
+      if (typeof nativeGateway.completeStepWithTools === "function") {
+        try {
+          return await nativeGateway.completeStepWithTools(prompt, tools, signal);
+        } catch (error: unknown) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+        }
+      }
+    }
+    throw lastError ?? new Error("All gateways failed or none support native tool calling");
   }
 }

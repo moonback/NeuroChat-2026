@@ -3,7 +3,7 @@ import { useGeminiSession } from "./useGeminiSession";
 import { useOpenRouterSession } from "./useOpenRouterSession";
 import { AvatarId } from "../lib/avatarConfig";
 import { getAgentService } from "../lib/agent/service";
-import type { AgentRunOptions, AgentRunResult } from "../lib/agent/types";
+import type { AgentRunOptions, AgentRunResult, AgentEvent } from "../lib/agent/types";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -29,6 +29,8 @@ export function useAIConversation() {
   const [activeProvider, setActiveProvider] = useState<"gemini" | "openrouter">("gemini");
   const optionsRef = useRef<SessionOptions | null>(null);
 
+  const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([]);
+
   const runAgentTask = useCallback(async (
     input: string,
     sessionId: string,
@@ -36,7 +38,17 @@ export function useAIConversation() {
     options?: AgentRunOptions,
   ): Promise<AgentRunResult> => {
     const service = getAgentService();
-    return service.run({ input, sessionId, userId, options });
+    setAgentEvents([]); // reset on new task
+    
+    const mergedOptions: AgentRunOptions = {
+      ...options,
+      onEvent: (event) => {
+        setAgentEvents(prev => [...prev, event]);
+        options?.onEvent?.(event);
+      }
+    };
+    
+    return service.run({ input, sessionId, userId, options: mergedOptions });
   }, []);
 
   const processUserText = useCallback(async (text: string, sessionId: string, userId: string) => {
@@ -52,18 +64,6 @@ export function useAIConversation() {
       ...options,
       onTranscription: (text, finished) => {
         options.onTranscription(text, finished);
-        if (finished && options.userName) {
-          void processUserText(text, `live-${Date.now()}`, options.userName)
-            .then((agentResult) => {
-              if (!agentResult) return;
-              options.onAudioResponse("", agentResult.answer);
-              options.onTurnComplete();
-            })
-            .catch((err) => {
-              console.warn("[AgentLive] auto-run failed", err);
-              options.onInterrupted();
-            });
-        }
       },
     };
 
@@ -100,5 +100,6 @@ export function useAIConversation() {
     runAgentTask,
     shouldAutoRunAgent,
     processUserText,
+    agentEvents,
   };
 }

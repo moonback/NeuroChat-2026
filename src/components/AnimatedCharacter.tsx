@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import type { AvatarId } from "../lib/avatarConfig";
 import { AVATARS } from "../lib/avatarConfig";
 import { RobotAvatar } from "./avatars/RobotAvatar";
@@ -9,9 +9,11 @@ interface Props {
   avatarId?: AvatarId;
   /** Normalized 0-1 audio level from the microphone */
   audioLevel?: number;
+  /** True when motion or screen changes are detected */
+  visualActivity?: boolean;
 }
 
-export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audioLevel = 0 }: Props) {
+export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audioLevel = 0, visualActivity = false }: Props) {
   const avatar = AVATARS[avatarId];
 
   // Robust audio level handling
@@ -62,6 +64,19 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
 
   return (
     <div className="relative w-64 h-64 flex items-center justify-center">
+      {/* Visual Activity Glow (Motion Detection) */}
+      <AnimatePresence>
+        {visualActivity && (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1.5, opacity: 0.4 }}
+            exit={{ scale: 1.8, opacity: 0 }}
+            className="absolute w-60 h-60 rounded-full blur-[40px] border-2 border-blue-400/30 pointer-events-none z-0"
+            style={{ backgroundColor: "rgba(59, 130, 246, 0.4)" }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Background Glow — color-matched to the avatar, reactive to sound */}
       <motion.div
         animate={{

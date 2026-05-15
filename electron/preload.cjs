@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
     clearSummaries: () => ipcRenderer.invoke('db:summaries:clear'),
     saveTrace: (trace) => ipcRenderer.invoke('db:traces:save', trace),
     loadTraces: () => ipcRenderer.invoke('db:traces:load'),
+    clearTraces: () => ipcRenderer.invoke('db:traces:clear'),
     migrate: (payload) => ipcRenderer.invoke('db:migrate', payload),
   }
 });

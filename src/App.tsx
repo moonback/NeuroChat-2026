@@ -14,6 +14,8 @@ import { useBrowserControl } from "./hooks/useBrowserControl";
 import { BrowserControlPanel } from "./components/BrowserControlPanel";
 import { BrowserWindow } from "./components/BrowserWindow";
 import { DebugPanel } from "./components/DebugPanel";
+import { AgentChat } from "./components/AgentChat";
+import { DatabaseInspector } from "./components/DatabaseInspector";
 import { parseAssistantResponse, runTests } from "./lib/commandParser";
 import { useEffect as useOnce } from "react";
 
@@ -34,6 +36,14 @@ export default function App() {
   const screenCaptureServiceRef = useRef<ScreenCaptureService | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
+  
+  const [visualActivity, setVisualActivity] = useState(false);
+  const [showDatabase, setShowDatabase] = useState(false);
+  
+  const triggerVisualActivity = () => {
+    setVisualActivity(true);
+    setTimeout(() => setVisualActivity(false), 800);
+  };
 
   const avatar = AVATARS[avatarId];
 
@@ -68,7 +78,9 @@ export default function App() {
     startSession,
     stopSession,
     sendTextMessage,
-    activeProvider
+    activeProvider,
+    agentEvents,
+    runAgentTask
   } = useAIConversation();
 
   // Browser control hook
@@ -140,6 +152,21 @@ export default function App() {
           if (fullText) {
             console.log(`💾 Sauvegarde tour IA: "${fullText.slice(0, 60)}"`);
             addTurn(userName, "assistant", fullText);
+          }
+          
+          // DÉTECTION MULTI-AGENT
+          if (fullText && fullText.toLowerCase().includes("tool:")) {
+             const taskMatch = fullText.match(/tool:\s*(.*)/i);
+             if (taskMatch && taskMatch[1]) {
+                const task = taskMatch[1].trim();
+                console.log(`🤖 [App] Lancement de l'orchestrateur agentique avec la tâche: ${task}`);
+                runAgentTask(task, `live-${Date.now()}`, userName).then(result => {
+                    sendTextMessage(`[SYSTEM] L'agent a terminé la tâche demandée. Voici le résultat final : ${result.answer}. Informe brièvement l'utilisateur du succès.`);
+                }).catch(err => {
+                    console.error("Erreur agent:", err);
+                    sendTextMessage(`[SYSTEM] L'agent a échoué avec l'erreur: ${err.message || err}. Dis-le à l'utilisateur.`);
+                });
+             }
           }
           
           // PARSER ICI avec le texte complet
@@ -259,7 +286,8 @@ export default function App() {
           screenCaptureServiceRef.current = null;
           setScreenShareActive(false);
           setVideoStream(videoServiceRef.current?.getStream() ?? null);
-        }
+        },
+        triggerVisualActivity
       );
       await svc.start();
       screenCaptureServiceRef.current = svc;
@@ -296,7 +324,7 @@ export default function App() {
       console.log("🎥 Activation de la caméra...");
       videoServiceRef.current = new VideoService((videoBase64) => {
         sendInputRef.current?.(videoBase64, 'video');
-      });
+      }, triggerVisualActivity);
 
       videoServiceRef.current.start(facingMode)
         .then(() => {
@@ -420,6 +448,13 @@ export default function App() {
         userName={userName}
         updateUserName={updateUserName}
         onShowMemory={() => setShowMemoryModal(true)}
+        onShowDatabase={() => setShowDatabase(true)}
+      />
+
+      <DatabaseInspector 
+        isOpen={showDatabase} 
+        onClose={() => setShowDatabase(false)} 
+        userId={userName}
       />
 
       {/* Browser Control Panel */}
@@ -505,11 +540,11 @@ export default function App() {
                 title="Clique pour parler !"
                 aria-label="Démarrer la conversation vocale"
               >
-                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
+                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} visualActivity={visualActivity} />
               </motion.button>
             ) : (
               <div className="relative">
-                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
+                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} visualActivity={visualActivity} />
 
                 {/* Video PiP Preview */}
                 <AnimatePresence>
@@ -691,6 +726,8 @@ export default function App() {
           </motion.footer>
         )}
       </AnimatePresence>
+
+      <AgentChat events={agentEvents} />
     </div>
   );
 }
