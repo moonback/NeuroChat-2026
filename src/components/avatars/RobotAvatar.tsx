@@ -22,13 +22,8 @@ import {
   calculateBreathingMotion,
   calculateGlitchEffect,
 } from "./RobotAvatar.utils";
-import { RobotShell } from "./RobotShell";
-import { RobotFaceScreen } from "./RobotFaceScreen";
-import { RobotEyes } from "./RobotEyes";
-import { RobotMouth } from "./RobotMouth";
-import { RobotAntenna } from "./RobotAntenna";
-import { RobotHalo } from "./RobotHalo";
-import { RobotEffects } from "./RobotEffects";
+
+import { HumanoidAvatar } from "../avatars/HumanoidAvatar";
 
 export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity = false }: AvatarProps) {
   // Normalize and clamp audio input
@@ -36,7 +31,7 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity
   /** Updated every render; the RAF loop reads this so we must not put audio level in the effect deps. */
   const audioLevelRef = useRef(safeAudioLevel);
   audioLevelRef.current = safeAudioLevel;
-  
+
   // Animation state refs (avoid React reconciliation)
   const animStateRef = useRef<AnimationState>({
     time: 0,
@@ -85,7 +80,7 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity
       lastFrameTimeRef.current = timestamp;
 
       const state = animStateRef.current;
-      
+
       // Update time
       state.time = timestamp;
 
@@ -164,66 +159,10 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity
     >
       <g transform={`translate(${headTiltX}, ${headTiltY})`}>
         {/* Environmental halo */}
-        <RobotHalo
-          accentColor={theme.accentColor}
-          accentGlow={theme.accentGlow}
-          intensity={audioReactivity.haloIntensity}
-          pulsePhase={haloPulse}
-        />
-
-        {/* Antenna with reactive pulse */}
-        <RobotAntenna
-          accentColor={theme.accentColor}
-          accentGlow={theme.accentGlow}
-          pulseIntensity={audioReactivity.antennaPulse}
-          rotationAngle={antennaRotation}
-          time={state.time}
-        />
-
-        {/* Metallic shell with breathing */}
-        <RobotShell
-          accentColor={theme.accentColor}
-          glowIntensity={theme.glowIntensity}
-          breathScale={breathing.scale}
-          breathOffsetY={breathing.offsetY}
-        />
-
-        {/* OLED face screen */}
-        <RobotFaceScreen
-          accentColor={theme.accentColor}
-          scanProgress={state.scanProgress}
-          status={status}
-          glowIntensity={theme.glowIntensity}
-        />
-
-        {/* Intelligent LED eyes */}
-        <RobotEyes
-          status={status}
-          eyeColor={theme.eyeColor}
-          accentGlow={theme.accentGlow}
-          blinking={blinking}
-          eyeOffsetX={state.eyeOffsetX}
-          eyeOffsetY={state.eyeOffsetY}
-          audioReactivity={audioReactivity.eyeGlow}
-          time={state.time}
-        />
-
-        {/* Oscilloscope mouth visualizer */}
-        <RobotMouth
-          status={status}
-          isSpeaking={isSpeaking}
-          mouthColor={theme.mouthColor}
-          audioReactivity={audioReactivity.mouthIntensity}
-          time={state.time}
-        />
-
-        {/* Cinematic effects (glitch, chromatic aberration) */}
-        <RobotEffects
-          status={status}
-          glitchActive={glitch.offsetX !== 0}
-          glitchOffsetX={glitch.offsetX}
-          glitchOffsetY={glitch.offsetY}
-          chromaticIntensity={glitch.chromatic}
+        <HumanoidAvatar
+          status="listening"
+          isSpeaking={false}
+          audioLevel={0.7}
         />
       </g>
     </svg>
