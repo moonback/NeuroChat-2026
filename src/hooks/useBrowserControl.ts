@@ -22,7 +22,7 @@ export interface BrowserControlState {
 
 export function useBrowserControl() {
   const [state, setState] = useState<BrowserControlState>({
-    isEnabled: false,
+    isEnabled: true,
     currentAction: null,
     lastResult: null,
     pendingConfirmation: null,

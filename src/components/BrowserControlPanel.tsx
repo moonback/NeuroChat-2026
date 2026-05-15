@@ -77,7 +77,7 @@ export function BrowserControlPanel({
   return (
     <>
       {/* Toggle Button */}
-      <motion.button
+      {/* <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => onToggle(!isEnabled)}
@@ -92,7 +92,7 @@ export function BrowserControlPanel({
         <span className="text-sm font-medium">
           {isEnabled ? "Contrôle actif" : "Contrôle inactif"}
         </span>
-      </motion.button>
+      </motion.button> */}
 
       {/* Current Action Indicator */}
       <AnimatePresence>
