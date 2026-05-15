@@ -94,12 +94,12 @@ const COMMAND_PATTERNS: CommandPattern[] = [
       selector: { text: match[1].trim() },
     }),
   },
-  // Saisie de texte
+  // Saisie de texte - Patterns plus flexibles (ex: "écris facebook dans la barre d'adresse", "tape bonjour dans recherche")
   {
-    regex: /(?:écris|tape|saisis|entre)\s+["']([^"']+)["']\s+(?:dans|sur)(?:\s+le)?(?:\s+champ)?\s+["']?([^"'\n]+?)["']?(?:\s|$|\.)/gi,
+    regex: /(?:écris|tape|saisis|entre)\s+["']?([^"']+)["']?\s+(?:dans|sur)(?:\s+le)?(?:\s+champ)?\s+["']?([^"'\n.]+?)["']?(?:\s|$|\.)/gi,
     type: "type" as const,
     extract: (match: RegExpMatchArray) => ({
-      text: match[1],
+      text: match[1].trim(),
       selector: { placeholder: match[2].trim() },
     }),
   },
@@ -243,6 +243,8 @@ export function testCommandPatterns(): void {
     "ouvre facebook",
     "va sur netflix",
     "clique sur le bouton connexion",
+    "écris \"facebook\" dans la barre d'adresse.",
+    "tape bonjour dans le champ recherche",
     "descends un peu",
     "lis la page",
   ];
