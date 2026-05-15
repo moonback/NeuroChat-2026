@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { useGeminiSession } from "./useGeminiSession";
 import { useOpenRouterSession } from "./useOpenRouterSession";
 import { AvatarId } from "../lib/avatarConfig";
+import { getAgentService } from "../lib/agent/service";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -48,10 +49,17 @@ export function useAIConversation() {
   // For now, let's just expose the active one's properties
   const current = activeProvider === "gemini" ? gemini : openRouter;
 
+
+  const runAgentTask = useCallback(async (input: string, sessionId: string, userId: string) => {
+    const service = getAgentService();
+    return service.run({ input, sessionId, userId });
+  }, []);
+
   return {
     ...current,
     activeProvider,
     startSession,
     stopSession,
+    runAgentTask,
   };
 }
