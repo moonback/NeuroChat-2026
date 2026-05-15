@@ -4,6 +4,7 @@
 
 <div align="center">
   <img src="./public/header.png" alt="Bannière NeuroChat" width="100%">
+  <img src="./public/header2.png" alt="Bannière NeuroChat" width="100%">
 
   ![build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)
   ![version](https://img.shields.io/badge/version-2.3.0--companion-blueviolet?style=for-the-badge)
