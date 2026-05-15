@@ -4,8 +4,8 @@ import { FallbackAgentGateway, GeminiAgentGateway, OpenRouterAgentGateway } from
 
 export function createDefaultAgentRuntime(): AgentSupervisor {
   const gateway = new FallbackAgentGateway([
-    new GeminiAgentGateway(),
     new OpenRouterAgentGateway(),
+    new GeminiAgentGateway(),
   ]);
   const registry = createDefaultSkillRegistry();
   return new AgentSupervisor(gateway, registry);

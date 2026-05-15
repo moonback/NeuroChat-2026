@@ -163,7 +163,7 @@ export function BrowserWindow({
                 src={currentUrl}
                 className="w-full h-full border-0"
                 title="Browser Window"
-                allowpopups={true}
+                allowpopups={"true" as any}
               />
             ) : (
               <div className="flex items-center justify-center h-full bg-slate-900">
