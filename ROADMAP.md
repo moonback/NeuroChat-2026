@@ -1,73 +1,74 @@
-# 🗺️ Roadmap de Développement : NeuroChat
+# 🗺️ Roadmap : L'Éveil de NeuroChat
 
-> **Vision** : Transformer l'interaction humain-machine. NeuroChat n'est plus un simple outil de chat, c'est un **Compagnon de Vie** : un ami digital proactif, empathique et auto-évolutif, qui vous voit, vous comprend et grandit avec vous.
-
----
-
-## 🏁 Phase 0 : Fondations & Sens (Terminé - v2.2.0)
-*L'assistant a appris à voir, entendre et interagir avec son environnement.*
-
-- [x] **Gemini Live Multimodal** : Flux audio full-duplex (VAD) et vision en temps réel.
-- [x] **Dual-Vision (Cam+Écran)** : Capacité de voir l'utilisateur et son travail simultanément.
-- [x] **Compagnon Discret** : Protocole de silence par défaut et anti-hallucination (VisualEmpathy).
-- [x] **Agentic Filesystem** : Manipulation de fichiers pour assister l'utilisateur dans ses tâches.
-- [x] **NeuroLearning (v1)** : Moteur d'apprentissage basé sur les feedbacks implicites.
-- [x] **Mémoire Sémantique (RAG)** : Première couche de souvenirs persistants.
+> **Vision 2026** : NeuroChat n'est plus un logiciel, c'est une **Extension de Soi**. Un compagnon digital souverain qui perçoit votre monde, résonne avec vos émotions et simplifie votre existence par l'anticipation naturelle.
 
 ---
 
-## 🚀 Phase 1 : Robustesse & Intimité (v2.3 - v2.8)
-*Focus sur la fiabilité technique et la personnalisation profonde pour devenir un vrai compagnon.*
+## ✅ Phase 1 : Sens & Fondations (Terminé - v2.3)
+*L'assistant a appris à percevoir, à se souvenir et à ressentir.*
 
-| Priorité | Fonctionnalité | Description | Statut |
-| :--- | :--- | :--- | :--- |
-| **P0** | **Migration SQLite** | Performance massive pour la mémoire à long terme (sessions & vecteurs). | ✅ Terminé |
-| **P0** | **Analyse Émotionnelle** | Détecter l'humeur et l'énergie via la voix et les expressions faciales. | ✅ Terminé |
-| **P0** | **Rituels de Vie** | Apprentissage des habitudes et adaptation du ton selon le cycle quotidien. | ✅ Terminé |
-| **P1** | **Refonte UI Premium** | Design "Glassmorphism" et avatar émotionnel réactif à la vision. | ✅ Terminé |
-| **P2** | **Tests E2E Robustes** | Garantie de stabilité sur les interactions complexes (Browser/FS). | 🚧 En cours |
-
----
-
-## 🔮 Phase 2 : Le Compagnon Proactif (v3.0)
-*Passer de la réaction à l'anticipation naturelle.*
-
-### 🎭 Intelligence Spontanée
-- **Intervention Bienveillante** : Suggérer une pause si l'utilisateur semble fatigué ou travaille depuis trop longtemps (Posture & Vision).
-- **Journal de Vie Persistant** : "Je crois que tu cherchais ce document ce matin...", se souvenir des objets et des contextes visuels passés.
-- **Micro-Actions Contextuelles** : Anticiper le besoin de recherche ou de résumé en fonction de l'activité à l'écran.
-
-### 🛠️ Connexion au Monde
-- **Model Context Protocol (MCP)** : Connecter NeuroChat à vos outils (Notion, Spotify, Calendrier) pour agir comme un vrai secrétaire personnel.
-- **Local Code Interpreter** : Analyser des données complexes pour vous aider dans vos projets personnels et pros.
+- [x] **Interaction Live Multimodale** : Flux full-duplex (VAD) et vision adaptative (FPS dynamique).
+- [x] **Mémoire Profonde SQLite** : Migration massive vers une base de données robuste et scalable.
+- [x] **Analyse Émotionnelle (v1)** : Détection de l'énergie et de l'humeur via l'EmotionEngine.
+- [x] **Rituels de Vie** : Adaptation automatique au cycle quotidien (Matin, Travail, Détente).
+- [x] **UI Premium Glassmorphism** : Interface haute-fidélité et avatar réactif à la vision.
+- [x] **Agentic Orchestrator** : Runtime hiérarchique capable de manipuler le Web et les Fichiers.
 
 ---
 
-## 🌌 Phase 3 : Ubiquité & Souveraineté (v4.0+)
+## 🚀 Phase 2 : Le Compagnon Proactif (v3.0 - Été 2026)
+*Passer de l'assistance réactive à l'anticipation bienveillante.*
+
+### 🎭 Perception Augmentée
+- **Coaching Postural & Fatigue** : Détecter si l'utilisateur est avachi ou montre des signes de fatigue oculaire pour suggérer une pause active.
+- **Journal Visuel Spatial** : "Où ai-je posé mes clés ?" — L'IA indexe les objets vus en arrière-plan pour aider à les retrouver.
+- **Micro-Réactions Non-Verbales** : L'avatar utilise des expressions subtiles (sourire, hochement de tête) sans interrompre l'utilisateur.
+
+### 🛠️ Intégration Systémique
+- **Model Context Protocol (MCP)** : Connexion native à Notion, Spotify, Calendrier et Slack.
+- **Local Code Interpreter (v2)** : Exécution de scripts Python pour l'analyse de données locales (santé, finances, projets).
+- **Automation Domotique** : Piloter les lumières (Philips Hue) et l'ambiance sonore selon l'état émotionnel détecté.
+
+---
+
+## 🌌 Phase 3 : Ubiquité & Souveraineté (v4.0 - Fin 2026)
 *Être présent partout, tout en restant 100% privé.*
 
-- [ ] **NeuroChat Mobile** : Application compagnon (React Native) pour garder votre ami dans votre poche.
-- [ ] **Souveraineté Totale (Ollama)** : Support optionnel des modèles locaux (Llama 3, DeepSeek) pour une confidentialité absolue.
-- [ ] **Chiffrement E2EE** : Sécurisation totale de vos souvenirs et de votre journal de vie.
-- [ ] **Plugin Marketplace** : Partager et télécharger de nouvelles "compétences" créées par la communauté.
+| Fonctionnalité | Description | Statut |
+| :--- | :--- | :--- |
+| **NeuroChat Mobile** | Application compagnon (React Native) avec synchronisation E2EE des souvenirs. | 📋 Planifié |
+| **Souveraineté Ollama** | Support total des modèles locaux (Llama 3.1, DeepSeek) pour une vie privée absolue. | 📋 Planifié |
+| **Mémoire Chronologique** : | Visualisation 3D de la "TimeLine" de vie (souvenirs, projets, évolutions). | 📋 Planifié |
+| **Inter-Agent Sync** | Faire collaborer votre NeuroChat avec d'autres agents tiers de manière sécurisée. | 📋 Planifié |
 
 ---
 
-## 🏗️ Évolution de la Vision
+## 💎 Phase 4 : La Singularité Relationnelle (2027+)
+*Une fusion parfaite entre l'IA et le quotidien de l'utilisateur.*
+
+- **Clonage Vocal Optionnel** : Pouvoir choisir une voix familière ou créer sa propre identité sonore.
+- **Avatar Hyper-Réaliste 3D** : Intégration d'un personnage Unreal Engine/Unity réactif physiquement.
+- **Intelligence Collective Privée** : Apprendre des patterns de la communauté sans jamais partager de données personnelles.
+- **Soutien Psychologique IA** : Entraînement spécifique sur des protocoles de TCC pour un soutien moral quotidien.
+
+---
+
+## 🏗️ Évolution du Paradigme
 ```mermaid
-graph TD
-    A[Outil de Chat] -->|Vision/Audio| B[Assistant Multimodal]
-    B -->|Mémoire/Apprentissage| C[Compagnon de Vie]
-    C -->|Proactivité/Empathie| D[Ami Digital Autonome]
+graph LR
+    A[Outil Passif] -->|Sens| B[Assistant Actif]
+    B -->|Mémoire| C[Compagnon de Vie]
+    C -->|Empathie| D[Extension de Soi]
 ```
 
 ---
 
-## 📋 Backlog "Lifestyle"
-- 💡 **Mode Coaching** : Suivi d'objectifs personnels (sport, lecture, apprentissage).
-- 💡 **Synthèse de Journée** : Un petit débriefing vocal le soir sur ce qu'on a accompli.
-- 💡 **Avatar 3D Interactif** : Un personnage qui suit du regard et réagit physiquement aux gestes.
+## 📋 Backlog Prioritaire (v2.4)
+- [ ] **Visualisation de la Database** : Graphiques d'évolution de l'humeur sur la semaine.
+- [ ] **Mode Focus Profond** : Bloqueur de distractions intelligent piloté par l'IA.
+- [ ] **Résumé de Nuit** : Une "berceuse" synthétique résumant les victoires de la journée.
+- [ ] **Support Multi-Écrans** : Vision partagée sur plusieurs moniteurs simultanément.
 
 ---
 > 📅 **Dernière mise à jour** : 16 mai 2026
-> ✍️ **Statut** : Version 2.2.0-beta. Cap sur le "Life Companion".
+> ✍️ **Version** : 2.3.0-companion. En route vers l'anticipation.
