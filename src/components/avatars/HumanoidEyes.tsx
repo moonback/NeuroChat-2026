@@ -1,5 +1,5 @@
 /**
- * HumanoidEyes - Organic LED eyes with brow ridges (replaces RobotEyes)
+ * HumanoidEyes - Organic LED eyes with deep sockets and procedural iris (replaces RobotEyes)
  */
 
 import React from "react";
@@ -27,8 +27,8 @@ export const HumanoidEyes = React.memo<HumanoidEyesProps>(({
   time,
 }) => {
   const eyeScaleY = blinking ? 0.05 : 1;
-  const eyeGlow = 0.65 + audioReactivity * 0.35;
-  const pupilDilation = 1 + audioReactivity * 0.18;
+  const eyeGlow = 0.65 + audioReactivity * 0.45;
+  const pupilDilation = 1 + audioReactivity * 0.25;
 
   // Thinking: horizontal scan
   const thinkingScanX = status === "thinking" ? Math.sin(time * 0.003) * 7 : 0;
@@ -46,34 +46,57 @@ export const HumanoidEyes = React.memo<HumanoidEyesProps>(({
   const totalOpacity = errorFlicker * mutedDim;
 
   // Eye positions (relative to group at 100,90)
-  const leftX = -32;
-  const rightX = 32;
-  const eyeY = 0;
-  const eyeRx = 13;
-  const eyeRy = 11;
+  // Adjusted for more human proportions (closer together, slightly smaller)
+  const leftX = -26;
+  const rightX = 26;
+  const eyeY = 5;
+  const eyeRx = 11;
+  const eyeRy = 8.5;
 
   return (
     <g transform="translate(100, 90)">
       <defs>
-        <radialGradient id="h-eye-iris" cx="35%" cy="32%" r="68%">
-          <stop offset="0%" stopColor="#b8e4f8" />
+        {/* Procedural Iris Texture */}
+        <filter id="h-iris-texture">
+          <feTurbulence type="fractalNoise" baseFrequency="0.15" numOctaves="4" result="noise" />
+          <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.4 0" in="noise" result="alphaNoise" />
+          <feComposite operator="in" in="alphaNoise" in2="SourceGraphic" result="texture" />
+          <feBlend mode="multiply" in="texture" in2="SourceGraphic" />
+        </filter>
+
+        <radialGradient id="h-eye-iris" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="15%" stopColor="#a3d5f5" />
           <stop offset="50%" stopColor={eyeColor} />
-          <stop offset="100%" stopColor={accentGlow} />
+          <stop offset="85%" stopColor={accentGlow} />
+          <stop offset="100%" stopColor="#040a12" /> {/* Deep outer ring */}
         </radialGradient>
 
         <radialGradient id="h-pupil" cx="40%" cy="38%" r="60%">
-          <stop offset="0%" stopColor="#08182c" />
-          <stop offset="100%" stopColor="#000" />
+          <stop offset="0%" stopColor="#102540" />
+          <stop offset="80%" stopColor="#000000" />
         </radialGradient>
 
-        <radialGradient id="h-eye-glass" cx="28%" cy="28%" r="72%">
-          <stop offset="0%" stopColor="white" stopOpacity="0.6" />
-          <stop offset="55%" stopColor="white" stopOpacity="0.12" />
+        <radialGradient id="h-eye-glass-primary" cx="30%" cy="25%" r="65%">
+          <stop offset="0%" stopColor="white" stopOpacity="0.85" />
+          <stop offset="30%" stopColor="white" stopOpacity="0.2" />
           <stop offset="100%" stopColor="white" stopOpacity="0" />
         </radialGradient>
 
+        <radialGradient id="h-eye-glass-secondary" cx="70%" cy="80%" r="50%">
+          <stop offset="0%" stopColor="#cce5ff" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="white" stopOpacity="0" />
+        </radialGradient>
+
+        {/* Human Sclera Gradient */}
+        <radialGradient id="h-sclera" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="80%" stopColor="#f5f0f0" />
+          <stop offset="100%" stopColor="#e8caca" /> {/* Slight blood/pink rim */}
+        </radialGradient>
+
         <filter id="h-eye-glow">
-          <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <feGaussianBlur stdDeviation="3" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -83,6 +106,16 @@ export const HumanoidEyes = React.memo<HumanoidEyesProps>(({
         <filter id="h-eye-blur-soft">
           <feGaussianBlur stdDeviation="1.5" />
         </filter>
+        
+        {/* Inner shadow for the socket to embed the eye deeper */}
+        <filter id="h-inner-shadow">
+          <feOffset dx="0" dy="2"/>
+          <feGaussianBlur stdDeviation="2" result="offset-blur"/>
+          <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
+          <feFlood floodColor="#3d1d16" floodOpacity="0.6" result="color"/>
+          <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
+          <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
+        </filter>
       </defs>
 
       {status === "connecting" ? (
@@ -91,14 +124,14 @@ export const HumanoidEyes = React.memo<HumanoidEyesProps>(({
           {/* Left bar */}
           <g>
             <rect x={leftX - connectingW1 / 2 - 2} y={-4} width={connectingW1 + 4} height={8}
-              rx={4} fill={eyeColor} opacity={0.25} style={{ filter: "blur(4px)" }} />
+              rx={4} fill={eyeColor} opacity={0.3} style={{ filter: "blur(5px)" }} />
             <rect x={leftX - connectingW1 / 2} y={-2.5} width={connectingW1} height={5}
               rx={2.5} fill="url(#h-eye-iris)" opacity={0.95} />
           </g>
           {/* Right bar */}
           <g>
             <rect x={rightX - connectingW2 / 2 - 2} y={-4} width={connectingW2 + 4} height={8}
-              rx={4} fill={eyeColor} opacity={0.25} style={{ filter: "blur(4px)" }} />
+              rx={4} fill={eyeColor} opacity={0.3} style={{ filter: "blur(5px)" }} />
             <rect x={rightX - connectingW2 / 2} y={-2.5} width={connectingW2} height={5}
               rx={2.5} fill="url(#h-eye-iris)" opacity={0.95} />
           </g>
@@ -109,111 +142,115 @@ export const HumanoidEyes = React.memo<HumanoidEyesProps>(({
 
           {/* LEFT EYE */}
           <g transform={`translate(${leftX + eyeOffsetX + thinkingScanX}, ${eyeY + eyeOffsetY})`}>
-            {/* Brow ridge */}
+            {/* Soft Skin Socket shadow (Ambient Occlusion) - no longer pure black */}
+            <ellipse cx={0} cy={1} rx={eyeRx + 4} ry={eyeRy + 3} fill="#5e281b" opacity={0.3} style={{ filter: "blur(3px)" }} />
+
+            {/* Brow ridge - warmer human shadow */}
             <path
-              d={`M ${-eyeRx - 4} ${-eyeRy - 9} Q 0 ${-eyeRy - 15} ${eyeRx + 4} ${-eyeRy - 9}`}
-              fill="none" stroke="#90b0c8" strokeWidth={2.2} strokeLinecap="round" opacity={0.7}
+              d={`M ${-eyeRx - 6} ${-eyeRy - 6} Q 0 ${-eyeRy - 12} ${eyeRx + 6} ${-eyeRy - 6}`}
+              fill="none" stroke="#875340" strokeWidth={3} strokeLinecap="round" opacity={0.5}
+              style={{ filter: "blur(1px)" }}
             />
 
-            {/* Socket shadow */}
-            <ellipse cx={0} cy={1} rx={eyeRx + 4} ry={eyeRy + 4} fill="#0a1828" opacity={0.5} />
+            {/* Sclera/Base background of the eye (White instead of black) */}
+            <ellipse cx={0} cy={0} rx={eyeRx} ry={eyeRy} fill="url(#h-sclera)" filter="url(#h-inner-shadow)" />
 
-            {/* Outer glow */}
-            <ellipse cx={0} cy={0} rx={eyeRx + 5} ry={eyeRy + 5}
-              fill={eyeColor} opacity={0.18 * eyeGlow} style={{ filter: "blur(5px)" }} />
-
-            {/* Iris */}
-            <ellipse cx={0} cy={0} rx={eyeRx} ry={eyeRy} fill="url(#h-eye-iris)" opacity={eyeGlow} />
+            {/* Iris with procedural texture */}
+            <g filter="url(#h-iris-texture)">
+              <ellipse cx={0} cy={0} rx={eyeRx * 0.55} ry={eyeRy * 0.8} fill="url(#h-eye-iris)" opacity={eyeGlow} />
+            </g>
 
             {/* Pupil */}
             <ellipse
               cx={0} cy={0}
-              rx={eyeRx * 0.48 * pupilDilation} ry={eyeRy * 0.48 * pupilDilation}
+              rx={eyeRx * 0.25 * pupilDilation} ry={eyeRy * 0.4 * pupilDilation}
               fill="url(#h-pupil)"
             />
 
-            {/* Iris ring glow */}
-            <ellipse cx={0} cy={0} rx={eyeRx} ry={eyeRy}
-              fill="none" stroke={eyeColor} strokeWidth={1.5}
-              opacity={0.55 * eyeGlow} style={{ filter: "blur(2px)" }} />
+            {/* Glass specular main (Fresnel reflection) */}
+            <ellipse cx={-eyeRx * 0.3} cy={-eyeRy * 0.3} rx={eyeRx * 0.4} ry={eyeRy * 0.3}
+              fill="url(#h-eye-glass-primary)" />
+              
+            {/* Secondary specular reflection */}
+            <ellipse cx={eyeRx * 0.3} cy={eyeRy * 0.4} rx={eyeRx * 0.3} ry={eyeRy * 0.2}
+              fill="url(#h-eye-glass-secondary)" />
 
-            {/* Glass specular main */}
-            <ellipse cx={-eyeRx * 0.35} cy={-eyeRy * 0.35} rx={eyeRx * 0.35} ry={eyeRy * 0.28}
-              fill="url(#h-eye-glass)" />
+            {/* Sharp specular dot */}
+            <circle cx={-eyeRx * 0.25} cy={-eyeRy * 0.35} r={1.5} fill="white" opacity={0.9} />
+            <circle cx={-eyeRx * 0.4} cy={-eyeRy * 0.15} r={0.8} fill="white" opacity={0.6} />
 
-            {/* Small specular dot */}
-            <circle cx={-eyeRx * 0.22} cy={-eyeRy * 0.3} r={2} fill="white" opacity={0.75} />
-
-            {/* Eyelid upper */}
+            {/* Eyelid upper (Casting shadow on the eye) */}
             <path
-              d={`M ${-eyeRx - 2} ${-eyeRy * 0.3} Q 0 ${-eyeRy - 7} ${eyeRx + 2} ${-eyeRy * 0.3}`}
-              fill="#a0bcd0" opacity={0.45}
+              d={`M ${-eyeRx - 2} ${-eyeRy * 0.2} Q 0 ${-eyeRy - 6} ${eyeRx + 2} ${-eyeRy * 0.2}`}
+              fill="#c47458" opacity={0.6}
             />
             {/* Eyelid lower */}
             <path
-              d={`M ${-eyeRx} ${eyeRy * 0.5} Q 0 ${eyeRy + 5} ${eyeRx} ${eyeRy * 0.5}`}
-              fill="#8090a8" opacity={0.28}
+              d={`M ${-eyeRx} ${eyeRy * 0.4} Q 0 ${eyeRy + 5} ${eyeRx} ${eyeRy * 0.4}`}
+              fill="#a55d48" opacity={0.5}
             />
 
             {/* Eyelash hint upper */}
             <path
-              d={`M ${-eyeRx - 1} ${-eyeRy * 0.25} Q 0 ${-eyeRy - 8} ${eyeRx + 1} ${-eyeRy * 0.25}`}
-              fill="none" stroke="#6080a0" strokeWidth={1} opacity={0.35}
+              d={`M ${-eyeRx - 1} ${-eyeRy * 0.25} Q 0 ${-eyeRy - 7} ${eyeRx + 1} ${-eyeRy * 0.25}`}
+              fill="none" stroke="#2a120d" strokeWidth={1.5} opacity={0.5}
             />
           </g>
 
           {/* RIGHT EYE */}
           <g transform={`translate(${rightX - eyeOffsetX - thinkingScanX}, ${eyeY + eyeOffsetY})`}>
-            {/* Brow ridge */}
+            {/* Soft Skin Socket shadow (Ambient Occlusion) */}
+            <ellipse cx={0} cy={1} rx={eyeRx + 4} ry={eyeRy + 3} fill="#5e281b" opacity={0.3} style={{ filter: "blur(3px)" }} />
+
+            {/* Brow ridge - warmer human shadow */}
             <path
-              d={`M ${-eyeRx - 4} ${-eyeRy - 9} Q 0 ${-eyeRy - 15} ${eyeRx + 4} ${-eyeRy - 9}`}
-              fill="none" stroke="#90b0c8" strokeWidth={2.2} strokeLinecap="round" opacity={0.7}
+              d={`M ${-eyeRx - 6} ${-eyeRy - 6} Q 0 ${-eyeRy - 12} ${eyeRx + 6} ${-eyeRy - 6}`}
+              fill="none" stroke="#875340" strokeWidth={3} strokeLinecap="round" opacity={0.5}
+              style={{ filter: "blur(1px)" }}
             />
 
-            {/* Socket shadow */}
-            <ellipse cx={0} cy={1} rx={eyeRx + 4} ry={eyeRy + 4} fill="#0a1828" opacity={0.5} />
+            {/* Sclera/Base background of the eye (White instead of black) */}
+            <ellipse cx={0} cy={0} rx={eyeRx} ry={eyeRy} fill="url(#h-sclera)" filter="url(#h-inner-shadow)" />
 
-            {/* Outer glow */}
-            <ellipse cx={0} cy={0} rx={eyeRx + 5} ry={eyeRy + 5}
-              fill={eyeColor} opacity={0.18 * eyeGlow} style={{ filter: "blur(5px)" }} />
-
-            {/* Iris */}
-            <ellipse cx={0} cy={0} rx={eyeRx} ry={eyeRy} fill="url(#h-eye-iris)" opacity={eyeGlow} />
+            {/* Iris with procedural texture */}
+            <g filter="url(#h-iris-texture)">
+              <ellipse cx={0} cy={0} rx={eyeRx * 0.55} ry={eyeRy * 0.8} fill="url(#h-eye-iris)" opacity={eyeGlow} />
+            </g>
 
             {/* Pupil */}
             <ellipse
               cx={0} cy={0}
-              rx={eyeRx * 0.48 * pupilDilation} ry={eyeRy * 0.48 * pupilDilation}
+              rx={eyeRx * 0.25 * pupilDilation} ry={eyeRy * 0.4 * pupilDilation}
               fill="url(#h-pupil)"
             />
 
-            {/* Iris ring glow */}
-            <ellipse cx={0} cy={0} rx={eyeRx} ry={eyeRy}
-              fill="none" stroke={eyeColor} strokeWidth={1.5}
-              opacity={0.55 * eyeGlow} style={{ filter: "blur(2px)" }} />
+            {/* Glass specular main (Fresnel reflection) */}
+            <ellipse cx={-eyeRx * 0.3} cy={-eyeRy * 0.3} rx={eyeRx * 0.4} ry={eyeRy * 0.3}
+              fill="url(#h-eye-glass-primary)" />
+              
+            {/* Secondary specular reflection */}
+            <ellipse cx={eyeRx * 0.3} cy={eyeRy * 0.4} rx={eyeRx * 0.3} ry={eyeRy * 0.2}
+              fill="url(#h-eye-glass-secondary)" />
 
-            {/* Glass specular main */}
-            <ellipse cx={-eyeRx * 0.35} cy={-eyeRy * 0.35} rx={eyeRx * 0.35} ry={eyeRy * 0.28}
-              fill="url(#h-eye-glass)" />
-
-            {/* Small specular dot */}
-            <circle cx={-eyeRx * 0.22} cy={-eyeRy * 0.3} r={2} fill="white" opacity={0.75} />
+            {/* Sharp specular dot */}
+            <circle cx={-eyeRx * 0.25} cy={-eyeRy * 0.35} r={1.5} fill="white" opacity={0.9} />
+            <circle cx={-eyeRx * 0.4} cy={-eyeRy * 0.15} r={0.8} fill="white" opacity={0.6} />
 
             {/* Eyelid upper */}
             <path
-              d={`M ${-eyeRx - 2} ${-eyeRy * 0.3} Q 0 ${-eyeRy - 7} ${eyeRx + 2} ${-eyeRy * 0.3}`}
-              fill="#a0bcd0" opacity={0.45}
+              d={`M ${-eyeRx - 2} ${-eyeRy * 0.2} Q 0 ${-eyeRy - 6} ${eyeRx + 2} ${-eyeRy * 0.2}`}
+              fill="#c47458" opacity={0.6}
             />
             {/* Eyelid lower */}
             <path
-              d={`M ${-eyeRx} ${eyeRy * 0.5} Q 0 ${eyeRy + 5} ${eyeRx} ${eyeRy * 0.5}`}
-              fill="#8090a8" opacity={0.28}
+              d={`M ${-eyeRx} ${eyeRy * 0.4} Q 0 ${eyeRy + 5} ${eyeRx} ${eyeRy * 0.4}`}
+              fill="#a55d48" opacity={0.5}
             />
 
             {/* Eyelash hint */}
             <path
-              d={`M ${-eyeRx - 1} ${-eyeRy * 0.25} Q 0 ${-eyeRy - 8} ${eyeRx + 1} ${-eyeRy * 0.25}`}
-              fill="none" stroke="#6080a0" strokeWidth={1} opacity={0.35}
+              d={`M ${-eyeRx - 1} ${-eyeRy * 0.25} Q 0 ${-eyeRy - 7} ${eyeRx + 1} ${-eyeRy * 0.25}`}
+              fill="none" stroke="#2a120d" strokeWidth={1.5} opacity={0.5}
             />
           </g>
 

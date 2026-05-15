@@ -1,5 +1,5 @@
 /**
- * HumanoidMouth - Organic lip-shaped audio visualizer (replaces RobotMouth)
+ * HumanoidMouth - Organic lip-shaped audio visualizer with 3D volume
  */
 
 import React from "react";
@@ -48,11 +48,13 @@ export const HumanoidMouth = React.memo<HumanoidMouthProps>(({
   const muted = status === "muted" ? 0.4 : 1;
 
   // Upper lip path
-  const upperLip = `M -20 0 Q -10 -5 0 -1 Q 10 -5 20 0`;
+  const upperLip = `M -20 0 Q -10 -6 0 -2 Q 10 -6 20 0`;
+  const upperLipHighlight = `M -16 -1 Q -8 -6 0 -3 Q 8 -6 16 -1`;
 
   // Lower lip path - drops by openAmount
   const lowerLipY = openAmount;
   const lowerLip = `M -20 0 Q 0 ${8 + lowerLipY} 20 0`;
+  const lowerLipShadow = `M -22 1 Q 0 ${12 + lowerLipY} 22 1`;
 
   // Waveform inside mouth (for speaking)
   const barColors = Array.from({ length: 5 }, (_, i) => {
@@ -68,21 +70,47 @@ export const HumanoidMouth = React.memo<HumanoidMouthProps>(({
     <g transform="translate(100, 148)" opacity={muted}>
       <defs>
         <linearGradient id="h-mouth-inner" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#0a1828" />
-          <stop offset="100%" stopColor="#1a2840" />
+          <stop offset="0%" stopColor="#2a0808" />
+          <stop offset="100%" stopColor="#0a0202" />
         </linearGradient>
+        
+        {/* Volumetric upper lip - realistic human pink/red */}
+        <linearGradient id="h-upper-lip" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#e58e82" />
+          <stop offset="60%" stopColor="#cc665a" />
+          <stop offset="100%" stopColor="#8c3329" />
+        </linearGradient>
+
+        {/* Volumetric lower lip - realistic human pink/red */}
         <linearGradient id="h-lower-lip" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#b0c8dc" />
-          <stop offset="100%" stopColor="#6888a4" />
+          <stop offset="0%" stopColor="#f5aba3" />
+          <stop offset="40%" stopColor="#e58e82" />
+          <stop offset="100%" stopColor="#b34b3e" />
         </linearGradient>
       </defs>
+
+      {/* Drop shadow under the lower lip (Ambient Occlusion) */}
+      <path
+        d={lowerLipShadow}
+        fill="none" stroke="#3d1d16" strokeWidth={3} strokeLinecap="round"
+        opacity={0.3} style={{ filter: "blur(2px)" }}
+      />
 
       {/* Inner mouth cavity (shows when open) */}
       {openAmount > 0.5 && (
         <path
           d={`M -20 0 Q 0 ${8 + lowerLipY} 20 0 Q 10 -5 0 -1 Q -10 -5 -20 0`}
           fill="url(#h-mouth-inner)"
-          opacity={0.8}
+          opacity={0.9}
+        />
+      )}
+
+      {/* Deep shadow right inside the lips */}
+      {openAmount > 0.5 && (
+        <path
+          d={`M -20 0 Q 0 ${8 + lowerLipY} 20 0`}
+          fill="none" stroke="#000000" strokeWidth={1.5}
+          opacity={0.6} style={{ filter: "blur(1px)" }}
         />
       )}
 
@@ -97,7 +125,8 @@ export const HumanoidMouth = React.memo<HumanoidMouthProps>(({
             height={bar.h}
             rx={1.5}
             fill={mouthColor}
-            opacity={0.6}
+            opacity={0.7}
+            style={{ filter: "drop-shadow(0 0 3px " + mouthColor + ")" }}
           />
         ))
       }
@@ -108,51 +137,64 @@ export const HumanoidMouth = React.memo<HumanoidMouthProps>(({
           d={`M -16 ${openAmount * 0.4} Q -8 ${openAmount * 0.4 - openAmount * 0.5 * Math.sin(time * 0.008)} 0 ${openAmount * 0.4} Q 8 ${openAmount * 0.4 + openAmount * 0.5 * Math.sin(time * 0.008 + 1)} 16 ${openAmount * 0.4}`}
           fill="none"
           stroke={mouthColor}
-          strokeWidth={1}
-          opacity={0.45}
+          strokeWidth={1.2}
+          opacity={0.6}
           strokeLinecap="round"
+          style={{ filter: "drop-shadow(0 0 2px " + mouthColor + ")" }}
         />
       )}
 
-      {/* Upper lip */}
+      {/* Upper lip base */}
       <path
         d={upperLip}
         fill="none"
-        stroke="#8098b2"
-        strokeWidth={1.8}
+        stroke="url(#h-upper-lip)"
+        strokeWidth={3}
         strokeLinecap="round"
-        opacity={0.88}
+        opacity={0.8}
+      />
+      {/* Upper lip highlight */}
+      <path
+        d={upperLipHighlight}
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth={0.8}
+        strokeLinecap="round"
+        opacity={0.2}
       />
 
       {/* Lower lip shape fill */}
-      <path d={lowerLip} fill="url(#h-lower-lip)" opacity={0.32} />
+      <path d={lowerLip} fill="url(#h-lower-lip)" opacity={0.5} />
 
-      {/* Lower lip stroke */}
+      {/* Lower lip outer edge stroke (rim light) */}
       <path
         d={`M -18 1 Q 0 ${7 + lowerLipY * 0.85} 18 1`}
         fill="none"
         stroke="#a8c4d8"
-        strokeWidth={1.1}
-        strokeLinecap="round"
-        opacity={0.52}
-      />
-
-      {/* Mouth center line / aperture */}
-      <path
-        d={`M -20 0 Q 0 ${openAmount * 0.15} 20 0`}
-        fill="none"
-        stroke="#4868a0"
-        strokeWidth={0.9}
+        strokeWidth={1.5}
         strokeLinecap="round"
         opacity={0.6}
       />
 
-      {/* Lip highlight */}
-      <ellipse cx={0} cy={3 + lowerLipY * 0.5} rx={11} ry={3} fill="white" opacity={0.13} />
+      {/* Mouth center line / aperture (when closed) */}
+      {openAmount < 1.5 && (
+        <path
+          d={`M -20 0 Q 0 ${openAmount * 0.15} 20 0`}
+          fill="none"
+          stroke="#202a35"
+          strokeWidth={1.2}
+          strokeLinecap="round"
+          opacity={0.8}
+        />
+      )}
 
-      {/* Corner accents */}
-      <circle cx={-20} cy={0} r={1.5} fill={mouthColor} opacity={0.3} />
-      <circle cx={20} cy={0} r={1.5} fill={mouthColor} opacity={0.3} />
+      {/* Central lower lip specular highlight */}
+      <ellipse cx={0} cy={3 + lowerLipY * 0.5} rx={12} ry={3} fill="white" opacity={0.25} style={{ filter: "blur(1px)" }} />
+      <ellipse cx={0} cy={2.5 + lowerLipY * 0.5} rx={5} ry={1} fill="white" opacity={0.5} />
+
+      {/* Corner dimples (Ambient occlusion) */}
+      <circle cx={-21} cy={0} r={2} fill="#101820" opacity={0.4} style={{ filter: "blur(1px)" }} />
+      <circle cx={21} cy={0} r={2} fill="#101820" opacity={0.4} style={{ filter: "blur(1px)" }} />
     </g>
   );
 });
