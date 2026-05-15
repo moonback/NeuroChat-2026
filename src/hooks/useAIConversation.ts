@@ -3,6 +3,7 @@ import { useGeminiSession } from "./useGeminiSession";
 import { useOpenRouterSession } from "./useOpenRouterSession";
 import { AvatarId } from "../lib/avatarConfig";
 import { getAgentService } from "../lib/agent/service";
+import type { AgentRunOptions, AgentRunResult } from "../lib/agent/types";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -50,9 +51,14 @@ export function useAIConversation() {
   const current = activeProvider === "gemini" ? gemini : openRouter;
 
 
-  const runAgentTask = useCallback(async (input: string, sessionId: string, userId: string) => {
+  const runAgentTask = useCallback(async (
+    input: string,
+    sessionId: string,
+    userId: string,
+    options?: AgentRunOptions,
+  ): Promise<AgentRunResult> => {
     const service = getAgentService();
-    return service.run({ input, sessionId, userId });
+    return service.run({ input, sessionId, userId, options });
   }, []);
 
   return {
