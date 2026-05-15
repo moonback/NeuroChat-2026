@@ -1,4 +1,4 @@
-import { Square, Sparkles, Camera, CameraOff, RefreshCcw, Monitor } from "lucide-react";
+import { Square, Sparkles, Camera, CameraOff, RefreshCcw, Monitor, Maximize2, Minimize2 } from "lucide-react";
 import { useState, FormEvent, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
@@ -35,10 +35,12 @@ export default function App() {
   const videoServiceRef = useRef<VideoService | null>(null);
   const screenCaptureServiceRef = useRef<ScreenCaptureService | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const cameraPreviewRef = useRef<HTMLVideoElement>(null);
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
   
   const [visualActivity, setVisualActivity] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
+  const [pipExpanded, setPipExpanded] = useState(false);
   
   const lastVisionNudgeTimeRef = useRef<number>(0);
   
@@ -286,11 +288,7 @@ export default function App() {
       setErrorMsg("Démarre une conversation avant de partager l’écran.");
       return;
     }
-    if (videoServiceRef.current) {
-      videoServiceRef.current.stop();
-      videoServiceRef.current = null;
-    }
-    setCameraActive(false);
+    // Camera keeps running in parallel — both streams are sent to the AI
     try {
       const svc = new ScreenCaptureService(
         (videoBase64) => sendInputRef.current?.(videoBase64, "video"),
@@ -331,7 +329,7 @@ export default function App() {
 
   // Manage VideoService reactively based on cameraActive and session status (caméra uniquement)
   useEffect(() => {
-    if (screenShareActive) return;
+    // Allow camera even when screen share is active (dual-stream)
     if (status === "listening" && cameraActive && !videoServiceRef.current && sendInputRef.current) {
       console.log("🎥 Activation de la caméra...");
       videoServiceRef.current = new VideoService((videoBase64) => {
@@ -360,6 +358,13 @@ export default function App() {
       videoPreviewRef.current.srcObject = videoStream;
     }
   }, [videoStream]);
+
+  // Sync camera preview when both streams are active
+  useEffect(() => {
+    if (cameraPreviewRef.current && cameraActive && screenShareActive && videoServiceRef.current) {
+      cameraPreviewRef.current.srcObject = videoServiceRef.current.getStream();
+    }
+  }, [cameraActive, screenShareActive]);
 
   return (
     <div className="min-h-screen bg-[#020408] text-white flex flex-col font-sans relative overflow-hidden">
@@ -562,6 +567,7 @@ export default function App() {
                 <AnimatePresence>
                   {(cameraActive || screenShareActive) && videoStream && (
                     <motion.div
+                      key="pip-main"
                       drag
                       dragConstraints={{ left: -window.innerWidth + 160, right: 0, top: -window.innerHeight + 240, bottom: 0 }}
                       dragElastic={0.1}
@@ -578,7 +584,10 @@ export default function App() {
                           : "0 0 0px rgba(96, 165, 250, 0), 0 25px 60px rgba(0,0,0,0.5)"
                       }}
                       exit={{ opacity: 0, scale: 0.5, y: 20 }}
-                      className="absolute -bottom-4 -right-4 w-40 h-30 sm:w-56 sm:h-42 bg-slate-900/80 backdrop-blur-md rounded-3xl border border-white/20 overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] z-30 group cursor-grab active:cursor-grabbing"
+                      className={`absolute ${pipExpanded 
+                        ? "-bottom-8 -right-8 w-[480px] h-[360px]" 
+                        : "-bottom-4 -right-4 w-40 h-30 sm:w-56 sm:h-42"
+                      } bg-slate-900/80 backdrop-blur-md rounded-3xl border border-white/20 overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] z-30 group cursor-grab active:cursor-grabbing transition-all duration-300`}
                     >
                       <video
                         ref={videoPreviewRef}
@@ -602,11 +611,18 @@ export default function App() {
                       <div className="absolute top-2 left-3 flex items-center gap-1.5 px-2 py-0.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/10">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
                         <span className="text-[10px] font-bold text-white/90 uppercase tracking-tighter">
-                          {screenShareActive ? "Écran partagé" : "Vision Active"}
+                          {screenShareActive && cameraActive ? "Écran + Caméra" : screenShareActive ? "Écran partagé" : "Vision Active"}
                         </span>
                       </div>
 
-                      <div className="absolute bottom-2 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute bottom-2 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setPipExpanded(!pipExpanded); }}
+                          className="p-1 rounded-md bg-black/50 hover:bg-black/80 text-white/80 hover:text-white transition-all border border-white/10"
+                          title={pipExpanded ? "Réduire" : "Agrandir"}
+                        >
+                          {pipExpanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+                        </button>
                         <span className="text-[9px] text-white/60">Déplace-moi</span>
                       </div>
 
@@ -615,6 +631,38 @@ export default function App() {
                       <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-blue-400/50 rounded-tr-sm" />
                       <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-blue-400/50 rounded-bl-sm" />
                       <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-blue-400/50 rounded-br-sm" />
+                    </motion.div>
+                  )}
+
+                  {/* Camera mini-PiP when both streams are active */}
+                  {cameraActive && screenShareActive && videoServiceRef.current && (
+                    <motion.div
+                      key="pip-camera"
+                      drag
+                      dragConstraints={{ left: -window.innerWidth + 100, right: 0, top: -window.innerHeight + 100, bottom: 0 }}
+                      dragElastic={0.1}
+                      initial={{ opacity: 0, scale: 0.3 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.3 }}
+                      className="absolute -bottom-4 -left-4 w-24 h-18 sm:w-32 sm:h-24 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-blue-500/30 overflow-hidden shadow-[0_0_25px_rgba(59,130,246,0.3)] z-40 cursor-grab active:cursor-grabbing group"
+                    >
+                      <video
+                        ref={cameraPreviewRef}
+                        autoPlay
+                        muted
+                        playsInline
+                        className={`w-full h-full object-cover ${facingMode === "user" ? "mirror" : ""}`}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
+                      <div className="absolute top-1 left-1.5 flex items-center gap-1 px-1.5 py-0.5 bg-black/50 backdrop-blur-sm rounded-full border border-blue-500/20">
+                        <div className="w-1 h-1 rounded-full bg-blue-400 animate-pulse" />
+                        <span className="text-[8px] font-bold text-blue-300 uppercase">Cam</span>
+                      </div>
+                      {/* Corner Accents */}
+                      <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-blue-400/50 rounded-tl-sm" />
+                      <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-blue-400/50 rounded-tr-sm" />
+                      <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-blue-400/50 rounded-bl-sm" />
+                      <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-blue-400/50 rounded-br-sm" />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -687,11 +735,6 @@ export default function App() {
             <div className="flex items-center gap-4 bg-slate-900/60 backdrop-blur-xl border border-white/10 p-2 rounded-[40px] shadow-2xl">
               <button
                 onClick={() => {
-                  if (!cameraActive && screenShareActive) {
-                    screenCaptureServiceRef.current?.stop();
-                    screenCaptureServiceRef.current = null;
-                    setScreenShareActive(false);
-                  }
                   setCameraActive(!cameraActive);
                 }}
                 className={`w-14 h-14 flex items-center justify-center rounded-full transition-all ${cameraActive
