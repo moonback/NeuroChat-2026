@@ -209,6 +209,8 @@ src/lib/skills/
 - `get_desktop_info`
 - `summarize_text`
 
+Tu peux ajouter des skills de prompt en Markdown dans `src/skills-md/*.md` (chargées automatiquement dans le system prompt).
+
 ### Intégration UI
 
 - `useAIConversation` expose:
