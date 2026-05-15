@@ -199,8 +199,8 @@ export class RegressionDetector {
       previousMetrics: previousVersion.performanceMetrics,
       currentMetrics: input.currentMetrics,
       threshold,
-      proposals: activeVersion.appliedProposals.map((proposalId) => ({
-        id: proposalId,
+      proposals: activeVersion.appliedProposals.map((proposal) => ({
+        id: typeof proposal === "string" ? proposal : proposal.id,
         targetSection: 'CORE OPERATIONAL RULES',
         proposedChange: '',
         justification: 'Marked ineffective after monitored regression rollback.',
