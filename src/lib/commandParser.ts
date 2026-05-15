@@ -212,7 +212,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Saisie de texte ────────────────────────────────────────────────────
   {
     id: "type-with-target",
-    regex: /\b(?:écris|tape|saisis|entre|remplis)\s+["']([^"']+)["']\s+(?:dans|sur)\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!?]{1,40})["']?/gi,
+    regex: /(?<=^|[^a-zA-Z0-9_])(?:écris|tape|saisis|entre|remplis)\s+["']([^"']+)["']\s+(?:dans|sur)\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!?]{1,40})["']?/gi,
     type: "type",
     baseConfidence: 0.9,
     extract: (m) => ({
@@ -223,7 +223,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // Saisie sans cible explicite
   {
     id: "type-no-target",
-    regex: /\b(?:écris|tape|saisis)\s+["']([^"']+)["']/gi,
+    regex: /(?<=^|[^a-zA-Z0-9_])(?:écris|tape|saisis)\s+["']([^"']+)["']/gi,
     type: "type",
     baseConfidence: 0.75,
     extract: (m) => ({ text: m[1].trim() }),

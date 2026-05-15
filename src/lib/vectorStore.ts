@@ -10,6 +10,14 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { getStorageBackend } from "./storage";
+import { pipeline, env } from "@xenova/transformers";
+
+// Configuration pour environnement Electron/Vite
+env.allowLocalModels = false; // Évite de chercher les modèles sur le serveur Vite local (404/HTML)
+env.allowRemoteModels = true; // Force l'utilisation du CDN Hugging Face
+env.remoteHost = 'https://huggingface.co';
+env.remotePathTemplate = '{model}/resolve/{revision}/';
+env.useBrowserCache = true;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,13 +41,55 @@ export interface VectorEntry {
 
 /** Maximum entries kept in the vector store (older ones are pruned) */
 const MAX_VECTOR_ENTRIES = 500;
-/** Gemini embedding model — gemini-embedding-001 remplace text-embedding-004 (déprécié jan 2026) */
-const EMBEDDING_MODEL = "gemini-embedding-001";
+
+/** 
+ * Local embedding model versioning.
+ * Changing this will force clear old incompatible vectors.
+ * Gemini was v1 (768d), all-MiniLM-L6-v2 is v2 (384d).
+ */
+const VECTOR_STORE_VERSION = "v2";
+const LOCAL_MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
+
+/** Global pipeline singleton for transformers.js */
+let extractor: any = null;
+let isModelLoading = false;
+
+/** Initialize the local embedding model */
+async function getExtractor() {
+  if (extractor) return extractor;
+  if (isModelLoading) {
+    // Wait for existing load
+    while (isModelLoading) await new Promise(r => setTimeout(r, 100));
+    return extractor;
+  }
+
+  isModelLoading = true;
+  try {
+    console.log(`[VectorStore] 🧠 Chargement du modèle local (${LOCAL_MODEL_NAME})...`);
+    extractor = await pipeline("feature-extraction", LOCAL_MODEL_NAME);
+    console.log("[VectorStore] ✅ Modèle local prêt !");
+    return extractor;
+  } catch (err) {
+    console.error("[VectorStore] ❌ Échec du chargement du modèle local:", err);
+    throw err;
+  } finally {
+    isModelLoading = false;
+  }
+}
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
 export async function loadVectorStore(): Promise<VectorEntry[]> {
   try {
+    // Check version and clear if incompatible
+    const currentVersion = localStorage.getItem("neurochat_vector_version");
+    if (currentVersion !== VECTOR_STORE_VERSION) {
+      console.warn(`[VectorStore] 🔄 Migration version ${currentVersion} -> ${VECTOR_STORE_VERSION}. Nettoyage des anciens vecteurs.`);
+      await clearAllVectors();
+      localStorage.setItem("neurochat_vector_version", VECTOR_STORE_VERSION);
+      return [];
+    }
+
     console.log("[VectorStore] 📂 Chargement du store de vecteurs...");
     const rows = await getStorageBackend().loadVectors();
     const entries = rows.map((r) => ({
@@ -83,32 +133,17 @@ async function saveVectorStore(entries: VectorEntry[]): Promise<void> {
 // ─── Embedding generation ─────────────────────────────────────────────────────
 
 /**
- * Generate an embedding vector for the given text using Gemini.
- * Returns null if the API key is missing or the call fails.
+ * Generate an embedding vector for the given text using local transformers.js model.
+ * Completely free, private, and unlimited.
  */
 export async function generateEmbedding(text: string): Promise<number[] | null> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("[VectorStore] ⚠️ VITE_GEMINI_API_KEY not set — skipping embedding.");
-    return null;
-  }
-
   try {
-    console.log(`[VectorStore] 🔄 Génération d'embedding pour: "${text.slice(0, 50)}..."`);
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: text,
-    });
-    const embedding = response.embeddings?.[0]?.values ?? null;
-    if (embedding) {
-      console.log(`[VectorStore] ✅ Embedding généré (${embedding.length} dimensions)`);
-    } else {
-      console.warn("[VectorStore] ⚠️ Aucun embedding retourné par l'API");
-    }
-    return embedding;
+    const extract = await getExtractor();
+    const output = await extract(text, { pooling: "mean", normalize: true });
+    const vector = Array.from(output.data) as number[];
+    return vector;
   } catch (error) {
-    console.error("[VectorStore] ❌ Échec de la génération d'embedding:", error);
+    console.error("[VectorStore] ❌ Échec de la génération d'embedding locale:", error);
     return null;
   }
 }
