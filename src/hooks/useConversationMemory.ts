@@ -7,17 +7,21 @@ import {
 } from "../lib/conversationMemory";
 
 export function useConversationMemory() {
-  const [userName, setUserName] = useState<string>(() => loadUserName());
-  const [showWelcomeModal, setShowWelcomeModal] = useState(() => !loadUserName());
+  const [{ userName, showWelcomeModal }, setUserContext] = useState(() => {
+    const initialUserName = loadUserName();
+    return {
+      userName: initialUserName,
+      showWelcomeModal: !initialUserName,
+    };
+  });
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [memoryRevision, setMemoryRevision] = useState(0);
 
   const handleWelcomeSubmit = useCallback((name: string) => {
     console.log(`[useConversationMemory] 👋 Soumission du nom d'utilisateur: ${name}`);
-    setUserName(name);
+    setUserContext((prev) => ({ ...prev, userName: name, showWelcomeModal: false }));
     saveUserName(name);
-    setShowWelcomeModal(false);
     console.log("[useConversationMemory] ✅ Modal de bienvenue fermée");
   }, []);
 
@@ -37,7 +41,7 @@ export function useConversationMemory() {
   }, []);
 
   const updateUserName = useCallback((name: string) => {
-    setUserName(name);
+    setUserContext((prev) => ({ ...prev, userName: name }));
     saveUserName(name);
   }, []);
 
