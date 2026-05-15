@@ -879,15 +879,19 @@ export class BrowserController {
    */
   private async readFile(path?: string): Promise<BrowserActionResult> {
     if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
-    console.log(`📄 [BrowserController] reading file: ${path}`);
     if (!path) return { success: false, error: "Chemin de fichier manquant" };
 
+    // Résoudre les chemins relatifs par rapport au dossier de travail
+    const isAbsolute = /^[A-Z]:/i.test(path) || path.startsWith("/") || path.startsWith("\\");
+    const resolvedPath = isAbsolute ? path : (this.currentWorkdir ? `${this.currentWorkdir}\\${path}` : path);
+    console.log(`📄 [BrowserController] reading file: ${resolvedPath}`);
+
     try {
-      const content = await window.neurochatElectron.fs.readFile(path);
+      const content = await window.neurochatElectron.fs.readFile(resolvedPath);
       console.log(`✅ [BrowserController] read success (${content.length} chars)`);
       return {
         success: true,
-        data: { path, content: content.slice(0, 5000) },
+        data: { path: resolvedPath, content: content.slice(0, 5000) },
       };
     } catch (error: unknown) {
       console.error(`❌ [BrowserController] readFile failed:`, error);
@@ -900,14 +904,17 @@ export class BrowserController {
    */
   private async writeFile(path?: string, content?: string): Promise<BrowserActionResult> {
     if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
-    console.log(`📝 [BrowserController] writing to file: ${path}`);
     if (!path) return { success: false, error: "Chemin de fichier manquant" };
     if (content === undefined) return { success: false, error: "Contenu manquant" };
 
+    const isAbsolute = /^[A-Z]:/i.test(path) || path.startsWith("/") || path.startsWith("\\");
+    const resolvedPath = isAbsolute ? path : (this.currentWorkdir ? `${this.currentWorkdir}\\${path}` : path);
+    console.log(`📝 [BrowserController] writing to file: ${resolvedPath}`);
+
     try {
-      await window.neurochatElectron.fs.writeFile(path, content);
+      await window.neurochatElectron.fs.writeFile(resolvedPath, content);
       console.log(`✅ [BrowserController] write success`);
-      return { success: true, data: { path } };
+      return { success: true, data: { path: resolvedPath } };
     } catch (error: unknown) {
       console.error(`❌ [BrowserController] writeFile failed:`, error);
       return { success: false, error: getErrorMessage(error) };
@@ -919,13 +926,16 @@ export class BrowserController {
    */
   private async deleteFile(path?: string): Promise<BrowserActionResult> {
     if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
-    console.log(`🗑️ [BrowserController] deleting: ${path}`);
     if (!path) return { success: false, error: "Chemin manquant" };
 
+    const isAbsolute = /^[A-Z]:/i.test(path) || path.startsWith("/") || path.startsWith("\\");
+    const resolvedPath = isAbsolute ? path : (this.currentWorkdir ? `${this.currentWorkdir}\\${path}` : path);
+    console.log(`🗑️ [BrowserController] deleting: ${resolvedPath}`);
+
     try {
-      await window.neurochatElectron.fs.deleteItem(path);
+      await window.neurochatElectron.fs.deleteItem(resolvedPath);
       console.log(`✅ [BrowserController] delete success`);
-      return { success: true, data: { path } };
+      return { success: true, data: { path: resolvedPath } };
     } catch (error: unknown) {
       console.error(`❌ [BrowserController] deleteFile failed:`, error);
       return { success: false, error: getErrorMessage(error) };
