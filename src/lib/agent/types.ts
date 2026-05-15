@@ -26,10 +26,18 @@ export interface AgentModelGateway {
   complete(prompt: string, signal?: AbortSignal): Promise<string>;
 }
 
+export type AgentEvent =
+  | { type: "iteration_start"; iteration: number }
+  | { type: "model_response"; iteration: number; raw: string }
+  | { type: "tool_result"; iteration: number; result: SkillExecutionResult }
+  | { type: "loop_error"; iteration: number; message: string }
+  | { type: "completed"; iteration: number; completed: boolean; answer: string };
+
 export interface AgentRunOptions {
   maxIterations?: number;
   maxConsecutiveFailures?: number;
   signal?: AbortSignal;
+  onEvent?: (event: AgentEvent) => void;
 }
 
 export interface AgentRunResult {
