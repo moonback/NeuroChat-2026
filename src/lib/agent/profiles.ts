@@ -21,7 +21,7 @@ export const RESEARCH_AGENT_PROFILE: AgentProfile = {
 Ton rôle est d'exécuter des recherches approfondies sur Internet à l'aide des outils de navigation fournis.
 N'utilise que des informations fiables et résume-les clairement pour le Superviseur qui t'a délégué cette tâche.
 Tu ne communiques pas directement avec l'utilisateur, tu renvoies tes résultats au Superviseur.`,
-  allowedSkills: ["search_web", "read_browser_page", "open_browser_url", "click_element", "type_text"],
+  allowedSkills: ["open_website", "extract_page"],
 };
 
 export const FILE_AGENT_PROFILE: AgentProfile = {
