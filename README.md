@@ -6,7 +6,7 @@
   <img src="./public/header.png" alt="Bannière NeuroChat" width="100%">
 
   ![build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)
-  ![version](https://img.shields.io/badge/version-2.1.1--beta--multi-blueviolet?style=for-the-badge)
+  ![version](https://img.shields.io/badge/version-2.1.2--beta--multi-blueviolet?style=for-the-badge)
   ![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
   ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)
 
@@ -34,8 +34,9 @@ Parlez naturellement avec votre assistant grâce à l'audio full-duplex propuls�
 | **Transcription Live** | Transcription en temps réel de votre voix et de celle de l'assistant |
 | **Synthèse Vocale (TTS)** | Voix naturelles avec plusieurs profils configurables (Puck, etc.) |
 
-### 👁️ Vision Contextuelle & Intelligence Visuelle (v2.1)
+### 👁️ Vision Contextuelle & Intelligence Visuelle (v2.1.2)
 NeuroChat voit ce que vous voyez et comprend votre contexte visuel de manière intelligente.
+- **Protection Anti-Hallucination** — Activation conditionnelle des instructions de vision. Si la caméra n'est pas activée, l'IA ne reçoit pas les directives d'analyse visuelle, éliminant ainsi les commentaires spontanés sur un environnement non visible.
 - **Moteur de Vision Smart** — Fréquence d'analyse adaptative (de 0.1 à 2.5 fps) basée sur la détection de mouvement par luminance pour optimiser le CPU et la précision.
 - **Partage d'écran** — Capture via `desktopCapturer` d'Electron pour une analyse d'écran en temps réel.
 - **Support Multi-Caméra** — Basculez dynamiquement entre vos caméras frontale, arrière ou externe.
