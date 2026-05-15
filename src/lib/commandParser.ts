@@ -139,6 +139,11 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   },
 ];
 
+function getAllMatches(text: string, regex: RegExp): RegExpMatchArray[] {
+  regex.lastIndex = 0;
+  return Array.from(text.matchAll(regex));
+}
+
 /**
  * Parse le texte de l'assistant pour détecter des commandes de contrôle du navigateur
  */
@@ -149,7 +154,7 @@ export function parseAssistantResponse(text: string): ParsedCommand {
   let detectedAction: BrowserAction | null = null;
 
   for (const pattern of COMMAND_PATTERNS) {
-    const matches = Array.from(text.matchAll(pattern.regex));
+    const matches = getAllMatches(text, pattern.regex);
     
     if (matches.length > 0) {
       const match = matches[0];
@@ -199,7 +204,10 @@ export function parseAssistantResponse(text: string): ParsedCommand {
  * Vérifie si un texte contient une commande de contrôle du navigateur
  */
 export function containsBrowserCommand(text: string): boolean {
-  return COMMAND_PATTERNS.some((pattern) => pattern.regex.test(text));
+  return COMMAND_PATTERNS.some((pattern) => {
+    pattern.regex.lastIndex = 0;
+    return pattern.regex.test(text);
+  });
 }
 
 /**
@@ -209,7 +217,7 @@ export function extractAllCommands(text: string): BrowserAction[] {
   const actions: BrowserAction[] = [];
 
   for (const pattern of COMMAND_PATTERNS) {
-    const matches = Array.from(text.matchAll(pattern.regex));
+    const matches = getAllMatches(text, pattern.regex);
     
     for (const match of matches) {
       const params = pattern.extract(match);
