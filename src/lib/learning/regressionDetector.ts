@@ -98,7 +98,7 @@ export class RegressionDetector {
       threshold: comparison.threshold,
     });
 
-    this.securityLogger.log('regression_detected', `Prompt version ${input.activeVersion} regressed by ${comparison.percentDecrease.toFixed(2)}%.`, {
+    await this.securityLogger.log('regression_detected', `Prompt version ${input.activeVersion} regressed by ${comparison.percentDecrease.toFixed(2)}%.`, {
       activeVersion: input.activeVersion,
       previousVersion: input.previousVersion,
       previousScore: comparison.previousScore,
@@ -120,7 +120,7 @@ export class RegressionDetector {
     }
 
     if (restoredVersion) {
-      this.securityLogger.logRegressionRollback(input.activeVersion, comparison.percentDecrease, {
+      await this.securityLogger.logRegressionRollback(input.activeVersion, comparison.percentDecrease, {
         restoredVersion: restoredVersion.version,
         ineffectiveProposalIds,
       });

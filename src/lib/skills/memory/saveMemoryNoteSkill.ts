@@ -8,8 +8,8 @@ export const saveMemoryNoteSkill: SkillDefinition<{ note: string }, { saved: boo
   parameters: { type: "object", properties: { note: { type: "string" } }, required: ["note"], additionalProperties: false },
   permissions: [{ resource: "memory", level: "write" }],
   async execute(params, context) {
-    const session = getOrCreateCurrentSession(context.userId);
-    await addConversationTurn(session.id, "assistant", `[NOTE] ${params.note}`, context.userId);
+    const session = await getOrCreateCurrentSession(context.userId);
+    await addConversationTurn(context.userId, "assistant", `[NOTE] ${params.note}`);
     return { saved: true, sessionId: session.id };
   },
 };

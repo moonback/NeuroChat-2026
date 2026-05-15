@@ -7,13 +7,13 @@ import {
 } from "../lib/conversationMemory";
 
 export function useConversationMemory() {
-  const [{ userName, showWelcomeModal }, setUserContext] = useState(() => {
-    const initialUserName = loadUserName();
-    return {
-      userName: initialUserName,
-      showWelcomeModal: !initialUserName,
-    };
-  });
+  const [{ userName, showWelcomeModal }, setUserContext] = useState({ userName: "", showWelcomeModal: true });
+
+  useEffect(() => {
+    loadUserName().then((initialUserName) => {
+      setUserContext({ userName: initialUserName, showWelcomeModal: !initialUserName });
+    });
+  }, []);
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [memoryRevision, setMemoryRevision] = useState(0);
@@ -21,7 +21,7 @@ export function useConversationMemory() {
   const handleWelcomeSubmit = useCallback((name: string) => {
     console.log(`[useConversationMemory] 👋 Soumission du nom d'utilisateur: ${name}`);
     setUserContext((prev) => ({ ...prev, userName: name, showWelcomeModal: false }));
-    saveUserName(name);
+void saveUserName(name);
     console.log("[useConversationMemory] ✅ Modal de bienvenue fermée");
   }, []);
 
@@ -42,7 +42,7 @@ export function useConversationMemory() {
 
   const updateUserName = useCallback((name: string) => {
     setUserContext((prev) => ({ ...prev, userName: name }));
-    saveUserName(name);
+void saveUserName(name);
   }, []);
 
   // Compute stats and session list
