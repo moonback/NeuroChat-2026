@@ -41,7 +41,7 @@ export function useAudioSession() {
 
   const playAudio = useCallback((base64Data: string) => {
     audioPlayer.current?.play(base64Data);
-    setIsSpeaking(true);
+    setIsSpeaking((prev) => (prev ? prev : true));
     if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
     speakingTimeoutRef.current = setTimeout(() => setIsSpeaking(false), 1500);
   }, []);

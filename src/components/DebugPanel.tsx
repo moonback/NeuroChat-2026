@@ -30,12 +30,13 @@ export function DebugPanel() {
     if (!isMounted.current) return;
     const message = args[0];
 
-    // Never mirror render-spam lines: they match [BrowserWindow] or [BrowserControlPanel] and cause setState → re-render loops with console patching.
+    // Never mirror render-spam lines or system/vite errors that cause infinite loops.
     if (typeof message === "string" && (
       /\[BrowserWindow\].*Rendu/i.test(message) || 
       /\[BrowserControlPanel\].*État/i.test(message) ||
       /\[BrowserControl\].*Contrôle/i.test(message) ||
-      message.includes("Maximum update depth exceeded")
+      message.includes("Maximum update depth exceeded") ||
+      message.includes("[vite] failed to connect to websocket")
     )) {
       return;
     }
