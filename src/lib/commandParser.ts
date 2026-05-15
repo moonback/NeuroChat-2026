@@ -21,9 +21,9 @@ type CommandPattern = {
 };
 
 const COMMAND_PATTERNS: CommandPattern[] = [
-  // Navigation - patterns plus flexibles et robustes
+  // Navigation - Utilisation de \b et exigence d'un point pour les domaines non-listés
   {
-    regex: /(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\s+([a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:\/[^\s]*)?)/gi,
+    regex: /\b(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\b\s+([a-zA-Z0-9.-]+\.[a-z]{2,}(?:\/[^\s]*)?|google|youtube|facebook|twitter|instagram|linkedin|wikipedia|amazon|netflix|spotify)/gi,
     type: "navigate" as const,
     extract: (match: RegExpMatchArray) => {
       let url = match[1].trim();
@@ -122,14 +122,14 @@ const COMMAND_PATTERNS: CommandPattern[] = [
       selector: { placeholder: match[2].trim() },
     }),
   },
-  // Défilement
+  // Défilement - Utilisation de frontières de mots \b pour éviter les faux positifs (ex: "avancées")
   {
-    regex: /(?:descends?|scroll(?:e)?|va(?:\s+en\s+bas)?)\s*(?:un\s+peu|la\s+page)?/gi,
+    regex: /\b(?:descends?|scroll(?:e)?|va\s+en\s+bas)\b\s*(?:un\s+peu|la\s+page)?/gi,
     type: "scroll" as const,
     extract: () => ({ direction: "down" as const }),
   },
   {
-    regex: /(?:monte|remonte|va(?:\s+en\s+haut)?)\s*(?:un\s+peu|la\s+page)?/gi,
+    regex: /\b(?:monte|remonte|va\s+en\s+haut)\b\s*(?:un\s+peu|la\s+page)?/gi,
     type: "scroll" as const,
     extract: () => ({ direction: "up" as const }),
   },
