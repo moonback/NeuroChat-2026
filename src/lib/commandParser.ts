@@ -212,7 +212,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Saisie de texte ────────────────────────────────────────────────────
   {
     id: "type-with-target",
-    regex: /\b(?:écris|tape|saisis|entre|remplis)\s+["']([^"']+)["']\s+(?:dans|sur)\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!? ]{2,40})["']?/gi,
+    regex: /\b(?:écris|tape|saisis|entre|remplis)\s+["']([^"']+)["']\s+(?:dans|sur)\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!? ]{1,40})["']?/gi,
     type: "type",
     baseConfidence: 0.9,
     extract: (m) => ({
@@ -305,7 +305,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Extraction de contenu ──────────────────────────────────────────────
   {
     id: "extract",
-    regex: /(?:\b|^)(?:lis|extrais|récupère|montre|analyse)(?:\s+moi)?(?:\s+le\s+contenu\s+(?:de\s+)?)?(?:la\s+|cette\s+)?page(?:\b|$)/gi,
+    regex: /\b(?:lis|extrais|récupère|montre|analyse)(?:\s+moi)?(?:\s+le\s+contenu\s+(?:de\s+)?)?(?:la\s+|cette\s+)?page\b/gi,
     type: "extract",
     baseConfidence: 0.8,
     extract: () => ({}),
@@ -345,14 +345,14 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   },
   {
     id: "list-dir",
-    regex: /\b(?:liste\s+les\s+fichiers|affiche\s+le\s+contenu|list_files|listDir)(?:\s+(?:dans\s+|de\s+|du\s+dossier\s+)?(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)[^\s.?!,;]*)))?\b/gi,
+    regex: /\b(?:liste\s+les\s+fichiers|affiche\s+le\s+contenu|list_files|listDir)(?:\s+(?:dans\s+|de\s+|du\s+dossier\s+)?(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)[^"'\n.?!,;]*)))?\b/gi,
     type: "listDir",
     baseConfidence: 0.85,
     extract: (m) => ({ path: (m[1] || m[2])?.trim() }),
   },
   {
     id: "read-file",
-    regex: /\b(?:lis\s+le\s+fichier|affiche\s+le\s+fichier|read_file|readFile)\s+(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)?[^\s,;?!]+\.[a-z0-9]{1,10}))\b/gi,
+    regex: /\b(?:lis\s+le\s+fichier|affiche\s+le\s+fichier|read_file|readFile)\s+(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)?[^"'\n,;?!]+\.[a-z0-9]{1,10}))\b/gi,
     type: "readFile",
     baseConfidence: 0.85,
     extract: (m) => ({ path: (m[1] || m[2])?.trim() }),
@@ -367,7 +367,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   },
   {
     id: "delete-file",
-    regex: /\b(?:supprime|efface)\s+(?:le\s+fichier\s+|le\s+dossier\s+)?(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)?[^\s.?!,;]+))\b/gi,
+    regex: /\b(?:supprime|efface)\s+(?:le\s+fichier\s+|le\s+dossier\s+)?(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)?[^"'\n.?!,;]+))\b/gi,
     type: "deleteFile",
     baseConfidence: 0.8,
     requiresConfirmation: true,

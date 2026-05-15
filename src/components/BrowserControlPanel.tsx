@@ -2,8 +2,9 @@
  * BrowserControlPanel - Interface pour le contrôle du navigateur
  */
 
+import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Globe, Check, X, Activity, History, Shield } from "lucide-react";
+import { Globe, Check, X, Activity, History, Shield, ChevronDown, ChevronUp } from "lucide-react";
 import type { BrowserAction } from "../lib/browserControl";
 
 interface BrowserControlPanelProps {
@@ -25,6 +26,8 @@ export function BrowserControlPanel({
   actionHistory,
   accentColor,
 }: BrowserControlPanelProps) {
+  const [historyVisible, setHistoryVisible] = useState(false);
+
   const getActionDescription = (action: BrowserAction): string => {
     switch (action.type) {
       case "navigate":
@@ -200,46 +203,75 @@ export function BrowserControlPanel({
         )}
       </AnimatePresence>
 
-      {/* Action History Panel */}
+      {/* Action History — Toggle Button + Collapsible Panel */}
       <AnimatePresence>
         {isEnabled && actionHistory.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="fixed bottom-6 right-6 z-40 w-80 max-h-96 bg-slate-900/90 border border-slate-700/50 rounded-2xl shadow-2xl backdrop-blur-md overflow-hidden"
-          >
-            <div className="p-4 border-b border-slate-700/50 flex items-center gap-2">
-              <History className="w-5 h-5 text-slate-400" />
-              <h4 className="text-sm font-bold text-white">Historique des actions</h4>
-              <span className="ml-auto text-xs text-slate-500">
-                {actionHistory.length}
-              </span>
-            </div>
-            <div className="overflow-y-auto max-h-80 p-2">
-              {actionHistory.slice().reverse().map((action, index) => (
+          <>
+            {/* Toggle button — always visible when there's history */}
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setHistoryVisible(!historyVisible)}
+              className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-3 py-2 bg-slate-800/90 border border-slate-700/50 rounded-full shadow-lg backdrop-blur-md text-slate-300 hover:text-white hover:border-slate-600 transition-all"
+              title={historyVisible ? "Masquer l'historique" : "Afficher l'historique"}
+            >
+              <History className="w-4 h-4" />
+              <span className="text-xs font-medium">{actionHistory.length}</span>
+              {historyVisible ? (
+                <ChevronDown className="w-3 h-3" />
+              ) : (
+                <ChevronUp className="w-3 h-3" />
+              )}
+            </motion.button>
+
+            {/* Collapsible History Panel */}
+            <AnimatePresence>
+              {historyVisible && (
                 <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="p-3 mb-2 bg-slate-800/50 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-colors"
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                  className="fixed bottom-16 right-6 z-40 w-80 max-h-80 bg-slate-900/90 border border-slate-700/50 rounded-2xl shadow-2xl backdrop-blur-md overflow-hidden"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">{getActionIcon(action.type)}</span>
-                    <span className="text-xs font-medium text-slate-400 uppercase">
-                      {action.type}
+                  <div className="p-3 border-b border-slate-700/50 flex items-center gap-2">
+                    <History className="w-4 h-4 text-slate-400" />
+                    <h4 className="text-sm font-bold text-white">Historique des actions</h4>
+                    <span className="ml-auto text-xs text-slate-500">
+                      {actionHistory.length}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-300">
-                    {getActionDescription(action)}
-                  </p>
+                  <div className="overflow-y-auto max-h-64 p-2">
+                    {actionHistory.slice().reverse().map((action, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="p-2.5 mb-1.5 bg-slate-800/50 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-base">{getActionIcon(action.type)}</span>
+                          <span className="text-xs font-medium text-slate-400 uppercase">
+                            {action.type}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300">
+                          {getActionDescription(action)}
+                        </p>
+                      </motion.div>
+                    ))}
+                  </div>
                 </motion.div>
-              ))}
-            </div>
-          </motion.div>
+              )}
+            </AnimatePresence>
+          </>
         )}
       </AnimatePresence>
     </>
   );
 }
+
