@@ -215,8 +215,16 @@ export async function generateWeeklySummary(
     const response = await chatWithOpenRouter([{ role: "user", content: prompt }]);
 
     const raw = response?.trim() ?? "";
-    // Strip potential markdown code fences
-    const jsonStr = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    
+    // Improved robust JSON extraction: find the first { and last }
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+      throw new Error(`Invalid JSON structure in response: ${raw.slice(0, 100)}...`);
+    }
+    
+    const jsonStr = raw.slice(firstBrace, lastBrace + 1);
     const parsed = JSON.parse(jsonStr) as { summary: string; topics: string[] };
 
     const weeklySummary: WeeklySummary = {
