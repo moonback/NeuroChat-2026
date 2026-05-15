@@ -23,7 +23,7 @@ NeuroChat est un assistant personnel professionnel multimodal qui vit sur votre 
 | **TypeScript** | Langage | 5.8.2 |
 | **Tailwind CSS** | Styling | 4.1.14 |
 | **Google Gemini** | Modèles Multimodaux (Live, Vision, Audio) | v1beta |
-| **OpenRouter** | Service LLM de secours / Synthèses | API |
+| **OpenRouter** | Service LLM de secours / Synthèses (DeepSeek v4 Flash) | API |
 | **Vitest** | Framework de Tests | 4.1.6 |
 
 ---
@@ -62,6 +62,7 @@ Le premier assistant qui apprend de ses erreurs et s'améliore tout seul.
 - **Cycle d'Apprentissage (Learning Cycle)** : Analyse périodique de l'historique pour générer des propositions d'amélioration du prompt système.
 - **Monitoring de Régression** : Surveillance constante des performances après chaque mise à jour. Si une version est moins efficace, le système effectue un **Rollback automatique**.
 - **Historique des Versions** : Suivi complet de l'évolution de la personnalité et des capacités de l'IA.
+- **Visualisation Transparente** : Retrouvez la liste exacte des améliorations appliquées et leurs justifications (le "pourquoi") directement dans l'onglet *Apprentissage* du Coffre des Conversations.
 
 ### 🔒 Privacy & Desktop Native
 - **100% Local Data** : Vos conversations, préférences et vecteurs ne quittent jamais votre machine (stockage LocalStorage/Electron).
@@ -128,6 +129,13 @@ npm run build
 
 # Build pour Desktop
 npm run build:electron
+```
+
+### 📦 Création de l'Exécutable (.exe)
+```bash
+# Packager l'application en un installeur Windows (.exe)
+# Le fichier généré se trouvera dans le dossier dist-electron/
+npm run package
 ```
 
 ---

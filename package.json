@@ -12,6 +12,7 @@
     "build": "vite build",
     "build:electron": "cross-env ELECTRON=true vite build",
     "electron:start": "cross-env ELECTRON=true vite build && electron .",
+    "package": "npm run build:electron && electron-builder",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
@@ -42,6 +43,10 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/ui": "^4.1.6",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.8.1",
     "fast-check": "^4.8.0",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.1.14",
@@ -49,9 +54,26 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
     "vitest": "^4.1.6",
-    "concurrently": "^9.1.2",
-    "cross-env": "^7.0.3",
-    "electron": "^35.0.0",
     "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.neurochat.app",
+    "productName": "NeuroChat",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/vite.svg"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
