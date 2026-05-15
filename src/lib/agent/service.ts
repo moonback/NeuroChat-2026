@@ -1,4 +1,3 @@
-import { createDefaultAgentRuntime } from "./createAgentRuntime";
 import type { AgentEvent, AgentRunOptions, AgentRunResult } from "./types";
 import { saveAgentTrace } from "./traceStore";
 
@@ -20,7 +19,7 @@ function assertNonEmpty(value: string, field: string): void {
 }
 
 export class AgentService {
-  constructor(private readonly runtime: AgentRunner = createDefaultAgentRuntime()) {}
+  constructor(private readonly runtime: AgentRunner) {}
 
   async run(request: AgentServiceRequest): Promise<AgentRunResult> {
     assertNonEmpty(request.input, "input");
@@ -50,8 +49,18 @@ export class AgentService {
 
 let singleton: AgentService | null = null;
 
+/**
+ * Singleton factory for AgentService.
+ * Uses late-binding for createDefaultAgentRuntime to avoid circular dependency issues
+ * during module initialization.
+ */
 export function getAgentService(): AgentService {
-  if (!singleton) singleton = new AgentService();
+  if (!singleton) {
+    // We import this lazily to break the circular dependency cycle
+    // (Service -> Runtime -> Gateway -> ... potentially back to Service/Hooks)
+    const { createDefaultAgentRuntime } = require("./createAgentRuntime");
+    singleton = new AgentService(createDefaultAgentRuntime());
+  }
   return singleton;
 }
 

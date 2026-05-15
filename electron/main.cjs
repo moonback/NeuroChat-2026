@@ -211,16 +211,23 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Allow framing of external websites in the browser control panel
+  // Allow framing of external websites in the browser control panel (webviews)
+  // We only remove security headers for sub-frame requests to avoid global security degradation.
   session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
     
-    Object.keys(responseHeaders).forEach(key => {
-      const lower = key.toLowerCase();
-      if (lower === 'x-frame-options' || lower === 'content-security-policy') {
-        delete responseHeaders[key];
-      }
-    });
+    // Only strip headers for subframes (webview/iframe) to minimize risk
+    const isSubFrame = details.resourceType === 'subFrame';
+
+    if (isSubFrame) {
+      Object.keys(responseHeaders).forEach(key => {
+        const lower = key.toLowerCase();
+        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
+          console.log(`[security] Stripping ${key} for subframe request: ${details.url}`);
+          delete responseHeaders[key];
+        }
+      });
+    }
 
     callback({ cancel: false, responseHeaders });
   });

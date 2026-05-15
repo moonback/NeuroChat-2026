@@ -46,7 +46,7 @@ describe('runLearningCycleForUser', () => {
         sentiment: 'negative',
         turnIndex: 0,
         timestamp: 1000,
-        text: 'Too long!'
+        content: 'Too long!'
       }],
       lastUpdated: 1000
     });

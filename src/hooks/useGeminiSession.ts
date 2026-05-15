@@ -13,6 +13,8 @@ import {
   formatWeeklySummaryForPrompt,
   loadWeeklySummaries,
 } from "../lib/conversationSummary";
+import { createDefaultSkillRegistry } from "../lib/skills";
+import { SkillContext } from "../lib/skills/types";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -201,6 +203,50 @@ export function useGeminiSession() {
                   onTurnComplete();
                 }
 
+                // --- GESTION DES APPELS DE FONCTIONS (TOOLS) ---
+                const functionCalls = parts?.filter((p: any) => p.functionCall).map((p: any) => p.functionCall);
+                if (functionCalls && functionCalls.length > 0) {
+                  console.log(`🛠️ Gemini appelle ${functionCalls.length} fonction(s):`, functionCalls);
+                  
+                  const registry = createDefaultSkillRegistry();
+                  const skillContext: SkillContext = {
+                    sessionId: "live-session", // Ideally pass real session ID
+                    userId: userName || "anonymous",
+                  };
+
+                  Promise.all(functionCalls.map(async (call: any) => {
+                    try {
+                      const skill = registry.get(call.name);
+                      if (!skill) throw new Error(`Skill ${call.name} non trouvé`);
+                      
+                      console.log(`🏃 Exécution du skill: ${call.name}...`);
+                      const result = await skill.execute(call.args, skillContext);
+                      
+                      return {
+                        name: call.name,
+                        response: { result }
+                      };
+                    } catch (err: any) {
+                      console.error(`❌ Échec du skill ${call.name}:`, err);
+                      return {
+                        name: call.name,
+                        response: { error: err.message }
+                      };
+                    }
+                  })).then((responses) => {
+                    if (sessionRef.current) {
+                      console.log("📤 Envoi des réponses de fonctions à Gemini...");
+                      sessionRef.current.sendClientContent({
+                        turns: [{
+                          role: "user",
+                          parts: responses.map(r => ({ functionResponse: r }))
+                        }],
+                        turnComplete: true
+                      });
+                    }
+                  });
+                }
+
                 if (serverContent?.interrupted) {
                   console.log("⚡ Interruption détectée");
                   onInterrupted();
@@ -246,6 +292,14 @@ export function useGeminiSession() {
               speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
               },
+              // Intégration des outils via Function Calling
+              tools: [{
+                functionDeclarations: createDefaultSkillRegistry().list().map(skill => ({
+                  name: skill.name,
+                  description: skill.description,
+                  parameters: skill.parameters,
+                }))
+              }],
               // Active la transcription de la réponse IA pour la sauvegarder en mémoire
               outputAudioTranscription: {},
             },

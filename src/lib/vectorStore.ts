@@ -36,6 +36,10 @@ const MAX_VECTOR_ENTRIES = 500;
 /** Gemini embedding model — gemini-embedding-001 remplace text-embedding-004 (déprécié jan 2026) */
 const EMBEDDING_MODEL = "gemini-embedding-001";
 
+/** Global cooldown to avoid spamming the API when quota is exceeded (429) */
+let embeddingCooldownUntil = 0;
+const COOLDOWN_DURATION_MS = 60000; // 1 minute
+
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
 export async function loadVectorStore(): Promise<VectorEntry[]> {
@@ -93,6 +97,13 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
     return null;
   }
 
+  // Check cooldown
+  if (Date.now() < embeddingCooldownUntil) {
+    const remaining = Math.ceil((embeddingCooldownUntil - Date.now()) / 1000);
+    console.warn(`[VectorStore] ⏳ Quota atteint (429). Prochaine tentative dans ${remaining}s.`);
+    return null;
+  }
+
   try {
     console.log(`[VectorStore] 🔄 Génération d'embedding pour: "${text.slice(0, 50)}..."`);
     const ai = new GoogleGenAI({ apiKey });
@@ -102,13 +113,19 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
     });
     const embedding = response.embeddings?.[0]?.values ?? null;
     if (embedding) {
-      console.log(`[VectorStore] ✅ Embedding généré (${embedding.length} dimensions)`);
+      // console.log(`[VectorStore] ✅ Embedding généré (${embedding.length} dimensions)`);
     } else {
       console.warn("[VectorStore] ⚠️ Aucun embedding retourné par l'API");
     }
     return embedding;
-  } catch (error) {
-    console.error("[VectorStore] ❌ Échec de la génération d'embedding:", error);
+  } catch (error: any) {
+    // Handle 429 specifically
+    if (error?.message?.includes("429") || error?.status === "RESOURCE_EXHAUSTED" || error?.code === 429) {
+      console.error("[VectorStore] 🚨 Quota d'embeddings dépassé (429). Activation du cooldown.");
+      embeddingCooldownUntil = Date.now() + COOLDOWN_DURATION_MS;
+    } else {
+      console.error("[VectorStore] ❌ Échec de la génération d'embedding:", error);
+    }
     return null;
   }
 }
