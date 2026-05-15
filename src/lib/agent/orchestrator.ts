@@ -48,6 +48,9 @@ export class AgentOrchestrator {
       dynamicPolicies: options.initialPolicies ?? [],
       transcript: [],
       toolResults: [],
+      activeAgentId: options.activeProfile?.id,
+      activeAgentName: options.activeProfile?.name,
+      activeProfile: options.activeProfile,
     };
     const maxConsecutiveFailures = options.maxConsecutiveFailures ?? 3;
     let consecutiveFailures = 0;

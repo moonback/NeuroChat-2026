@@ -14,6 +14,7 @@ import { useBrowserControl } from "./hooks/useBrowserControl";
 import { BrowserControlPanel } from "./components/BrowserControlPanel";
 import { BrowserWindow } from "./components/BrowserWindow";
 import { DebugPanel } from "./components/DebugPanel";
+import { AgentChat } from "./components/AgentChat";
 import { parseAssistantResponse, runTests } from "./lib/commandParser";
 import { useEffect as useOnce } from "react";
 
@@ -68,7 +69,8 @@ export default function App() {
     startSession,
     stopSession,
     sendTextMessage,
-    activeProvider
+    activeProvider,
+    agentEvents
   } = useAIConversation();
 
   // Browser control hook
@@ -691,6 +693,8 @@ export default function App() {
           </motion.footer>
         )}
       </AnimatePresence>
+
+      <AgentChat events={agentEvents} />
     </div>
   );
 }
