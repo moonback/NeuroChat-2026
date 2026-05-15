@@ -48,12 +48,12 @@ export default function App() {
     
     // Proactive AI reaction logic
     const now = Date.now();
-    const COOLDOWN_MS = 30000; // 30 seconds between proactive vision comments
+    const COOLDOWN_MS = 15000; // 15 seconds between proactive vision comments
     
     if (status === "listening" && !isSpeaking && (now - lastVisionNudgeTimeRef.current > COOLDOWN_MS)) {
-      console.log("👁️ [App] Envoi d'un signal de vision proactif à l'IA...");
+      console.log("👁️ [App] Envoi signal [VISION_NUDGE] (latence réduite)...");
       lastVisionNudgeTimeRef.current = now;
-      sendTextMessage("[SYSTEM] Vision : Un mouvement ou un changement visuel significatif a été détecté. Réagis spontanément si c'est pertinent.");
+      sendTextMessage("[VISION_NUDGE]");
     }
   };
 

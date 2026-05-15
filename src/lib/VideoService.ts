@@ -8,10 +8,10 @@ export class VideoService {
   // Adaptive frequency state
   private lastImageData: ImageData | null = null;
   private lastFrameTime: number = 0;
-  private readonly MIN_INTERVAL_MS = 400;   // 2.5 fps on high motion
+  private readonly MIN_INTERVAL_MS = 200;   // 5 fps on high motion
   private readonly MAX_INTERVAL_MS = 8000;  // Every 8s if static
   private currentInterval = 1000;
-  private readonly MOTION_THRESHOLD = 0.03; // 3% of pixels changed
+  private readonly MOTION_THRESHOLD = 0.025; // 2.5% of pixels changed (more sensitive)
   private consecutiveStaticFrames = 0;
 
   constructor(
@@ -65,9 +65,8 @@ export class VideoService {
         // High activity: increase frequency
         shouldSend = true;
         this.consecutiveStaticFrames = 0;
-        this.currentInterval = Math.max(this.MIN_INTERVAL_MS, this.currentInterval * 0.7);
+        this.currentInterval = Math.max(this.MIN_INTERVAL_MS, this.currentInterval * 0.6);
         console.log(`[Vision] 🚀 Mouvement détecté (${(diff * 100).toFixed(1)}%). Intervalle : ${this.currentInterval.toFixed(0)}ms`);
-        this.onMotion?.();
       } else {
         // Static scene: decrease frequency
         this.consecutiveStaticFrames++;
@@ -85,10 +84,15 @@ export class VideoService {
     }
 
     if (shouldSend) {
-      const base64 = this.canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+      const base64 = this.canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
       this.onFrame(base64);
       this.lastImageData = currentImageData;
       this.lastFrameTime = now;
+      
+      // Notify motion AFTER sending the frame to ensure AI context is ready
+      if (this.consecutiveStaticFrames === 0) {
+        this.onMotion?.();
+      }
     }
 
     this.intervalId = window.setTimeout(() => this.loop(), 100); 
