@@ -162,8 +162,9 @@ export default function App() {
                     if (action.type === "pickWorkdir") {
                       sendTextMessage(`[SYSTEM] SUCCESS: Dossier sélectionné : ${result.data?.path}. Tu DOIS maintenant utiliser list_files pour voir son contenu.`);
                     } else if (action.type === "listDir") {
-                      const fileNames = result.data?.files?.map((f: any) => f.name).join(", ");
-                      sendTextMessage(`[SYSTEM] SUCCESS: Résultats de list_files dans ${result.data?.path}.\nFichiers trouvés (${result.data?.files?.length || 0}) : ${fileNames || "Dossier vide"}\n\nACTION REQUIRED: Analyse cette liste et réponds vocalement à l'utilisateur maintenant.`);
+                      const files = Array.isArray((result.data as any)?.files) ? (result.data as any).files as Array<{name?: string}> : [];
+                      const fileNames = files.map((f) => f.name ?? "").filter(Boolean).join(", ");
+                      sendTextMessage(`[SYSTEM] SUCCESS: Résultats de list_files dans ${result.data?.path}.\nFichiers trouvés (${files.length}) : ${fileNames || "Dossier vide"}\n\nACTION REQUIRED: Analyse cette liste et réponds vocalement à l'utilisateur maintenant.`);
                     } else if (action.type === "readFile") {
                       sendTextMessage(`[SYSTEM] Contenu de ${result.data?.path} :\n${result.data?.content}`);
                     } else if (action.type === "extract") {

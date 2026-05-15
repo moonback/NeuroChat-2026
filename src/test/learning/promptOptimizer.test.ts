@@ -45,9 +45,9 @@ describe('PromptOptimizer', () => {
     localStorage.clear();
   });
 
-  it('generates targeted proposals from performance weaknesses', () => {
+  it('generates targeted proposals from performance weaknesses', async () => {
     const optimizer = new PromptOptimizer({ now: () => 1000 });
-    const proposals = optimizer.generateProposals(report());
+    const proposals = await optimizer.generateProposals(report());
 
     expect(proposals.length).toBeGreaterThan(0);
     expect(proposals.length).toBeLessThanOrEqual(3);
@@ -56,9 +56,9 @@ describe('PromptOptimizer', () => {
     expect(proposals[0].motivatingData.patterns).toContain('user_interruption observed');
   });
 
-  it('preserves personality consistency in generated changes', () => {
+  it('preserves personality consistency in generated changes', async () => {
     const optimizer = new PromptOptimizer({ now: () => 1000 });
-    const proposals = optimizer.generateProposals(report());
+    const proposals = await optimizer.generateProposals(report());
 
     for (const proposal of proposals) {
       expect(proposal.proposedChange).toContain('proactif');
@@ -69,15 +69,15 @@ describe('PromptOptimizer', () => {
     }
   });
 
-  it('limits proposals to the configured maximum', () => {
+  it('limits proposals to the configured maximum', async () => {
     const optimizer = new PromptOptimizer({ now: () => 1000, maxProposals: 2 });
-    const proposals = optimizer.generateProposals(report());
+    const proposals = await optimizer.generateProposals(report());
 
     expect(proposals).toHaveLength(2);
   });
 
-  it('uses recent assistant vector entries as successful style hints', () => {
-    addVectorEntry({
+  it('uses recent assistant vector entries as successful style hints', async () => {
+    await addVectorEntry({
       id: 'assistant-1',
       text: 'Réponse claire et utile en une phrase.',
       vector: [1, 0, 0],
@@ -90,7 +90,7 @@ describe('PromptOptimizer', () => {
     });
 
     const optimizer = new PromptOptimizer({ now: () => 1000 });
-    const proposals = optimizer.generateProposals(report(), { userId: 'Marie' });
+    const proposals = await optimizer.generateProposals(report(), { userId: 'Marie' });
 
     expect(proposals[0].proposedChange).toContain('Réponse claire et utile');
   });
