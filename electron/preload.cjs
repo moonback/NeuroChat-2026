@@ -16,5 +16,13 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
   },
   dialog: {
     showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  },
+  db: {
+    get: (key) => ipcRenderer.invoke('db:kv:get', key),
+    set: (key, value) => ipcRenderer.invoke('db:kv:set', key, value),
+    delete: (key) => ipcRenderer.invoke('db:kv:delete', key),
+    loadVectors: (userName) => ipcRenderer.invoke('db:vectors:load', userName),
+    addVector: (entry) => ipcRenderer.invoke('db:vectors:add', entry),
+    clearVectors: (userName) => ipcRenderer.invoke('db:vectors:clear', userName),
   }
 });

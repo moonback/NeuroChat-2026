@@ -21,6 +21,14 @@ declare global {
       dialog: {
         showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
       };
+      db?: {
+        get: (key: string) => Promise<string | null>;
+        set: (key: string, value: string) => Promise<boolean>;
+        delete: (key: string) => Promise<boolean>;
+        loadVectors: (userName?: string) => Promise<any[]>;
+        addVector: (entry: any) => Promise<boolean>;
+        clearVectors: (userName?: string) => Promise<boolean>;
+      };
     };
   }
 }

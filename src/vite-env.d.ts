@@ -12,7 +12,17 @@ interface ImportMeta {
 declare global {
   interface Window {
     /** Présent uniquement dans la fenêtre Electron (voir `electron/preload.cjs`). */
-    neurochatElectron?: { isElectron: boolean };
+    neurochatElectron?: {
+      isElectron: boolean;
+      db?: {
+        get: (key: string) => Promise<string | null>;
+        set: (key: string, value: string) => Promise<boolean>;
+        delete: (key: string) => Promise<boolean>;
+        loadVectors: (userName?: string) => Promise<any[]>;
+        addVector: (entry: any) => Promise<boolean>;
+        clearVectors: (userName?: string) => Promise<boolean>;
+      };
+    };
   }
 }
 
