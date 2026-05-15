@@ -166,7 +166,7 @@ export class SafetyConstraintManager {
   /**
    * Log a security event (attempt to modify safety constraints).
    */
-  logSecurityEvent(
+  async logSecurityEvent(
     eventType: 'modification_attempt' | 'validation_rejection',
     details: {
       targetSection: string;
@@ -174,19 +174,19 @@ export class SafetyConstraintManager {
       timestamp: number;
       proposalId?: string;
     }
-  ): void {
+  ): Promise<void> {
     if (eventType === 'modification_attempt') {
-      this.securityLogger.logModificationAttempt(details.targetSection, details.reason, details);
+      await this.securityLogger.logModificationAttempt(details.targetSection, details.reason, details);
       return;
     }
 
-    this.securityLogger.logValidationRejection(details.reason, details);
+    await this.securityLogger.logValidationRejection(details.reason, details);
   }
 
   /**
    * Get recent security events.
    */
-  getSecurityEvents(limit: number = 50): SecurityEvent[] {
+  async getSecurityEvents(limit: number = 50): Promise<SecurityEvent[]> {
     return this.securityLogger.getEvents(limit);
   }
 

@@ -37,7 +37,7 @@ export class AgentService {
     };
 
     const result = await this.runtime.run(request.input, request.sessionId, request.userId, mergedOptions);
-    saveAgentTrace({
+    await saveAgentTrace({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       sessionId: request.sessionId,
       userId: request.userId,

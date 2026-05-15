@@ -6,10 +6,10 @@ describe('SecurityLogger', () => {
     localStorage.clear();
   });
 
-  it('logs validation rejections with searchable top-level fields', () => {
+  it('logs validation rejections with searchable top-level fields', async () => {
     const logger = new SecurityLogger(() => 123);
 
-    const event = logger.logValidationRejection('Blocked immutable prompt change', {
+    const event = await logger.logValidationRejection('Blocked immutable prompt change', {
       targetSection: 'SAFETY & PRIVACY',
       proposalId: 'proposal-1',
     });
@@ -19,42 +19,42 @@ describe('SecurityLogger', () => {
     expect(event.targetSection).toBe('SAFETY & PRIVACY');
     expect(event.proposalId).toBe('proposal-1');
 
-    const stored = logger.getEvents();
+    const stored = await logger.getEvents();
     expect(stored).toHaveLength(1);
     expect(stored[0].timestamp).toBe(123);
   });
 
-  it('logs modification attempts', () => {
+  it('logs modification attempts', async () => {
     const logger = new SecurityLogger(() => 456);
 
-    logger.logModificationAttempt('IDENTITY & PERSONA', 'Attempted identity rewrite');
+    await logger.logModificationAttempt('IDENTITY & PERSONA', 'Attempted identity rewrite');
 
-    const events = logger.getEvents();
+    const events = await logger.getEvents();
     expect(events[0].type).toBe('modification_attempt');
     expect(events[0].targetSection).toBe('IDENTITY & PERSONA');
     expect(events[0].reason).toBe('Attempted identity rewrite');
   });
 
-  it('logs regression rollbacks with version metadata', () => {
+  it('logs regression rollbacks with version metadata', async () => {
     const logger = new SecurityLogger(() => 789);
 
-    logger.logRegressionRollback(3, 16.25, { restoredVersion: 2 });
+    await logger.logRegressionRollback(3, 16.25, { restoredVersion: 2 });
 
-    const event = logger.getEvents()[0];
+    const event = (await logger.getEvents())[0];
     expect(event.type).toBe('rollback_performed');
     expect(event.details?.version).toBe(3);
     expect(event.details?.restoredVersion).toBe(2);
     expect(event.details?.percentDecrease).toBe(16.25);
   });
 
-  it('keeps only the latest 100 events', () => {
+  it('keeps only the latest 100 events', async () => {
     const logger = new SecurityLogger();
 
     for (let i = 0; i < 150; i++) {
-      logger.logValidationRejection(`Event ${i}`);
+      await logger.logValidationRejection(`Event ${i}`);
     }
 
-    const events = logger.getEvents(150);
+    const events = await logger.getEvents(150);
     expect(events).toHaveLength(100);
     expect(events[0].reason).toBe('Event 50');
     expect(events[99].reason).toBe('Event 149');

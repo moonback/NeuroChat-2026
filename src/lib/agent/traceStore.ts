@@ -1,3 +1,4 @@
+import { getStorageBackend } from "../storage";
 import type { AgentEvent } from "./types";
 
 export interface AgentTraceEntry {
@@ -8,22 +9,17 @@ export interface AgentTraceEntry {
   events: AgentEvent[];
 }
 
-const TRACE_KEY = "neurochat_agent_traces";
-
-export function saveAgentTrace(entry: AgentTraceEntry): void {
+export async function saveAgentTrace(entry: AgentTraceEntry): Promise<void> {
   try {
-    const existing = loadAgentTraces();
-    const next = [...existing, entry].slice(-200);
-    localStorage.setItem(TRACE_KEY, JSON.stringify(next));
+    await getStorageBackend().saveTrace(entry);
   } catch {
     // ignore storage errors
   }
 }
 
-export function loadAgentTraces(): AgentTraceEntry[] {
+export async function loadAgentTraces(): Promise<AgentTraceEntry[]> {
   try {
-    const raw = localStorage.getItem(TRACE_KEY);
-    return raw ? (JSON.parse(raw) as AgentTraceEntry[]) : [];
+    return (await getStorageBackend().loadTraces()) as AgentTraceEntry[];
   } catch {
     return [];
   }

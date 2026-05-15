@@ -1,3 +1,5 @@
+import { getStorageBackend } from "./storage";
+
 /**
  * Avatar configuration: defines the visual themes and metadata
  * for each selectable character avatar.
@@ -62,50 +64,50 @@ export const AVATARS: Record<AvatarId, AvatarConfig> = {
 export const AVATAR_IDS: AvatarId[] = ["robot"];
 
 /** Load the saved avatar from localStorage, default to robot */
-export function loadSavedAvatar(): AvatarId {
+export async function loadSavedAvatar(): Promise<AvatarId> {
   try {
-    const saved = localStorage.getItem("NeuroChat-avatar") as AvatarId | null;
+    const saved = await getStorageBackend().getItem("NeuroChat-avatar") as AvatarId | null;
     if (saved && saved in AVATARS) return saved;
   } catch { }
   return "robot";
 }
 
 /** Persist the avatar choice */
-export function saveAvatar(id: AvatarId): void {
+export async function saveAvatar(id: AvatarId): Promise<void> {
   try {
-    localStorage.setItem("NeuroChat-avatar", id);
+    await getStorageBackend().setItem("NeuroChat-avatar", id);
   } catch { }
 }
 
 /** Load the saved user's name from localStorage */
-export function loadUserName(): string {
+export async function loadUserName(): Promise<string> {
   try {
-    return localStorage.getItem("neurochat-user-name") || "";
+    return (await getStorageBackend().getItem("neurochat-user-name")) || "";
   } catch {
     return "";
   }
 }
 
 /** Persist the user's name */
-export function saveUserName(name: string): void {
+export async function saveUserName(name: string): Promise<void> {
   try {
-    localStorage.setItem("neurochat-user-name", name);
+    await getStorageBackend().setItem("neurochat-user-name", name);
   } catch { }
 }
 
 
 /** Legacy child-name helpers kept for older UI/tests; aliases user-name storage. */
-export function loadChildName(): string {
+export async function loadChildName(): Promise<string> {
   try {
-    return localStorage.getItem("NeuroChat-child-name") || loadUserName();
+    return (await getStorageBackend().getItem("NeuroChat-child-name")) || await loadUserName();
   } catch {
     return "";
   }
 }
 
-export function saveChildName(name: string): void {
+export async function saveChildName(name: string): Promise<void> {
   try {
-    localStorage.setItem("NeuroChat-child-name", name);
-    saveUserName(name);
+    await getStorageBackend().setItem("NeuroChat-child-name", name);
+    await saveUserName(name);
   } catch { }
 }

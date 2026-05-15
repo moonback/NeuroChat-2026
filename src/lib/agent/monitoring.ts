@@ -10,8 +10,8 @@ export interface AgentMonitoringSnapshot {
   lastRunAt?: number;
 }
 
-export function getAgentMonitoringSnapshot(): AgentMonitoringSnapshot {
-  const traces = loadAgentTraces();
+export async function getAgentMonitoringSnapshot(): Promise<AgentMonitoringSnapshot> {
+  const traces = await loadAgentTraces();
   if (traces.length === 0) {
     return {
       totalRuns: 0,

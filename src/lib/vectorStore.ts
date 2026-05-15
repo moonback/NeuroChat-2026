@@ -9,6 +9,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
+import { getStorageBackend } from "./storage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,6 @@ export interface VectorEntry {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const VECTOR_STORE_KEY = "neurochat_v2_vectors";
 /** Maximum entries kept in the vector store (older ones are pruned) */
 const MAX_VECTOR_ENTRIES = 500;
 /** Gemini embedding model — gemini-embedding-001 remplace text-embedding-004 (déprécié jan 2026) */
@@ -38,15 +38,16 @@ const EMBEDDING_MODEL = "gemini-embedding-001";
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
-export function loadVectorStore(): VectorEntry[] {
+export async function loadVectorStore(): Promise<VectorEntry[]> {
   try {
     console.log("[VectorStore] 📂 Chargement du store de vecteurs...");
-    const raw = localStorage.getItem(VECTOR_STORE_KEY);
-    if (!raw) {
-      console.log("[VectorStore] ℹ️ Aucun vecteur trouvé dans le stockage");
-      return [];
-    }
-    const entries = JSON.parse(raw) as VectorEntry[];
+    const rows = await getStorageBackend().loadVectors();
+    const entries = rows.map((r) => ({
+      id: r.id,
+      text: r.text,
+      vector: r.vector,
+      metadata: { sessionId: r.sessionId, userName: r.userName, speaker: r.speaker, timestamp: r.timestamp },
+    } as VectorEntry));
     console.log(`[VectorStore] ✅ ${entries.length} vecteur(s) chargé(s)`);
     return entries;
   } catch (error) {
@@ -55,7 +56,7 @@ export function loadVectorStore(): VectorEntry[] {
   }
 }
 
-function saveVectorStore(entries: VectorEntry[]): void {
+async function saveVectorStore(entries: VectorEntry[]): Promise<void> {
   try {
     console.log(`[VectorStore] 💾 Sauvegarde de ${entries.length} vecteur(s)...`);
     // Keep only the most recent entries to stay within localStorage limits
@@ -63,7 +64,10 @@ function saveVectorStore(entries: VectorEntry[]): void {
     if (limited.length < entries.length) {
       console.log(`[VectorStore] ⚠️ Limitation à ${MAX_VECTOR_ENTRIES} vecteurs (${entries.length - limited.length} supprimé(s))`);
     }
-    localStorage.setItem(VECTOR_STORE_KEY, JSON.stringify(limited));
+    await getStorageBackend().clearVectors();
+    for (const e of limited) {
+      await getStorageBackend().addVector({ id: e.id, text: e.text, vector: e.vector, sessionId: e.metadata.sessionId, userName: e.metadata.userName, speaker: e.metadata.speaker, timestamp: e.metadata.timestamp });
+    }
     console.log("[VectorStore] ✅ Vecteurs sauvegardés avec succès");
   } catch (error) {
     console.error("[VectorStore] ❌ Échec de la sauvegarde:", error);
@@ -131,11 +135,11 @@ export function cosineSimilarity(a: number[], b: number[]): number {
  * Add a new entry to the vector store.
  * Skips if an entry with the same id already exists.
  */
-export function addVectorEntry(entry: VectorEntry): void {
-  const store = loadVectorStore();
+export async function addVectorEntry(entry: VectorEntry): Promise<void> {
+  const store = await loadVectorStore();
   if (store.some((e) => e.id === entry.id)) return; // deduplicate
   store.push(entry);
-  saveVectorStore(store);
+  await saveVectorStore(store);
 }
 
 /**
@@ -150,7 +154,7 @@ export async function embedAndStore(
   console.log(`[VectorStore] 🔄 Tentative d'embedding pour: ${id}`);
 
   // Skip if already embedded
-  const store = loadVectorStore();
+  const store = await loadVectorStore();
   if (store.some((e) => e.id === id)) {
     console.log(`[VectorStore] ⏭️ Vecteur déjà existant, ignoré: ${id}`);
     return;
@@ -163,7 +167,7 @@ export async function embedAndStore(
   }
 
   console.log(`[VectorStore] ➕ Ajout du vecteur: ${id}`);
-  addVectorEntry({ id, text, vector, metadata });
+  await addVectorEntry({ id, text, vector, metadata });
 }
 
 /**
@@ -187,7 +191,7 @@ export async function semanticSearch(
     return [];
   }
 
-  const store = loadVectorStore().filter(
+  const store = (await loadVectorStore()).filter(
     (e) => e.metadata.userName === userName
   );
 
@@ -206,25 +210,25 @@ export async function semanticSearch(
 /**
  * Delete all vector entries for a given user (called on memory clear).
  */
-export function clearUserVectors(userName: string): void {
-  const store = loadVectorStore().filter(
+export async function clearUserVectors(userName: string): Promise<void> {
+  const store = (await loadVectorStore()).filter(
     (e) => e.metadata.userName !== userName
   );
-  saveVectorStore(store);
+  await saveVectorStore(store);
 }
 
 /**
  * Delete ALL vector entries (called on full history clear).
  */
-export function clearAllVectors(): void {
-  localStorage.removeItem(VECTOR_STORE_KEY);
+export async function clearAllVectors(): Promise<void> {
+  await getStorageBackend().clearVectors();
 }
 
 /**
  * Return basic stats about the vector store for a given user.
  */
-export function getVectorStats(userName: string) {
-  const store = loadVectorStore();
+export async function getVectorStats(userName: string) {
+  const store = await loadVectorStore();
   const userEntries = store.filter((e) => e.metadata.userName === userName);
   return {
     totalEntries: store.length,
@@ -274,7 +278,7 @@ export async function seedRAG(
         .replace(/\s+/g, "_")
         .slice(0, 48)}`;
 
-    const store = loadVectorStore();
+    const store = await loadVectorStore();
     if (store.some((e) => e.id === id)) {
       skipped++;
       continue;
@@ -288,12 +292,12 @@ export async function seedRAG(
     });
 
     // Override the auto-generated id with our stable one
-    const updated = loadVectorStore();
+    const updated = await loadVectorStore();
     const last = updated[updated.length - 1];
     if (last && last.id !== id) {
       last.id = id;
       try {
-        localStorage.setItem(VECTOR_STORE_KEY, JSON.stringify(updated.slice(-MAX_VECTOR_ENTRIES)));
+        await saveVectorStore(updated.slice(-MAX_VECTOR_ENTRIES));
       } catch {}
     }
 

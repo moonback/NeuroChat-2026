@@ -37,8 +37,8 @@ describe('LearningDataStorage', () => {
       expect(data.config.enabled).toBe(true);
     });
 
-    it('should check if data exists', () => {
-      expect(storage.exists()).toBe(false);
+    it('should check if data exists', async () => {
+      expect(await storage.exists()).toBe(false);
     });
   });
 
@@ -305,10 +305,10 @@ describe('LearningDataStorage', () => {
       });
       
       await storage.save(data);
-      expect(storage.exists()).toBe(true);
+      expect(await storage.exists()).toBe(true);
       
       await storage.clear();
-      expect(storage.exists()).toBe(false);
+      expect(await storage.exists()).toBe(false);
       
       // Loading after clear should return empty data
       const loadedData = await storage.load();
