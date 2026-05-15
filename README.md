@@ -182,7 +182,7 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 #### **Phase 2 : Perception & Spontanéité (En cours)**
 - [x] Intelligence visuelle adaptative (FPS dynamique & détection de mouvement)
 - [x] Protection anti-hallucination (Vision activable à la demande)
-- [ ] **Analyse des Micro-Expressions** : Détecter l'humeur et l'énergie de l'utilisateur par la vision.
+- [x] **Analyse des Micro-Expressions** : Détecter l'humeur et l'énergie de l'utilisateur par la vision.
 - [ ] **Reconnaissance d'Objets Personnels** : Apprendre à identifier et nommer les objets du quotidien de l'utilisateur.
 
 #### **Phase 3 : Mémoire Visuelle & Contexte Profond**

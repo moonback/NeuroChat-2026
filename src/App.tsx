@@ -48,10 +48,10 @@ export default function App() {
     
     // Proactive AI reaction logic
     const now = Date.now();
-    const COOLDOWN_MS = 15000; // 15 seconds between proactive vision comments
+    const COOLDOWN_MS = 12000; // 12 seconds between proactive vision comments (more present friend)
     
     if (status === "listening" && !isSpeaking && (now - lastVisionNudgeTimeRef.current > COOLDOWN_MS)) {
-      console.log("👁️ [App] Envoi signal [VISION_NUDGE] (latence réduite)...");
+      console.log("👁️ [App] Envoi signal [VISION_NUDGE] (Analyse émotionnelle active)...");
       lastVisionNudgeTimeRef.current = now;
       sendTextMessage("[VISION_NUDGE]");
     }
