@@ -21,9 +21,9 @@ type CommandPattern = {
 };
 
 const COMMAND_PATTERNS: CommandPattern[] = [
-  // Navigation - patterns plus flexibles et robustes
+  // Navigation - Utilisation de \b et exigence d'un point pour les domaines non-listés
   {
-    regex: /(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\s+([a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:\/[^\s]*)?)/gi,
+    regex: /\b(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\b\s+([a-zA-Z0-9.-]+\.[a-z]{2,}(?:\/[^\s]*)?|google|youtube|facebook|twitter|instagram|linkedin|wikipedia|amazon|netflix|spotify)/gi,
     type: "navigate" as const,
     extract: (match: RegExpMatchArray) => {
       let url = match[1].trim();
@@ -55,13 +55,24 @@ const COMMAND_PATTERNS: CommandPattern[] = [
       return { url };
     },
   },
-  // Recherche Google
+  // Recherche Google - Pattern plus robuste pour les requêtes multi-mots sans ponctuation
   {
-    regex: /(?:cherche|recherche|trouve|google)\s+(?:moi\s+)?["']?([^"'\n]+?)["']?(?:\s+sur\s+(?:google|internet|le\s+web))?(?:\s|$|\.)/gi,
+    regex: /(?:cherche|recherche|trouve|google)\s+(?:moi\s+)?["']?([^"'\n\.\?!]+)["']?(?:\s+sur\s+(?:google|internet|le\s+web))?/gi,
     type: "navigate" as const,
     extract: (match: RegExpMatchArray) => {
-      const query = encodeURIComponent(match[1].trim());
-      return { url: `https://www.google.com/search?q=${query}` };
+      let query = match[1].trim();
+      
+      // Heuristique pour les phrases collées sans ponctuation (ex: "cherche cours Bitcoin Tu veux...")
+      // On coupe si on voit un début de phrase typique de l'assistant (Tu veux, Peux-tu, etc.)
+      const sentenceStarters = [" Tu veux", " Peux-tu", " Est-ce", " Je peux", " C'est"];
+      for (const starter of sentenceStarters) {
+        if (query.includes(starter)) {
+          query = query.split(starter)[0].trim();
+          break;
+        }
+      }
+      
+      return { url: `https://www.google.com/search?q=${encodeURIComponent(query)}` };
     },
   },
   // Pattern spécial pour "va sur youtube" (sans point)
@@ -88,11 +99,19 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   },
   // Clic
   {
-    regex: /clique(?:\s+sur)?(?:\s+le)?(?:\s+bouton)?(?:\s+lien)?\s+["']?([^"'\n]+?)["']?(?:\s|$|\.)/gi,
+    regex: /clique(?:\s+sur)?(?:\s+le)?(?:\s+bouton)?(?:\s+lien)?\s+["']?([^"'\n\.\?!]+)["']?/gi,
     type: "click" as const,
-    extract: (match: RegExpMatchArray) => ({
-      selector: { text: match[1].trim() },
-    }),
+    extract: (match: RegExpMatchArray) => {
+      let text = match[1].trim();
+      const sentenceStarters = [" Tu veux", " Peux-tu", " Est-ce", " Je peux", " C'est"];
+      for (const starter of sentenceStarters) {
+        if (text.includes(starter)) {
+          text = text.split(starter)[0].trim();
+          break;
+        }
+      }
+      return { selector: { text } };
+    },
   },
   // Saisie de texte - Patterns plus flexibles (ex: "écris facebook dans la barre d'adresse", "tape bonjour dans recherche")
   {
@@ -103,14 +122,14 @@ const COMMAND_PATTERNS: CommandPattern[] = [
       selector: { placeholder: match[2].trim() },
     }),
   },
-  // Défilement
+  // Défilement - Utilisation de frontières de mots \b pour éviter les faux positifs (ex: "avancées")
   {
-    regex: /(?:descends?|scroll(?:e)?|va(?:\s+en\s+bas)?)\s*(?:un\s+peu|la\s+page)?/gi,
+    regex: /\b(?:descends?|scroll(?:e)?|va\s+en\s+bas)\b\s*(?:un\s+peu|la\s+page)?/gi,
     type: "scroll" as const,
     extract: () => ({ direction: "down" as const }),
   },
   {
-    regex: /(?:monte|remonte|va(?:\s+en\s+haut)?)\s*(?:un\s+peu|la\s+page)?/gi,
+    regex: /\b(?:monte|remonte|va\s+en\s+haut)\b\s*(?:un\s+peu|la\s+page)?/gi,
     type: "scroll" as const,
     extract: () => ({ direction: "up" as const }),
   },
