@@ -25,11 +25,11 @@ export function useConversationMemory() {
     console.log("[useConversationMemory] ✅ Modal de bienvenue fermée");
   }, []);
 
-  const handleClearMemory = useCallback(() => {
+  const handleClearMemory = useCallback(async () => {
     console.log("[useConversationMemory] 🗑️ Demande d'effacement de la mémoire");
     if (window.confirm("Êtes-vous sûr de vouloir effacer toute la mémoire des conversations ? Cette action est irréversible.")) {
       console.log("[useConversationMemory] ✅ Confirmation reçue, effacement en cours...");
-      clearConversationHistory();
+      await clearConversationHistory();
       setShowMemoryModal(false);
       setSelectedSessionId(null);
       setMemoryRevision((revision) => revision + 1);
@@ -46,10 +46,14 @@ export function useConversationMemory() {
   }, []);
 
   // Compute stats and session list
-  const memoryData = useMemo(() => {
-    if (!userName) return null;
-    return getConversationStats(userName);
-  }, [userName, memoryRevision]); // Refresh when memory changes
+  const [memoryData, setMemoryData] = useState<any>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!userName) return;
+    getConversationStats(userName).then((stats) => { if (!cancelled) setMemoryData(stats); });
+    return () => { cancelled = true; };
+  }, [userName, memoryRevision]);
 
   const selectedSession = useMemo(() => {
     if (!selectedSessionId || !memoryData) return null;
@@ -64,7 +68,7 @@ export function useConversationMemory() {
 
   const addTurn = useCallback(
     (name: string, speaker: "user" | "assistant" | "child" | "companion", message: string) => {
-      addConversationTurn(name, speaker, message);
+      void addConversationTurn(name, speaker, message);
       setMemoryRevision((revision) => revision + 1);
     },
     []

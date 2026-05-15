@@ -37,7 +37,7 @@ export async function runLearningCycleForUser(
     },
   });
 
-  const turns = loadAllSessions()
+  const turns = (await loadAllSessions())
     .filter((session) => session.userName === userId)
     .flatMap((session) => session.turns);
 

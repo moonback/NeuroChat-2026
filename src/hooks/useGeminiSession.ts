@@ -35,7 +35,7 @@ export function useGeminiSession() {
   const retryCountRef = useRef(0);
   const maxRetries = 3;
 
-  const stopSession = useCallback((onStopRecording?: () => void, userName?: string) => {
+  const stopSession = useCallback(async (onStopRecording?: () => void, userName?: string) => {
     isManualStopRef.current = true;
     if (sessionRef.current) {
       try {
@@ -50,28 +50,25 @@ export function useGeminiSession() {
 
     // Fire-and-forget: generate session summary and refresh weekly summary
     if (userName) {
-      const sessions = loadAllSessions().filter((s) => s.userName === userName);
+      const sessions = (await loadAllSessions()).filter((s) => s.userName === userName);
       const currentSession = sessions[sessions.length - 1];
 
       if (currentSession) {
         generateSessionSummary(currentSession, userName)
-          .then((summary) => {
+          .then(async (summary) => {
             if (summary) {
               // Persist summary back onto the session in localStorage
-              const allSessions = loadAllSessions();
+              const allSessions = await loadAllSessions();
               const idx = allSessions.findIndex((s) => s.id === currentSession.id);
               if (idx >= 0) {
                 allSessions[idx].summary = summary;
                 try {
-                  localStorage.setItem(
-                    "neurochat_v2_memory",
-                    JSON.stringify(allSessions.slice(-50))
-                  );
+                  // session save handled by conversation memory backend
                 } catch { }
               }
               // Regenerate weekly summary with the new session data
               return getOrGenerateCurrentWeekSummary(
-                loadAllSessions().filter((s) => s.userName === userName),
+                (await loadAllSessions()).filter((s) => s.userName === userName),
                 userName
               );
             }
@@ -120,7 +117,7 @@ export function useGeminiSession() {
                 0.55
               ),
               getOrGenerateCurrentWeekSummary(
-                loadAllSessions().filter((s) => s.userName === userName),
+                (await loadAllSessions()).filter((s) => s.userName === userName),
                 userName
               ),
             ]);
