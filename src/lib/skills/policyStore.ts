@@ -1,3 +1,4 @@
+import { getStorageBackend } from "../storage";
 import type { SkillPermission } from "./types";
 
 export const SESSION_POLICY_KEY = "neurochat_skill_policy_v2";
@@ -9,9 +10,9 @@ export interface SkillPolicyConfig {
   deny: string[];
 }
 
-export function loadSkillPolicyConfig(): SkillPolicyConfig {
+export async function loadSkillPolicyConfig(): Promise<SkillPolicyConfig> {
   try {
-    const raw = localStorage.getItem(SESSION_POLICY_KEY);
+    const raw = await getStorageBackend().getItem(SESSION_POLICY_KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<SkillPolicyConfig>) : {};
     return {
       roles: parsed.roles ?? ["user"],
@@ -24,6 +25,6 @@ export function loadSkillPolicyConfig(): SkillPolicyConfig {
   }
 }
 
-export function saveSkillPolicyConfig(config: SkillPolicyConfig): void {
-  localStorage.setItem(SESSION_POLICY_KEY, JSON.stringify(config));
+export async function saveSkillPolicyConfig(config: SkillPolicyConfig): Promise<void> {
+  await getStorageBackend().setItem(SESSION_POLICY_KEY, JSON.stringify(config));
 }

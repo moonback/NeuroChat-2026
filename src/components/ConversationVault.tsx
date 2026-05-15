@@ -50,13 +50,11 @@ export function ConversationVault({
 }: ConversationVaultProps) {
   const [activeTab, setActiveTab] = useState<Tab>("sessions");
   const [weeklySummaries, setWeeklySummaries] = useState<WeeklySummary[]>(
-    () => {
-      const summaries = loadWeeklySummaries();
-      return summaries;
-    }
+    () => []
   );
   const [generatingWeek, setGeneratingWeek] = useState<string | null>(null);
   const [learningRefreshKey, setLearningRefreshKey] = useState(0);
+
 
   // ── Weekly summary helpers ──────────────────────────────────────────────────
 
@@ -65,12 +63,12 @@ export function ConversationVault({
     console.log(`[ConversationVault] 📅 Génération de la synthèse hebdomadaire pour: ${target}`);
     setGeneratingWeek(target);
     try {
-      const sessions = loadAllSessions().filter((s) => s.userName === userName);
+      const sessions = (await loadAllSessions()).filter((s) => s.userName === userName);
       console.log(`[ConversationVault] 📊 ${sessions.length} session(s) trouvée(s) pour ${userName}`);
       const result = await generateWeeklySummary(sessions, userName, target);
       if (result) {
         console.log("[ConversationVault] ✅ Synthèse générée avec succès");
-        setWeeklySummaries(loadWeeklySummaries());
+        setWeeklySummaries(await loadWeeklySummaries());
       } else {
         const totalTurns = sessions.reduce((n, s) => n + s.turns.length, 0);
         console.log(`[ConversationVault] ⚠️ Aucune synthèse générée (Seuil: ${totalTurns}/2 tours)`);

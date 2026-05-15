@@ -1,8 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-/**
- * Expose a safe API to the renderer process.
- */
 contextBridge.exposeInMainWorld('neurochatElectron', {
   isElectron: true,
   fs: {
@@ -16,5 +13,27 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
   },
   dialog: {
     showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  },
+  db: {
+    get: (key) => ipcRenderer.invoke('db:kv:get', key),
+    set: (key, value) => ipcRenderer.invoke('db:kv:set', key, value),
+    delete: (key) => ipcRenderer.invoke('db:kv:delete', key),
+    loadVectors: (userName) => ipcRenderer.invoke('db:vectors:load', userName),
+    addVector: (entry) => ipcRenderer.invoke('db:vectors:add', entry),
+    clearVectors: (userName) => ipcRenderer.invoke('db:vectors:clear', userName),
+    loadSessions: () => ipcRenderer.invoke('db:sessions:loadAll'),
+    saveSessions: (sessions) => ipcRenderer.invoke('db:sessions:save', sessions),
+    clearSessions: () => ipcRenderer.invoke('db:sessions:clear'),
+    getProfile: (userName) => ipcRenderer.invoke('db:profiles:get', userName),
+    setProfile: (profile) => ipcRenderer.invoke('db:profiles:update', profile),
+    loadLearning: (userId) => ipcRenderer.invoke('db:learning:load', userId),
+    saveLearning: (userId, encryptedData, lastUpdated) => ipcRenderer.invoke('db:learning:save', userId, encryptedData, lastUpdated),
+    clearLearning: (userId) => ipcRenderer.invoke('db:learning:clear', userId),
+    loadSummaries: () => ipcRenderer.invoke('db:summaries:load'),
+    saveSummary: (summary) => ipcRenderer.invoke('db:summaries:save', summary),
+    clearSummaries: () => ipcRenderer.invoke('db:summaries:clear'),
+    saveTrace: (trace) => ipcRenderer.invoke('db:traces:save', trace),
+    loadTraces: () => ipcRenderer.invoke('db:traces:load'),
+    migrate: (payload) => ipcRenderer.invoke('db:migrate', payload),
   }
 });

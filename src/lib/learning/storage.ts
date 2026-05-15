@@ -15,6 +15,7 @@ import type {
 } from './types';
 import { DEFAULT_LEARNING_CONFIG } from './types';
 import { logAutoImprovement } from './autoImprovementLog';
+import { getStorageBackend } from '../storage';
 
 // Storage keys
 const STORAGE_KEY_PREFIX = 'neurochat_learning_';
@@ -29,7 +30,7 @@ class EncryptionUtil {
   private static async getOrCreateKey(): Promise<CryptoKey> {
     if (this.cachedKey) return this.cachedKey;
 
-    const storedKey = localStorage.getItem('neurochat_encryption_key');
+    const storedKey = await getStorageBackend().getItem('neurochat_encryption_key');
     if (storedKey) {
       const keyData = JSON.parse(storedKey);
       this.cachedKey = await crypto.subtle.importKey(
@@ -48,7 +49,7 @@ class EncryptionUtil {
       ['encrypt', 'decrypt']
     );
     const exportedKey = await crypto.subtle.exportKey('jwk', key);
-    localStorage.setItem('neurochat_encryption_key', JSON.stringify(exportedKey));
+    await getStorageBackend().setItem('neurochat_encryption_key', JSON.stringify(exportedKey));
     this.cachedKey = key;
     return key;
   }
@@ -159,7 +160,7 @@ export class LearningDataStorage {
   async load(): Promise<LearningData> {
     try {
       const key = this.getStorageKey();
-      const stored = localStorage.getItem(key);
+      const stored = await getStorageBackend().loadLearning(this.userId);
       
       if (!stored) {
         const empty = this.initializeEmptyData();
@@ -196,7 +197,7 @@ export class LearningDataStorage {
       const encrypted = await EncryptionUtil.encrypt(serialized);
       
       const raw = JSON.stringify(encrypted);
-      localStorage.setItem(key, raw);
+      await getStorageBackend().saveLearning(this.userId, raw, data.lastUpdated);
       LearningDataStorage.cache.set(key, { raw, data });
     } catch (error) {
       console.error('Failed to save learning data:', error);
@@ -300,16 +301,15 @@ export class LearningDataStorage {
    */
   async clear(): Promise<void> {
     const key = this.getStorageKey();
-    localStorage.removeItem(key);
+    await getStorageBackend().clearLearning(this.userId);
     LearningDataStorage.cache.delete(key);
   }
 
   /**
    * Check if learning data exists for this user.
    */
-  exists(): boolean {
-    const key = this.getStorageKey();
-    return localStorage.getItem(key) !== null;
+  async exists(): Promise<boolean> {
+    return (await getStorageBackend().loadLearning(this.userId)) !== null;
   }
 }
 

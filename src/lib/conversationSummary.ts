@@ -9,6 +9,7 @@
  */
 
 import { ConversationSession, ConversationTurn } from "./conversationMemory";
+import { getStorageBackend } from "./storage";
 import { chatWithOpenRouter } from "./OpenRouterService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -82,31 +83,31 @@ function formatTranscript(
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
 
-export function loadWeeklySummaries(): WeeklySummary[] {
+export async function loadWeeklySummaries(): Promise<WeeklySummary[]> {
   try {
-    const raw = localStorage.getItem(WEEKLY_SUMMARIES_KEY);
-    return raw ? (JSON.parse(raw) as WeeklySummary[]) : [];
+    return await getStorageBackend().loadSummaries() as WeeklySummary[];
   } catch {
     return [];
   }
 }
 
-function saveWeeklySummaries(summaries: WeeklySummary[]): void {
+async function saveWeeklySummaries(summaries: WeeklySummary[]): Promise<void> {
   try {
     // Keep last 12 weeks
     const limited = summaries.slice(-12);
-    localStorage.setItem(WEEKLY_SUMMARIES_KEY, JSON.stringify(limited));
+    await getStorageBackend().clearSummaries();
+    for (const summary of limited) await getStorageBackend().saveSummary(summary);
   } catch (e) {
     console.error("[Summary] Failed to save weekly summaries:", e);
   }
 }
 
-export function getWeeklySummary(weekId: string): WeeklySummary | null {
-  return loadWeeklySummaries().find((s) => s.weekId === weekId) ?? null;
+export async function getWeeklySummary(weekId: string): Promise<WeeklySummary | null> {
+  return (await loadWeeklySummaries()).find((s) => s.weekId === weekId) ?? null;
 }
 
-export function clearWeeklySummaries(): void {
-  localStorage.removeItem(WEEKLY_SUMMARIES_KEY);
+export async function clearWeeklySummaries(): Promise<void> {
+  await getStorageBackend().clearSummaries();
 }
 
 // ─── AI Generation ────────────────────────────────────────────────────────────
@@ -229,8 +230,8 @@ export async function generateWeeklySummary(
     };
 
     // Persist
-    const existing = loadWeeklySummaries().filter((s) => s.weekId !== targetWeek);
-    saveWeeklySummaries([...existing, weeklySummary]);
+    const existing = (await loadWeeklySummaries()).filter((s) => s.weekId !== targetWeek);
+    await saveWeeklySummaries([...existing, weeklySummary]);
 
     return weeklySummary;
   } catch (err) {
@@ -248,7 +249,7 @@ export async function getOrGenerateCurrentWeekSummary(
   userName: string
 ): Promise<WeeklySummary | null> {
   const currentWeek = getWeekId(new Date());
-  const existing = getWeeklySummary(currentWeek);
+  const existing = await getWeeklySummary(currentWeek);
 
   // Regenerate if stale (older than 1 hour) or missing
   const isStale =
@@ -256,7 +257,7 @@ export async function getOrGenerateCurrentWeekSummary(
 
   if (isStale) {
     // Check cooldown
-    const lastAttempt = parseInt(localStorage.getItem(SUMMARY_COOLDOWN_KEY) || "0");
+    const lastAttempt = parseInt((await getStorageBackend().getItem(SUMMARY_COOLDOWN_KEY)) || "0");
     if (Date.now() - lastAttempt < RETRY_COOLDOWN_MS) {
       console.log("[Summary] Skipping generation: cooldown active (API failure recently)");
       return existing;
@@ -272,10 +273,10 @@ export async function getOrGenerateCurrentWeekSummary(
     
     if (!result) {
       // Record failure timestamp to trigger cooldown
-      localStorage.setItem(SUMMARY_COOLDOWN_KEY, Date.now().toString());
+      await getStorageBackend().setItem(SUMMARY_COOLDOWN_KEY, Date.now().toString());
     } else {
       // Success, clear cooldown
-      localStorage.removeItem(SUMMARY_COOLDOWN_KEY);
+      await getStorageBackend().removeItem(SUMMARY_COOLDOWN_KEY);
     }
     
     return result || existing;

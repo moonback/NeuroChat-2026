@@ -7,13 +7,13 @@ import {
 } from "../lib/conversationMemory";
 
 export function useConversationMemory() {
-  const [{ userName, showWelcomeModal }, setUserContext] = useState(() => {
-    const initialUserName = loadUserName();
-    return {
-      userName: initialUserName,
-      showWelcomeModal: !initialUserName,
-    };
-  });
+  const [{ userName, showWelcomeModal }, setUserContext] = useState({ userName: "", showWelcomeModal: true });
+
+  useEffect(() => {
+    loadUserName().then((initialUserName) => {
+      setUserContext({ userName: initialUserName, showWelcomeModal: !initialUserName });
+    });
+  }, []);
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [memoryRevision, setMemoryRevision] = useState(0);
@@ -21,15 +21,15 @@ export function useConversationMemory() {
   const handleWelcomeSubmit = useCallback((name: string) => {
     console.log(`[useConversationMemory] 👋 Soumission du nom d'utilisateur: ${name}`);
     setUserContext((prev) => ({ ...prev, userName: name, showWelcomeModal: false }));
-    saveUserName(name);
+void saveUserName(name);
     console.log("[useConversationMemory] ✅ Modal de bienvenue fermée");
   }, []);
 
-  const handleClearMemory = useCallback(() => {
+  const handleClearMemory = useCallback(async () => {
     console.log("[useConversationMemory] 🗑️ Demande d'effacement de la mémoire");
     if (window.confirm("Êtes-vous sûr de vouloir effacer toute la mémoire des conversations ? Cette action est irréversible.")) {
       console.log("[useConversationMemory] ✅ Confirmation reçue, effacement en cours...");
-      clearConversationHistory();
+      await clearConversationHistory();
       setShowMemoryModal(false);
       setSelectedSessionId(null);
       setMemoryRevision((revision) => revision + 1);
@@ -42,14 +42,18 @@ export function useConversationMemory() {
 
   const updateUserName = useCallback((name: string) => {
     setUserContext((prev) => ({ ...prev, userName: name }));
-    saveUserName(name);
+void saveUserName(name);
   }, []);
 
   // Compute stats and session list
-  const memoryData = useMemo(() => {
-    if (!userName) return null;
-    return getConversationStats(userName);
-  }, [userName, memoryRevision]); // Refresh when memory changes
+  const [memoryData, setMemoryData] = useState<any>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!userName) return;
+    getConversationStats(userName).then((stats) => { if (!cancelled) setMemoryData(stats); });
+    return () => { cancelled = true; };
+  }, [userName, memoryRevision]);
 
   const selectedSession = useMemo(() => {
     if (!selectedSessionId || !memoryData) return null;
@@ -64,7 +68,7 @@ export function useConversationMemory() {
 
   const addTurn = useCallback(
     (name: string, speaker: "user" | "assistant" | "child" | "companion", message: string) => {
-      addConversationTurn(name, speaker, message);
+      void addConversationTurn(name, speaker, message);
       setMemoryRevision((revision) => revision + 1);
     },
     []

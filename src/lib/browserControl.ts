@@ -1,3 +1,4 @@
+import { getStorageBackend } from "./storage";
 /**
  * Browser Control System - Permet à l'assistant de contrôler le navigateur
  * 
@@ -113,21 +114,28 @@ export class BrowserController {
   private currentWorkdir: string | null = null;
   private maxHistorySize = 50;
   private onConfirmationNeeded?: (action: BrowserAction) => Promise<boolean>;
+  private workdirLoaded = false;
 
   constructor(onConfirmationNeeded?: (action: BrowserAction) => Promise<boolean>) {
     this.onConfirmationNeeded = onConfirmationNeeded;
-    // Restaurer le dossier de travail depuis localStorage
-    const savedDir = localStorage.getItem("neurochat_workdir");
+    void this.loadWorkdir();
+  }
+
+
+  private async loadWorkdir(): Promise<void> {
+    if (this.workdirLoaded) return;
+    this.workdirLoaded = true;
+    const savedDir = await getStorageBackend().getItem("neurochat_workdir");
     if (savedDir) {
       this.currentWorkdir = savedDir;
       console.log(`📂 [BrowserController] Dossier restauré: ${savedDir}`);
     }
   }
-
   /**
    * Exécute une action sur le navigateur
    */
   async executeAction(action: BrowserAction): Promise<BrowserActionResult> {
+    await this.loadWorkdir();
     // Vérifier si l'action nécessite une confirmation
     if (action.requiresConfirmation && this.onConfirmationNeeded) {
       const confirmed = await this.onConfirmationNeeded(action);
@@ -218,7 +226,7 @@ export class BrowserController {
           if (pickResult.success && pickResult.data?.path) {
             const newDir = pickResult.data.path as string;
             this.currentWorkdir = newDir;
-            localStorage.setItem("neurochat_workdir", newDir);
+            await getStorageBackend().setItem("neurochat_workdir", newDir);
           }
           return pickResult;
         

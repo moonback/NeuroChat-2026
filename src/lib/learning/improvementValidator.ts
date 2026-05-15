@@ -27,7 +27,7 @@ export class ImprovementValidator {
     const blockedTokens = ['ignore safety', 'disable privacy', 'reveal password', 'system prompt'];
     if (blockedTokens.some((t) => lower.includes(t))) {
       errors.push('Proposal contains forbidden safety/privacy modifications.');
-      this.safetyManager.logSecurityEvent('validation_rejection', {
+      void this.safetyManager.logSecurityEvent('validation_rejection', {
         targetSection: proposal.targetSection,
         reason: 'Forbidden tokens detected in proposedChange',
         timestamp: Date.now(),

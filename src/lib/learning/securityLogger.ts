@@ -1,3 +1,5 @@
+import { getStorageBackend } from '../storage';
+
 export type SecurityEventType =
   | 'modification_attempt'
   | 'validation_rejection'
@@ -21,7 +23,7 @@ const MAX_SECURITY_EVENTS = 100;
 export class SecurityLogger {
   constructor(private readonly now: () => number = () => Date.now()) {}
 
-  log(type: SecurityEventType, message: string, details: Record<string, unknown> = {}): SecurityEvent {
+  async log(type: SecurityEventType, message: string, details: Record<string, unknown> = {}): Promise<SecurityEvent> {
     const event: SecurityEvent = {
       id: `security_${this.now()}_${Math.random().toString(36).slice(2, 10)}`,
       type,
@@ -33,21 +35,21 @@ export class SecurityLogger {
       details,
     };
 
-    const events = this.getEvents(MAX_SECURITY_EVENTS);
+    const events = await this.getEvents(MAX_SECURITY_EVENTS);
     events.push(event);
-    localStorage.setItem(SECURITY_EVENTS_KEY, JSON.stringify(events.slice(-MAX_SECURITY_EVENTS)));
+    await getStorageBackend().setItem(SECURITY_EVENTS_KEY, JSON.stringify(events.slice(-MAX_SECURITY_EVENTS)));
     return event;
   }
 
-  logValidationRejection(reason: string, details: Record<string, unknown> = {}): SecurityEvent {
+  async logValidationRejection(reason: string, details: Record<string, unknown> = {}): Promise<SecurityEvent> {
     return this.log('validation_rejection', reason, { reason, ...details });
   }
 
-  logModificationAttempt(targetSection: string, reason: string, details: Record<string, unknown> = {}): SecurityEvent {
+  async logModificationAttempt(targetSection: string, reason: string, details: Record<string, unknown> = {}): Promise<SecurityEvent> {
     return this.log('modification_attempt', reason, { targetSection, reason, ...details });
   }
 
-  logRegressionRollback(version: number, percentDecrease: number, details: Record<string, unknown> = {}): SecurityEvent {
+  async logRegressionRollback(version: number, percentDecrease: number, details: Record<string, unknown> = {}): Promise<SecurityEvent> {
     return this.log('rollback_performed', `Rolled back prompt version ${version} after ${percentDecrease.toFixed(2)}% regression.`, {
       reason: 'Regression rollback triggered',
       version,
@@ -56,9 +58,9 @@ export class SecurityLogger {
     });
   }
 
-  getEvents(limit: number = 50): SecurityEvent[] {
+  async getEvents(limit: number = 50): Promise<SecurityEvent[]> {
     try {
-      const stored = localStorage.getItem(SECURITY_EVENTS_KEY);
+      const stored = await getStorageBackend().getItem(SECURITY_EVENTS_KEY);
       const events: SecurityEvent[] = stored ? JSON.parse(stored) : [];
       return events.slice(-limit);
     } catch {
@@ -66,8 +68,8 @@ export class SecurityLogger {
     }
   }
 
-  clear(): void {
-    localStorage.removeItem(SECURITY_EVENTS_KEY);
+  async clear(): Promise<void> {
+    await getStorageBackend().removeItem(SECURITY_EVENTS_KEY);
   }
 }
 

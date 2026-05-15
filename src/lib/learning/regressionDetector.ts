@@ -98,7 +98,7 @@ export class RegressionDetector {
       threshold: comparison.threshold,
     });
 
-    this.securityLogger.log('regression_detected', `Prompt version ${input.activeVersion} regressed by ${comparison.percentDecrease.toFixed(2)}%.`, {
+    await this.securityLogger.log('regression_detected', `Prompt version ${input.activeVersion} regressed by ${comparison.percentDecrease.toFixed(2)}%.`, {
       activeVersion: input.activeVersion,
       previousVersion: input.previousVersion,
       previousScore: comparison.previousScore,
@@ -120,7 +120,7 @@ export class RegressionDetector {
     }
 
     if (restoredVersion) {
-      this.securityLogger.logRegressionRollback(input.activeVersion, comparison.percentDecrease, {
+      await this.securityLogger.logRegressionRollback(input.activeVersion, comparison.percentDecrease, {
         restoredVersion: restoredVersion.version,
         ineffectiveProposalIds,
       });
@@ -199,8 +199,8 @@ export class RegressionDetector {
       previousMetrics: previousVersion.performanceMetrics,
       currentMetrics: input.currentMetrics,
       threshold,
-      proposals: activeVersion.appliedProposals.map((proposalId) => ({
-        id: proposalId,
+      proposals: activeVersion.appliedProposals.map((proposal) => ({
+        id: typeof proposal === "string" ? proposal : proposal.id,
         targetSection: 'CORE OPERATIONAL RULES',
         proposedChange: '',
         justification: 'Marked ineffective after monitored regression rollback.',

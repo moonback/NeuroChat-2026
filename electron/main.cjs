@@ -3,6 +3,8 @@ const path = require('path');
 const { shell } = require('electron');
 const fs = require('fs/promises');
 const { existsSync } = require('fs');
+const { ensureDb, closeDb } = require('./database.cjs');
+const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
 
 /**
  * Register FS and Dialog handlers
@@ -209,7 +211,9 @@ function createWindow() {
 
 app.whenReady().then(() => {
   registerDisplayMediaHandler();
+  ensureDb(app);
   registerIpcHandlers();
+  registerDbIpcHandlers();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -218,4 +222,8 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  closeDb();
 });
