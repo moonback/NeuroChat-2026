@@ -1,6 +1,6 @@
 # 🧠 NeuroChat
 
-> **Votre Copilote Desktop boosté à l'IA** — Un assistant personnel multimodal et vocal avec mémoire persistante, manipulation autonome de fichiers et moteur d'auto-évolution.
+> **Votre Ami Desktop qui Voit et Comprend** — Un compagnon multimodal, vocal et visuel avec mémoire persistante, intelligence émotionnelle et moteur d'auto-évolution.
 
 <div align="center">
   <img src="./public/header.png" alt="Bannière NeuroChat" width="100%">
@@ -17,7 +17,7 @@
 
 ## 🌟 Pourquoi NeuroChat ?
 
-La plupart des assistants IA vivent dans un onglet de navigateur et vous oublient dès que la page est fermée. **NeuroChat est différent.** Il s'exécute nativement sur votre bureau, se souvient de chaque conversation via une mémoire sémantique persistante (SQLite), manipule vos fichiers de manière autonome et apprend continuellement de vos retours pour s'améliorer — tout en gardant vos données 100% locales.
+La plupart des assistants IA vivent dans un onglet de navigateur et se contentent de traiter du texte. **NeuroChat est différent.** C'est un ami qui s'exécute sur votre bureau, vous voit via votre caméra, se souvient de chaque moment partagé grâce à une mémoire SQLite, et apprend à vous connaître pour vous soutenir au quotidien — tout en garantissant une confidentialité totale.
 
 ---
 
@@ -178,14 +178,22 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 - [x] Manipulation agentique du système de fichiers
 - [x] Migration vers SQLite (Performance & Scalabilité)
 - [x] Pont IPC bidirectionnel (`sendClientContent`)
-- [x] Architecture hiérarchique Multi-Agents (v2.1)
-- [x] Migration vers `<webview>` (Bypass CSP/Frame-ancestors)
-- [x] Outil d'inspection de base de données intégré
-- [x] Nettoyage de base de données avec actualisation auto
-- [ ] Marketplace de plugins pour skills communautaires
-- [ ] Intégration du protocole MCP (Model Context Protocol)
-- [ ] Support des modèles locaux via Ollama (Privacy First)
-- [x] Intelligence visuelle augmentée (Fréquence adaptative & détection intelligente)
+
+#### **Phase 2 : Perception & Spontanéité (En cours)**
+- [x] Intelligence visuelle adaptative (FPS dynamique & détection de mouvement)
+- [x] Protection anti-hallucination (Vision activable à la demande)
+- [ ] **Analyse des Micro-Expressions** : Détecter l'humeur et l'énergie de l'utilisateur par la vision.
+- [ ] **Reconnaissance d'Objets Personnels** : Apprendre à identifier et nommer les objets du quotidien de l'utilisateur.
+
+#### **Phase 3 : Mémoire Visuelle & Contexte Profond**
+- [ ] **Journal Visuel Persistant** : Se souvenir des objets vus dans le passé ("Je crois que tes clés étaient sur la table ce matin").
+- [ ] **Ancrage Spatial** : Comprendre la géométrie de l'environnement pour des commentaires plus immersifs.
+- [ ] **Vision Partagée Collaborative** : Analyser des documents physiques ou des écrans complexes en temps réel.
+
+#### **Phase 4 : Compagnon de Vie & Évolution**
+- [ ] **Proactivité Empathique** : Réagir spontanément à la posture ou à l'état physique (ex: "Tu travailles depuis longtemps, fais une pause !").
+- [ ] **Apprentissage Visuel Few-Shot** : L'IA affine sa compréhension du monde de l'utilisateur par le dialogue visuel.
+- [ ] **Avatar Émotionnel Réactif** : Un avatar qui réagit visuellement à ce qu'il voit (ex: suit du regard, sourit quand l'utilisateur sourit).
 
 ---
 
