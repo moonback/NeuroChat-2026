@@ -68,7 +68,7 @@ export function ConversationVault({
       const result = await generateWeeklySummary(sessions, userName, target);
       if (result) {
         console.log("[ConversationVault] ✅ Synthèse générée avec succès");
-        setWeeklySummaries(loadWeeklySummaries());
+        setWeeklySummaries(await loadWeeklySummaries());
       } else {
         const totalTurns = sessions.reduce((n, s) => n + s.turns.length, 0);
         console.log(`[ConversationVault] ⚠️ Aucune synthèse générée (Seuil: ${totalTurns}/2 tours)`);
