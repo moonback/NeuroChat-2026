@@ -55,13 +55,24 @@ const COMMAND_PATTERNS: CommandPattern[] = [
       return { url };
     },
   },
-  // Recherche Google
+  // Recherche Google - Pattern plus robuste pour les requêtes multi-mots sans ponctuation
   {
-    regex: /(?:cherche|recherche|trouve|google)\s+(?:moi\s+)?["']?([^"'\n]+?)["']?(?:\s+sur\s+(?:google|internet|le\s+web))?(?:\s|$|\.)/gi,
+    regex: /(?:cherche|recherche|trouve|google)\s+(?:moi\s+)?["']?([^"'\n\.\?!]+)["']?(?:\s+sur\s+(?:google|internet|le\s+web))?/gi,
     type: "navigate" as const,
     extract: (match: RegExpMatchArray) => {
-      const query = encodeURIComponent(match[1].trim());
-      return { url: `https://www.google.com/search?q=${query}` };
+      let query = match[1].trim();
+      
+      // Heuristique pour les phrases collées sans ponctuation (ex: "cherche cours Bitcoin Tu veux...")
+      // On coupe si on voit un début de phrase typique de l'assistant (Tu veux, Peux-tu, etc.)
+      const sentenceStarters = [" Tu veux", " Peux-tu", " Est-ce", " Je peux", " C'est"];
+      for (const starter of sentenceStarters) {
+        if (query.includes(starter)) {
+          query = query.split(starter)[0].trim();
+          break;
+        }
+      }
+      
+      return { url: `https://www.google.com/search?q=${encodeURIComponent(query)}` };
     },
   },
   // Pattern spécial pour "va sur youtube" (sans point)
@@ -88,11 +99,19 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   },
   // Clic
   {
-    regex: /clique(?:\s+sur)?(?:\s+le)?(?:\s+bouton)?(?:\s+lien)?\s+["']?([^"'\n]+?)["']?(?:\s|$|\.)/gi,
+    regex: /clique(?:\s+sur)?(?:\s+le)?(?:\s+bouton)?(?:\s+lien)?\s+["']?([^"'\n\.\?!]+)["']?/gi,
     type: "click" as const,
-    extract: (match: RegExpMatchArray) => ({
-      selector: { text: match[1].trim() },
-    }),
+    extract: (match: RegExpMatchArray) => {
+      let text = match[1].trim();
+      const sentenceStarters = [" Tu veux", " Peux-tu", " Est-ce", " Je peux", " C'est"];
+      for (const starter of sentenceStarters) {
+        if (text.includes(starter)) {
+          text = text.split(starter)[0].trim();
+          break;
+        }
+      }
+      return { selector: { text } };
+    },
   },
   // Saisie de texte - Patterns plus flexibles (ex: "écris facebook dans la barre d'adresse", "tape bonjour dans recherche")
   {
