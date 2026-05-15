@@ -8,11 +8,12 @@ export class VideoService {
   // Adaptive frequency state
   private lastImageData: ImageData | null = null;
   private lastFrameTime: number = 0;
-  private readonly MIN_INTERVAL_MS = 200;   // 5 fps on high motion
-  private readonly MAX_INTERVAL_MS = 8000;  // Every 8s if static
-  private currentInterval = 1000;
-  private readonly MOTION_THRESHOLD = 0.025; // 2.5% of pixels changed (more sensitive)
+  private readonly MIN_INTERVAL_MS = 500;   // 2 fps max on high motion
+  private readonly MAX_INTERVAL_MS = 10000; // Every 10s if static
+  private currentInterval = 2000;
+  private readonly MOTION_THRESHOLD = 0.15; // 15% of pixels changed (only major scene changes like new person, object)
   private consecutiveStaticFrames = 0;
+  private consecutiveMotionFrames = 0;
 
   constructor(
     private onFrame: (base64: string) => void,
@@ -65,11 +66,15 @@ export class VideoService {
         // High activity: increase frequency
         shouldSend = true;
         this.consecutiveStaticFrames = 0;
-        this.currentInterval = Math.max(this.MIN_INTERVAL_MS, this.currentInterval * 0.6);
-        console.log(`[Vision] 🚀 Mouvement détecté (${(diff * 100).toFixed(1)}%). Intervalle : ${this.currentInterval.toFixed(0)}ms`);
+        this.consecutiveMotionFrames++;
+        this.currentInterval = Math.max(this.MIN_INTERVAL_MS, this.currentInterval * 0.7);
+        if (this.consecutiveMotionFrames === 1) {
+          console.log(`[Vision] 🚀 Mouvement majeur détecté (${(diff * 100).toFixed(1)}%)`);
+        }
       } else {
         // Static scene: decrease frequency
         this.consecutiveStaticFrames++;
+        this.consecutiveMotionFrames = 0;
         const oldInterval = this.currentInterval;
         this.currentInterval = Math.min(this.MAX_INTERVAL_MS, this.currentInterval + 500);
         
@@ -89,8 +94,9 @@ export class VideoService {
       this.lastImageData = currentImageData;
       this.lastFrameTime = now;
       
-      // Notify motion AFTER sending the frame to ensure AI context is ready
-      if (this.consecutiveStaticFrames === 0) {
+      // Only notify motion after 3+ consecutive significant motion frames (filters noise)
+      if (this.consecutiveMotionFrames >= 3 && this.consecutiveStaticFrames === 0) {
+        console.log(`[Vision] 🎯 Scène significativement changée — notification envoyée`);
         this.onMotion?.();
       }
     }

@@ -212,12 +212,12 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Saisie de texte ────────────────────────────────────────────────────
   {
     id: "type-with-target",
-    regex: /\b(?:écris|tape|saisis|entre|remplis)\s+["']([^"']+)["']\s+(?:dans|sur)\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!? ]{1,40})["']?/gi,
+    regex: /\b(?:écris|tape|saisis|entre|remplis)\s+["']([^"']+)["']\s+(?:dans|sur)\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!?]{1,40})["']?/gi,
     type: "type",
     baseConfidence: 0.9,
     extract: (m) => ({
       text: m[1].trim(),
-      selector: { placeholder: m[2].trim() },
+      selector: { placeholder: (m[2] || "").trim() },
     }),
   },
   // Saisie sans cible explicite
@@ -305,7 +305,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Extraction de contenu ──────────────────────────────────────────────
   {
     id: "extract",
-    regex: /\b(?:lis|extrais|récupère|montre|analyse)(?:\s+moi)?(?:\s+le\s+contenu\s+(?:de\s+)?)?(?:la\s+|cette\s+)?page\b/gi,
+    regex: /\b(?:lis|extrais|récupère|montre|analyse)(?:\s+moi)?(?:\s+le\s+contenu\s+(?:de\s+)?)?(?:\s+la|\s+cette)?\s+page\b/gi,
     type: "extract",
     baseConfidence: 0.8,
     extract: () => ({}),
