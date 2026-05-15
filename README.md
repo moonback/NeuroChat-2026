@@ -6,7 +6,7 @@
   <img src="./public/header.png" alt="Bannière NeuroChat" width="100%">
 
   ![build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)
-  ![version](https://img.shields.io/badge/version-2.1.2--beta--multi-blueviolet?style=for-the-badge)
+  ![version](https://img.shields.io/badge/version-2.2.0--beta--vision-blueviolet?style=for-the-badge)
   ![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
   ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)
 
@@ -34,13 +34,18 @@ Parlez naturellement avec votre assistant grâce à l'audio full-duplex propuls�
 | **Transcription Live** | Transcription en temps réel de votre voix et de celle de l'assistant |
 | **Synthèse Vocale (TTS)** | Voix naturelles avec plusieurs profils configurables (Puck, etc.) |
 
-### 👁️ Vision Contextuelle & Intelligence Visuelle (v2.1.2)
-NeuroChat voit ce que vous voyez et comprend votre contexte visuel de manière intelligente.
-- **Protection Anti-Hallucination** — Activation conditionnelle des instructions de vision. Si la caméra n'est pas activée, l'IA ne reçoit pas les directives d'analyse visuelle, éliminant ainsi les commentaires spontanés sur un environnement non visible.
-- **Moteur de Vision Smart** — Fréquence d'analyse adaptative (de 0.1 à 2.5 fps) basée sur la détection de mouvement par luminance pour optimiser le CPU et la précision.
-- **Partage d'écran** — Capture via `desktopCapturer` d'Electron pour une analyse d'écran en temps réel.
-- **Support Multi-Caméra** — Basculez dynamiquement entre vos caméras frontale, arrière ou externe.
-- **Analyse Continue** — L'assistant peut suivre une action visuelle fluide grâce à l'augmentation automatique du taux de rafraîchissement.
+### 👁️ Vision Contextuelle & Intelligence Visuelle (v2.2)
+NeuroChat voit ce que vous voyez et comprend votre contexte visuel de manière intelligente — en mode **compagnon discret**.
+
+| Capacité | Description |
+|:---|:---|
+| **Double Vision (Cam + Écran)** | Activez caméra et partage d'écran simultanément — l'IA combine les deux flux pour un contexte maximal |
+| **Silence par Défaut** | L'IA observe silencieusement et n'intervient que sur des événements majeurs (nouvelle personne, changement de lieu) |
+| **Anti-Hallucination Strict** | Protocole de certitude 100% : l'IA ne commente jamais ce qu'elle ne voit pas clairement |
+| **Moteur de Mouvement Smart** | Seuil à 15% + 3 frames consécutives — seuls les vrais changements de scène déclenchent l'analyse |
+| **Aperçu Dual PiP** | Deux fenêtres flottantes draggables et redimensionnables quand les deux flux sont actifs |
+| **Cooldown Proactif 60s** | Maximum un nudge visuel par minute pour éviter les interruptions |
+| **Support Multi-Caméra** | Basculez dynamiquement entre vos caméras frontale, arrière ou externe |
 
 ### 🌐 Orchestration Multi-Agents & Web (v2.1)
 NeuroChat utilise désormais une architecture hiérarchique `Supervisor` -> `Agents Spécialisés` pour résoudre des tâches complexes.
@@ -161,8 +166,10 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 
 | Métrique | Valeur |
 |:---|:---|
-| Précision CommandParser | 94% (32/34 tests) |
+| Précision CommandParser | 97% (33/34 tests) |
 | Dimensions Embeddings | 3072 (text-embedding-004) |
+| Seuil Mouvement Vision | 15% (3 frames consécutives) |
+| Cooldown Vision Nudge | 60 secondes |
 | Taille max lecture fichier | 5 000 caractères |
 | Format Audio | PCM 16kHz mono |
 | Persistance | SQLite (Desktop) / localStorage (Web) |
@@ -179,10 +186,12 @@ NeuroChat utilise un runtime modulaire inspiré des architectures d'agents moder
 - [x] Migration vers SQLite (Performance & Scalabilité)
 - [x] Pont IPC bidirectionnel (`sendClientContent`)
 
-#### **Phase 2 : Perception & Spontanéité (En cours)**
+#### **Phase 2 : Perception & Spontanéité (✅ Terminé)**
 - [x] Intelligence visuelle adaptative (FPS dynamique & détection de mouvement)
 - [x] Protection anti-hallucination (Vision activable à la demande)
-- [x] **Analyse des Micro-Expressions** : Détecter l'humeur et l'énergie de l'utilisateur par la vision.
+- [x] **Double Vision** : Caméra + Partage d'écran simultanés avec double PiP
+- [x] **Compagnon Discret** : Protocole "Silence par défaut" — l'IA observe sans commenter
+- [x] **Anti-Hallucination renforcé** : Seuil de mouvement 15%, cooldown 60s, 3 frames consécutives
 - [ ] **Reconnaissance d'Objets Personnels** : Apprendre à identifier et nommer les objets du quotidien de l'utilisateur.
 
 #### **Phase 3 : Mémoire Visuelle & Contexte Profond**

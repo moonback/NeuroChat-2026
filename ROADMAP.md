@@ -10,6 +10,8 @@
 - [x] **Gemini Live Multimodal** : Flux audio full-duplex (VAD) et vision en temps réel (Screen/Cam).
 - [x] **Agentic Filesystem** : Manipulation autonome de fichiers via pont IPC sécurisé.
 - [x] **Navigateur Autonome v2** : Analyse sémantique des intentions et exécution de commandes web complexes.
+- [x] **Dual-Vision (Cam+Écran)** : Support simultané des deux flux avec interface PiP dynamique.
+- [x] **Compagnon Discret** : Protocole de silence par défaut et anti-hallucination renforcé.
 - [x] **Mémoire Sémantique (RAG)** : Stockage vectoriel local (`text-embedding-004`) et recherche par contexte.
 - [x] **NeuroLearning (Auto-Évolution)** : Moteur d'apprentissage automatique basé sur les retours implicites.
 - [x] **Pont de Communication Tooling** : Injection de données système via `sendClientContent`.
@@ -70,5 +72,5 @@ graph TD
 - 💡 **Contrôle Vocal de l'OS** : "Mets mon ordinateur en veille dans 10 minutes" ou "Monte le volume".
 
 ---
-> 📅 **Dernière mise à jour** : 15 mai 2026
-> ✍️ **Statut** : Version 2.1.0-beta en production.
+> 📅 **Dernière mise à jour** : 16 mai 2026
+> ✍️ **Statut** : Version 2.2.0-beta (Vision & Empathy) en production.
