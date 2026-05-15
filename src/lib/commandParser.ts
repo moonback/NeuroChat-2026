@@ -14,7 +14,13 @@ export interface ParsedCommand {
 /**
  * Patterns de commandes reconnus
  */
-const COMMAND_PATTERNS = [
+type CommandPattern = {
+  regex: RegExp;
+  type: BrowserAction["type"];
+  extract: (match: RegExpMatchArray) => Record<string, unknown>;
+};
+
+const COMMAND_PATTERNS: CommandPattern[] = [
   // Navigation - patterns plus flexibles et robustes
   {
     regex: /(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\s+([a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:\/[^\s]*)?)/gi,
@@ -161,7 +167,7 @@ export function parseAssistantResponse(text: string): ParsedCommand {
       detectedAction = {
         type: pattern.type,
         params,
-        requiresConfirmation: pattern.type === "navigate" || pattern.type === "submit_form",
+        requiresConfirmation: pattern.type === "navigate",
       };
 
       console.log("🎯 [CommandParser] Action créée:", detectedAction);
@@ -210,7 +216,7 @@ export function extractAllCommands(text: string): BrowserAction[] {
       actions.push({
         type: pattern.type,
         params,
-        requiresConfirmation: pattern.type === "navigate" || pattern.type === "submit_form",
+        requiresConfirmation: pattern.type === "navigate",
       });
     }
   }
