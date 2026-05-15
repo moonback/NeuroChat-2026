@@ -44,6 +44,14 @@ export interface UserProfile {
   totalConversations: number;
 }
 
+export interface ConversationStats {
+  totalSessions: number;
+  totalTurns: number;
+  lastActive: number;
+  lastConversationDate?: Date;
+  sessions: ConversationSession[];
+}
+
 const STORAGE_KEY = "neurochat_v2_memory";
 const LEGACY_MAX_TURNS_IN_MEMORY = 20;
 const USER_PROFILE_KEY = "neurochat_v2_user_profile";
@@ -339,7 +347,7 @@ export function buildMemoryContext(userName: string): string {
 }
 
 /** Get stats for the UI */
-export function getConversationStats(userName: string) {
+export function getConversationStats(userName: string): ConversationStats {
   console.log(`[ConversationMemory] 📊 Calcul des statistiques pour: ${userName}`);
   const sessions = loadAllSessions().filter(s => s.userName === userName);
   const profile = getUserProfile(userName);

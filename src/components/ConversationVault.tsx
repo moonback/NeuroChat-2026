@@ -15,6 +15,7 @@ import {
   BrainCircuit,
 } from "lucide-react";
 import { ConversationSession, loadAllSessions } from "../lib/conversationMemory";
+import type { ConversationStats } from "../lib/conversationMemory";
 import {
   loadWeeklySummaries,
   generateWeeklySummary,
@@ -28,7 +29,7 @@ interface ConversationVaultProps {
   isOpen: boolean;
   onClose: () => void;
   userName: string;
-  memoryData: any;
+  memoryData: ConversationStats | null;
   selectedSession: ConversationSession | null;
   onSelectSession: (id: string | null) => void;
   onClearMemory: () => void;

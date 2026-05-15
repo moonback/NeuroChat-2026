@@ -1,5 +1,6 @@
 const { app, BrowserWindow, session, desktopCapturer, dialog } = require('electron');
 const path = require('path');
+const { shell } = require('electron');
 
 /** Set by npm script `electron:dev` so the window loads the Vite dev server. */
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -71,6 +72,22 @@ function createWindow() {
   });
 
   win.once('ready-to-show', () => win.show());
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url).catch((error) => {
+      console.error('[electron] openExternal failed', error);
+    });
+    return { action: 'deny' };
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    const currentUrl = win.webContents.getURL();
+    if (currentUrl && url !== currentUrl) {
+      event.preventDefault();
+      shell.openExternal(url).catch((error) => {
+        console.error('[electron] blocked navigation failed to open externally', error);
+      });
+    }
+  });
 
   if (devServerUrl) {
     win.loadURL(devServerUrl);
