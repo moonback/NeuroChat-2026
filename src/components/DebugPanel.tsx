@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Bug, X, ChevronDown, ChevronUp, TestTube } from "lucide-react";
 import { testCommandPatterns } from "../lib/commandParser";
 import { loadAgentTraces } from "../lib/agent/traceStore";
+import { getAgentMonitoringSnapshot } from "../lib/agent/monitoring";
 import { loadSkillPolicyConfig, saveSkillPolicyConfig } from "../lib/skills/policyStore";
 
 interface DebugLog {
@@ -30,6 +31,7 @@ export function DebugPanel() {
   const pendingLogsRef = useRef<DebugLog[]>([]);
   const flushTimerRef = useRef<number | null>(null);
   const [showPolicyEditor, setShowPolicyEditor] = useState(false);
+  const [showMonitoring, setShowMonitoring] = useState(false);
   const [policyDraft, setPolicyDraft] = useState(() => JSON.stringify(loadSkillPolicyConfig(), null, 2));
 
   useEffect(() => {
@@ -219,6 +221,12 @@ export function DebugPanel() {
               {showPolicyEditor ? "Masquer policy" : "Policy"}
             </button>
             <button
+              onClick={() => setShowMonitoring((v) => !v)}
+              className="text-xs px-2 py-1 bg-cyan-700 hover:bg-cyan-600 rounded text-white transition-colors"
+            >
+              {showMonitoring ? "Masquer monitoring" : "Monitoring"}
+            </button>
+            <button
               onClick={() => setLogs([])}
               className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 transition-colors"
             >
@@ -235,6 +243,19 @@ export function DebugPanel() {
 
         {isExpanded && (
           <>
+            {showMonitoring && (() => {
+              const snapshot = getAgentMonitoringSnapshot();
+              return (
+                <div className="p-2 border-b border-slate-700 grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Runs</div><div className="text-cyan-300 text-sm">{snapshot.totalRuns}</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Success rate</div><div className="text-cyan-300 text-sm">{snapshot.successRate.toFixed(1)}%</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Succès / Échecs</div><div className="text-cyan-300 text-sm">{snapshot.successfulRuns} / {snapshot.failedRuns}</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Avg itérations</div><div className="text-cyan-300 text-sm">{snapshot.avgIterations.toFixed(2)}</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Avg tool calls</div><div className="text-cyan-300 text-sm">{snapshot.avgToolCalls.toFixed(2)}</div></div>
+                  <div className="bg-slate-800 rounded p-2"><div className="text-slate-400">Dernier run</div><div className="text-cyan-300 text-sm">{snapshot.lastRunAt ? new Date(snapshot.lastRunAt).toLocaleTimeString() : "-"}</div></div>
+                </div>
+              );
+            })()}
             {showPolicyEditor && (
               <div className="p-2 border-b border-slate-700 space-y-2">
                 <div className="text-xs text-emerald-300">Policy management (roles/scopes/expiry/denylist)</div>
