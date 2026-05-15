@@ -85,11 +85,18 @@ export function useAIConversation() {
 
   const current = activeProvider === "gemini" ? gemini : openRouter;
 
+  const sendTextMessage = useCallback((text: string) => {
+    if (activeProvider === "gemini") {
+      gemini.sendTextMessage(text);
+    }
+  }, [activeProvider, gemini]);
+
   return {
     ...current,
     activeProvider,
     startSession,
     stopSession,
+    sendTextMessage,
     runAgentTask,
     shouldAutoRunAgent,
     processUserText,

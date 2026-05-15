@@ -7,6 +7,14 @@ import { retrieveContextSkill } from "./memory/retrieveContextSkill";
 import { saveMemoryNoteSkill } from "./memory/saveMemoryNoteSkill";
 import { defaultConfirmationHandler, defaultPermissionAuthorizer } from "./policies";
 
+import {
+  pickWorkdirSkill,
+  listFilesSkill,
+  readFileSkill,
+  writeFileSkill,
+  deleteItemSkill
+} from "./system/fileSkills";
+
 export function createDefaultSkillRegistry(): SkillRegistry {
   const registry = new SkillRegistry(defaultPermissionAuthorizer, defaultConfirmationHandler);
   registry.registerMany([
@@ -16,6 +24,11 @@ export function createDefaultSkillRegistry(): SkillRegistry {
     saveMemoryNoteSkill,
     getDesktopInfoSkill,
     summarizeTextSkill,
+    pickWorkdirSkill,
+    listFilesSkill,
+    readFileSkill,
+    writeFileSkill,
+    deleteItemSkill,
   ]);
   return registry;
 }

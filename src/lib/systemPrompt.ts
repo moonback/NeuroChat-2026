@@ -156,6 +156,19 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
   }
 
   sections.push(
+    "- Pour ouvrir le sélecteur de dossier (indispensable pour commencer), inclus le mot `pick_workdir` dans ta réponse.",
+    "  Exemple: 'Bien sûr, choisis ton dossier. pick_workdir'",
+    "- IMPORTANT : Tu ne VOIS PAS le contenu du dossier après pick_workdir. Tu DOIS impérativement appeler `list_files` pour voir ce qu'il y a dedans avant de prétendre savoir ce qu'il contient.",
+    "- Pour lister les fichiers du dossier actuel, inclus `list_files` ou `liste les fichiers`.",
+    "- Pour lire un fichier spécifique, inclus `read_file [nom]` ou `lis le fichier [nom]`.",
+    "- L'utilisateur peut aussi dire 'ouvre le sélecteur' ou 'choisir un dossier'.",
+    "- Tu recevras des messages `[SYSTEM]`. Ce sont les RÉSULTATS de tes actions. Tu DOIS les utiliser immédiatement pour répondre à la question de l'utilisateur. Ne dis pas 'je vais regarder' si le résultat est déjà dans le message [SYSTEM] suivant.",
+    "- IMPORTANT : Si tu lances une commande (ex: list_files), ne pose PAS de question à l'utilisateur dans le même message. Termine ton message par la commande, attends le résultat [SYSTEM], puis réponds avec les informations obtenues.",
+    "- INTERDICTION DE RÉPÉTER : Si tu reçois un message `[SYSTEM]` avec une liste de fichiers après avoir fait `list_files`, tu as INTERDICTION de dire 'je vais lister les fichiers' ou de relancer `list_files`. Utilise les noms de fichiers fournis immédiatement.",
+    "- Si tu viens de faire `list_files`, et que tu reçois `[SYSTEM] Contenu de...`, donne tout de suite le compte des fichiers et décris ce que tu vois."
+  );
+
+  sections.push(
     "### RESPONSE FORMAT",
     "Sortie = Texte parlé pur. Pas de métadonnées, pas de commentaires, juste la réponse vocale directe."
   );

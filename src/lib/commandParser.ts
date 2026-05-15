@@ -147,7 +147,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Recherche Google ───────────────────────────────────────────────────
   {
     id: "search-google",
-    regex: /\b(?:cherche|recherche|trouve|googl(?:e|ise))\s+(?:moi\s+)?["']?([^"'\n.!?]{2,60})["']?(?:\s+sur\s+(?:google|internet|le\s+web))?/gi,
+    regex: /\b(?:cherche|recherche|trouve|googl(?:e|ise|'ise))\s+(?:moi\s+)?["']?([^"'\n.!?]{2,60})["']?(?:\s+sur\s+(?:google|internet|le\s+web))?/gi,
     type: "navigate",
     baseConfidence: 0.8,
     requiresConfirmation: true,
@@ -203,7 +203,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   {
     id: "click-no-quotes",
     // Évite "clique ici si tu veux" ou "on peut cliquer sur..."
-    regex: /\b(?<!comment\s+|pouvoir\s+|pour\s+|on\s+peut\s+)clique(?:\s+sur)?(?:\s+l[ae])?(?:\s+(?:bouton|lien|élément))?\s+([^"'\n.,;!?]{2,40})/gi,
+    regex: /\b(?<!comment\s+|pouvoir\s+|pour\s+|on\s+peut\s+|tu\s+peux\s+|vous\s+pouvez\s+)clique(?:\s+sur)?(?:\s+l[ae])?(?:\s+(?:bouton|lien|élément))\s+([^"'\n.,;!?]{2,40})/gi,
     type: "click",
     baseConfidence: 0.7,
     extract: (m) => ({ selector: { text: trimAtSentenceStart(m[1]) } }),
@@ -212,7 +212,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Saisie de texte ────────────────────────────────────────────────────
   {
     id: "type-with-target",
-    regex: /\b(?:écris|tape|saisis|entre)\s+["']([^"']+)["']\s+dans\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!?]{2,40})["']?/gi,
+    regex: /\b(?:écris|tape|saisis|entre|remplis)\s+["']([^"']+)["']\s+(?:dans|sur)\s+(?:l[ae]\s+)?(?:champ\s+)?["']?([^"'\n.,;!? ]{2,40})["']?/gi,
     type: "type",
     baseConfidence: 0.9,
     extract: (m) => ({
@@ -255,7 +255,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   },
   {
     id: "zoom-out",
-    regex: /\b(?<!comment\s+|pouvoir\s+|pour\s+|on\s+peut\s+)(?:zoom(?:e)?\s+(?:arrière|out)|réduis(?:\s+la\s+page)?|ctrl\s*\+\s*-)\b/gi,
+    regex: /\b(?<!comment\s+|on\s+peut\s+|pour\s+|pouvoir\s+)(?:zoom(?:e)?\s+(?:arrière|out)|réduis(?:\s+la\s+page)?|ctrl\s*\+\s*-|dézoome)(?!\s+sur\s+l'histoire)\b/gi,
     type: "zoomOut",
     baseConfidence: 0.85,
     extract: () => ({}),
@@ -305,7 +305,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Extraction de contenu ──────────────────────────────────────────────
   {
     id: "extract",
-    regex: /\b(?:lis|extrais|récupère|montre)(?:\s+moi)?(?:\s+le\s+contenu\s+(?:de\s+)?)?(?:la\s+|cette\s+)?page\b/gi,
+    regex: /(?:\b|^)(?:lis|extrais|récupère|montre|analyse)(?:\s+moi)?(?:\s+le\s+contenu\s+(?:de\s+)?)?(?:la\s+|cette\s+)?page(?:\b|$)/gi,
     type: "extract",
     baseConfidence: 0.8,
     extract: () => ({}),
@@ -314,7 +314,7 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Navigation historique ──────────────────────────────────────────────
   {
     id: "back",
-    regex: /\b(?:retour(?:\s+en\s+arrière)?|page\s+précédente|reviens?\s+en\s+arrière)\b/gi,
+    regex: /\b(?<!un\s+)(?:retour(?:\s+en\s+arrière)?|page\s+précédente|reviens?\s+en\s+arrière)(?!\s+positif)\b/gi,
     type: "back",
     baseConfidence: 0.85,
     extract: () => ({}),
@@ -334,6 +334,44 @@ const COMMAND_PATTERNS: CommandPattern[] = [
     type: "reload",
     baseConfidence: 0.9,
     extract: () => ({}),
+  },
+  // ── Système / Dossiers ────────────────────────────────────────────────
+  {
+    id: "pick-workdir",
+    regex: /\b(?:ouvre(?:\s+le)?\s+sélecteur\s+de\s+dossier|choisir(?:\s+un)?\s+dossier(?:\s+de\s+travail)?|pick_workdir|pick\\?_workdir|pickWorkdir|pick\s+workdir)\b/gi,
+    type: "pickWorkdir",
+    baseConfidence: 0.9,
+    extract: () => ({}),
+  },
+  {
+    id: "list-dir",
+    regex: /\b(?:liste\s+les\s+fichiers|affiche\s+le\s+contenu|list_files|listDir)(?:\s+(?:dans\s+|de\s+|du\s+dossier\s+)?(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)[^\s.?!,;]*)))?\b/gi,
+    type: "listDir",
+    baseConfidence: 0.85,
+    extract: (m) => ({ path: (m[1] || m[2])?.trim() }),
+  },
+  {
+    id: "read-file",
+    regex: /\b(?:lis\s+le\s+fichier|affiche\s+le\s+fichier|read_file|readFile)\s+(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)?[^\s,;?!]+\.[a-z0-9]{1,10}))\b/gi,
+    type: "readFile",
+    baseConfidence: 0.85,
+    extract: (m) => ({ path: (m[1] || m[2])?.trim() }),
+  },
+  {
+    id: "write-file",
+    regex: /\b(?:écris|crée|modifie|sauvegarde)\s+(?:le\s+fichier\s+)?(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)?[^\s.?!,;]+))\s+avec\s+(?:le\s+contenu\s+)?["'](.+)["']\b/gi,
+    type: "writeFile",
+    baseConfidence: 0.8,
+    requiresConfirmation: true,
+    extract: (m) => ({ path: (m[1] || m[2])?.trim(), content: m[3] }),
+  },
+  {
+    id: "delete-file",
+    regex: /\b(?:supprime|efface)\s+(?:le\s+fichier\s+|le\s+dossier\s+)?(?:["']([^"']+)["']|((?:[\.\/\\]|[A-Z]:)?[^\s.?!,;]+))\b/gi,
+    type: "deleteFile",
+    baseConfidence: 0.8,
+    requiresConfirmation: true,
+    extract: (m) => ({ path: (m[1] || m[2])?.trim() }),
   },
 ];
 
@@ -414,8 +452,20 @@ export function detectAllMatches(text: string): DetectedMatch[] {
     }
   }
 
+  // Dédupliquer les actions identiques (même type et mêmes paramètres)
+  const uniqueResults: DetectedMatch[] = [];
+  const seenActions = new Set<string>();
+
+  for (const match of results) {
+    const actionKey = `${match.action.type}:${JSON.stringify(match.action.params || {})}`;
+    if (!seenActions.has(actionKey)) {
+      seenActions.add(actionKey);
+      uniqueResults.push(match);
+    }
+  }
+
   // Retourner dans l'ordre d'apparition
-  return results.sort((a, b) => a.startIndex - b.startIndex);
+  return uniqueResults.sort((a, b) => a.startIndex - b.startIndex);
 }
 
 /**

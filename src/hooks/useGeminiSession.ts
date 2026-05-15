@@ -67,7 +67,7 @@ export function useGeminiSession() {
                     "neurochat_v2_memory",
                     JSON.stringify(allSessions.slice(-50))
                   );
-                } catch {}
+                } catch { }
               }
               // Regenerate weekly summary with the new session data
               return getOrGenerateCurrentWeekSummary(
@@ -85,7 +85,7 @@ export function useGeminiSession() {
 
   const startSession = useCallback(async (options: SessionOptions) => {
     const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo, browserControlEnabled } = options;
-    
+
     setStatus("connecting");
     setErrorMsg("");
     isManualStopRef.current = false;
@@ -93,186 +93,204 @@ export function useGeminiSession() {
 
     return new Promise<boolean>(async (resolve) => {
       const attemptConnection = async (): Promise<void> => {
-      try {
-        console.log("🚀 Démarrage de la session...");
-        
-        // Request microphone permission FIRST
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        stream.getTracks().forEach(track => track.stop());
+        try {
+          console.log("🚀 Démarrage de la session...");
 
-        // ── RAG: retrieve semantically relevant context from full history ──
-        let ragContext: string | undefined;
-        let weeklySummary: string | undefined;
-
-        if (userName) {
-          // Run RAG retrieval and weekly summary fetch in parallel
-          const [ragResult, weeklyResult] = await Promise.allSettled([
-            retrieveRelevantContext(
-              "résumé de nos conversations précédentes, sujets importants, préférences",
-              userName,
-              6,
-              0.55
-            ),
-            getOrGenerateCurrentWeekSummary(
-              loadAllSessions().filter((s) => s.userName === userName),
-              userName
-            ),
-          ]);
-
-          if (ragResult.status === "fulfilled" && ragResult.value.hasContext) {
-            ragContext = ragResult.value.contextBlock;
-            console.log(`🔍 RAG: ${ragResult.value.entries.length} entrées pertinentes injectées.`);
-          }
-
-          if (weeklyResult.status === "fulfilled" && weeklyResult.value) {
-            weeklySummary = formatWeeklySummaryForPrompt(weeklyResult.value);
-            console.log(`📋 Synthèse hebdomadaire injectée (${weeklyResult.value.weekId}).`);
-          }
-        }
-
-        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-        
-        const session = await ai.live.connect({
-          model: "gemini-3.1-flash-live-preview",
-          callbacks: {
-            onopen: () => {
-              console.log("✅ Session ouverte !");
-              setStatus("listening");
-              retryCountRef.current = 0;
-              onRecordingStart((base64Data: string, type: 'audio' | 'video' = 'audio') => {
-                if (sessionRef.current) {
-                  if (type === 'audio') {
-                    sessionRef.current.sendRealtimeInput({
-                      audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" },
-                    });
-                  } else {
-                    sessionRef.current.sendRealtimeInput({
-                      video: { data: base64Data, mimeType: "image/jpeg" },
-                    });
-                  }
-                }
-              });
+          // Request microphone permission FIRST
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
             },
-            onmessage: (message: any) => {
-              const serverContent = message.serverContent;
-              const modelTurn = serverContent?.modelTurn;
-              const parts = modelTurn?.parts;
+          });
+          stream.getTracks().forEach(track => track.stop());
 
-              // Log COMPLET du message brut pour identifier la structure exacte
-              if (serverContent?.inputTranscription || serverContent?.outputTranscription || serverContent?.turnComplete) {
-                // console.log("📨 Message clé — structure complète:", JSON.stringify(message, (key, value) => {
-                //   // Tronquer les données binaires (audio base64)
-                //   if (key === 'data' && typeof value === 'string' && value.length > 100) return `[base64 ${value.length} chars]`;
-                //   return value;
-                // }, 2));
-              }
+          // ── RAG: retrieve semantically relevant context from full history ──
+          let ragContext: string | undefined;
+          let weeklySummary: string | undefined;
 
-              // Transcription utilisateur (entrée) — fragments accumulés dans App.tsx
-              if (serverContent?.inputTranscription?.text) {
-                const transcriptText = serverContent.inputTranscription.text;
-                const isFinished = serverContent.inputTranscription.finished ?? false;
-                // console.log(`📝 Transcription utilisateur: "${transcriptText}" (finished: ${isFinished})`);
-                onTranscription(transcriptText, isFinished);
-              }
+          if (userName) {
+            // Run RAG retrieval and weekly summary fetch in parallel
+            const [ragResult, weeklyResult] = await Promise.allSettled([
+              retrieveRelevantContext(
+                "résumé de nos conversations précédentes, sujets importants, préférences",
+                userName,
+                6,
+                0.55
+              ),
+              getOrGenerateCurrentWeekSummary(
+                loadAllSessions().filter((s) => s.userName === userName),
+                userName
+              ),
+            ]);
 
-              // Transcription IA (sortie) — plusieurs noms possibles selon la version du SDK
-              const aiTranscriptText =
-                serverContent?.outputTranscription?.text ??
-                serverContent?.modelTurn?.transcription?.text ??
-                null;
-
-              if (aiTranscriptText) {
-                // console.log(`🤖 Transcription IA: "${aiTranscriptText.slice(0, 80)}"`);
-                onAudioResponse("", aiTranscriptText);
-              }
-
-              // Audio IA
-              const base64Audio = parts?.find((p: any) => p.inlineData)?.inlineData?.data;
-              if (base64Audio) {
-                onAudioResponse(base64Audio, undefined);
-              }
-
-              if (serverContent?.turnComplete) {
-                console.log("✅ Tour IA terminé (turnComplete)");
-                onTurnComplete();
-              }
-
-              if (serverContent?.interrupted) {
-                console.log("⚡ Interruption détectée");
-                onInterrupted();
-              }
-            },
-            onerror: (error: any) => {
-              console.error("❌ Erreur de session:", error);
-              setStatus("idle");
-              if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
-                retryCountRef.current++;
-                console.log(`🔄 Tentative de reconnexion après erreur (${retryCountRef.current}/${maxRetries})...`);
-                setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
-              } else {
-                setErrorMsg("Oups ! Une erreur de connexion s'est produite.");
-              }
-            },
-            onclose: (event: any) => {
-              console.log("🚪 Session fermée", event);
-              setStatus("idle");
-              onStopRecording();
-              sessionRef.current = null;
-              if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
-                retryCountRef.current++;
-                console.log(`🔄 Reconnexion automatique (${retryCountRef.current}/${maxRetries})...`);
-                setTimeout(() => attemptConnection(), 1500 * retryCountRef.current);
-              }
+            if (ragResult.status === "fulfilled" && ragResult.value.hasContext) {
+              ragContext = ragResult.value.contextBlock;
+              console.log(`🔍 RAG: ${ragResult.value.entries.length} entrées pertinentes injectées.`);
             }
-          },
-          config: {
-            systemInstruction: {
-              parts: [{
-                text: buildSystemPrompt(avatarId, {
-                  userName: userName ?? undefined,
-                  ragContext,
-                  weeklySummary,
-                  browserControlEnabled,
-                }),
-              }],
-            },
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
-            },
-            // Active la transcription de la réponse IA pour la sauvegarder en mémoire
-            outputAudioTranscription: {},
-          },
-        });
 
-        sessionRef.current = session;
-        retryCountRef.current = 0;
-        resolve(true);
-      } catch (err: any) {
-        console.error("💥 Failed to start session:", err);
-        if (err.name === "NotAllowedError") {
-          setErrorMsg("Je n'ai pas la permission d'utiliser le microphone !");
-          setStatus("idle");
-          resolve(false);
-        } else if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
-          retryCountRef.current++;
-          setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
-        } else {
-          setErrorMsg(err.message || "Impossible de démarrer.");
-          setStatus("idle");
-          resolve(false);
+            if (weeklyResult.status === "fulfilled" && weeklyResult.value) {
+              weeklySummary = formatWeeklySummaryForPrompt(weeklyResult.value);
+              console.log(`📋 Synthèse hebdomadaire injectée (${weeklyResult.value.weekId}).`);
+            }
+          }
+
+          const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+
+          const session = await ai.live.connect({
+            model: "gemini-3.1-flash-live-preview",
+            callbacks: {
+              onopen: () => {
+                console.log("✅ Session ouverte !");
+                setStatus("listening");
+                retryCountRef.current = 0;
+                onRecordingStart((base64Data: string, type: 'audio' | 'video' = 'audio') => {
+                  if (sessionRef.current) {
+                    if (type === 'audio') {
+                      sessionRef.current.sendRealtimeInput({
+                        audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" },
+                      });
+                    } else {
+                      sessionRef.current.sendRealtimeInput({
+                        video: { data: base64Data, mimeType: "image/jpeg" },
+                      });
+                    }
+                  }
+                });
+              },
+              onmessage: (message: any) => {
+                const serverContent = message.serverContent;
+                const modelTurn = serverContent?.modelTurn;
+                const parts = modelTurn?.parts;
+
+                // Log COMPLET du message brut pour identifier la structure exacte
+                if (serverContent?.inputTranscription || serverContent?.outputTranscription || serverContent?.turnComplete) {
+                  // console.log("📨 Message clé — structure complète:", JSON.stringify(message, (key, value) => {
+                  //   // Tronquer les données binaires (audio base64)
+                  //   if (key === 'data' && typeof value === 'string' && value.length > 100) return `[base64 ${value.length} chars]`;
+                  //   return value;
+                  // }, 2));
+                }
+
+                // Transcription utilisateur (entrée) — fragments accumulés dans App.tsx
+                if (serverContent?.inputTranscription?.text) {
+                  const transcriptText = serverContent.inputTranscription.text;
+                  const isFinished = serverContent.inputTranscription.finished ?? false;
+                  // console.log(`📝 Transcription utilisateur: "${transcriptText}" (finished: ${isFinished})`);
+                  onTranscription(transcriptText, isFinished);
+                }
+
+                // Transcription IA (sortie) — plusieurs noms possibles selon la version du SDK
+                const aiTranscriptText =
+                  serverContent?.outputTranscription?.text ??
+                  serverContent?.modelTurn?.transcription?.text ??
+                  null;
+
+                if (aiTranscriptText) {
+                  // console.log(`🤖 Transcription IA: "${aiTranscriptText.slice(0, 80)}"`);
+                  onAudioResponse("", aiTranscriptText);
+                }
+
+                // Audio IA
+                const base64Audio = parts?.find((p: any) => p.inlineData)?.inlineData?.data;
+                if (base64Audio) {
+                  onAudioResponse(base64Audio, undefined);
+                }
+
+                if (serverContent?.turnComplete) {
+                  console.log("✅ Tour IA terminé (turnComplete)");
+                  onTurnComplete();
+                }
+
+                if (serverContent?.interrupted) {
+                  console.log("⚡ Interruption détectée");
+                  onInterrupted();
+                }
+              },
+              onerror: (error: any) => {
+                console.error("❌ Erreur de session:", error);
+                setStatus("idle");
+                if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
+                  retryCountRef.current++;
+                  console.log(`🔄 Tentative de reconnexion après erreur (${retryCountRef.current}/${maxRetries})...`);
+                  setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
+                } else {
+                  setErrorMsg("Oups ! Une erreur de connexion s'est produite.");
+                }
+              },
+              onclose: (event: any) => {
+                console.log("🚪 Session fermée", event);
+                setStatus("idle");
+                onStopRecording();
+                sessionRef.current = null;
+                if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
+                  retryCountRef.current++;
+                  console.log(`🔄 Reconnexion automatique (${retryCountRef.current}/${maxRetries})...`);
+                  setTimeout(() => attemptConnection(), 1500 * retryCountRef.current);
+                }
+              }
+            },
+            config: {
+              systemInstruction: {
+                parts: [{
+                  text: buildSystemPrompt(avatarId, {
+                    userName: userName ?? undefined,
+                    ragContext,
+                    weeklySummary,
+                    browserControlEnabled,
+                  }),
+                }],
+              },
+              responseModalities: [Modality.AUDIO],
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
+              },
+              // Active la transcription de la réponse IA pour la sauvegarder en mémoire
+              outputAudioTranscription: {},
+            },
+          });
+
+          sessionRef.current = session;
+          retryCountRef.current = 0;
+          resolve(true);
+        } catch (err: any) {
+          console.error("💥 Failed to start session:", err);
+          if (err.name === "NotAllowedError") {
+            setErrorMsg("Je n'ai pas la permission d'utiliser le microphone !");
+            setStatus("idle");
+            resolve(false);
+          } else if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
+            retryCountRef.current++;
+            setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
+          } else {
+            setErrorMsg(err.message || "Impossible de démarrer.");
+            setStatus("idle");
+            resolve(false);
+          }
         }
-      }
-    };
+      };
 
-    await attemptConnection();
+      await attemptConnection();
     });
+  }, []);
+
+  const sendTextMessage = useCallback((text: string) => {
+    if (sessionRef.current) {
+      console.log(`📤 Envoi texte à la session: "${text.slice(0, 50)}..."`);
+      // sendClientContent() est la méthode du SDK Gemini Live pour injecter
+      // du texte dans le contexte de la conversation. Avec turnComplete: true,
+      // le modèle traite le contenu et génère une réponse.
+      sessionRef.current.sendClientContent({
+        turns: [
+          {
+            role: "user",
+            parts: [{ text }]
+          }
+        ],
+        turnComplete: true
+      });
+    }
   }, []);
 
   return {
@@ -280,6 +298,7 @@ export function useGeminiSession() {
     errorMsg,
     setErrorMsg,
     startSession,
-    stopSession
+    stopSession,
+    sendTextMessage
   };
 }

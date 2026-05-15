@@ -67,6 +67,7 @@ export default function App() {
     setErrorMsg,
     startSession,
     stopSession,
+    sendTextMessage,
     activeProvider
   } = useAIConversation();
 
@@ -156,8 +157,21 @@ export default function App() {
                   const result = await executeAction(action);
                   if (result.success) {
                     console.log(`✅ [App] Commande ${action.type} exécutée avec succès`);
+                    
+                    // Retourner le résultat à l'IA pour qu'elle le "voie" réellement
+                    if (action.type === "pickWorkdir") {
+                      sendTextMessage(`[SYSTEM] SUCCESS: Dossier sélectionné : ${result.data?.path}. Tu DOIS maintenant utiliser list_files pour voir son contenu.`);
+                    } else if (action.type === "listDir") {
+                      const fileNames = result.data?.files?.map((f: any) => f.name).join(", ");
+                      sendTextMessage(`[SYSTEM] SUCCESS: Résultats de list_files dans ${result.data?.path}.\nFichiers trouvés (${result.data?.files?.length || 0}) : ${fileNames || "Dossier vide"}\n\nACTION REQUIRED: Analyse cette liste et réponds vocalement à l'utilisateur maintenant.`);
+                    } else if (action.type === "readFile") {
+                      sendTextMessage(`[SYSTEM] Contenu de ${result.data?.path} :\n${result.data?.content}`);
+                    } else if (action.type === "extract") {
+                      sendTextMessage(`[SYSTEM] Contenu de la page extrait avec succès.`);
+                    }
                   } else {
                     console.error(`❌ [App] Échec de la commande ${action.type}:`, result.error);
+                    sendTextMessage(`[SYSTEM] Erreur lors de l'action ${action.type} : ${result.error}`);
                   }
                 } catch (error) {
                   console.error(`💥 [App] Erreur lors de l'exécution de ${action.type}:`, error);

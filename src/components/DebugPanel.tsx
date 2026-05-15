@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Bug, X, ChevronDown, ChevronUp, TestTube } from "lucide-react";
-import { testCommandPatterns } from "../lib/commandParser";
+import { runTests } from "../lib/commandParser";
 import { loadAgentTraces } from "../lib/agent/traceStore";
 import { getAgentMonitoringSnapshot } from "../lib/agent/monitoring";
 import { loadSkillPolicyConfig, saveSkillPolicyConfig } from "../lib/skills/policyStore";
@@ -202,7 +202,7 @@ export function DebugPanel() {
               )}
             </button>
             <button
-              onClick={() => testCommandPatterns()}
+              onClick={() => runTests()}
               className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white transition-colors flex items-center gap-1"
               title="Tester les patterns de commandes"
             >
