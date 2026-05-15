@@ -28,6 +28,7 @@ export interface AgentModelGateway {
 
 export interface AgentRunOptions {
   maxIterations?: number;
+  maxConsecutiveFailures?: number;
   signal?: AbortSignal;
 }
 
@@ -35,4 +36,5 @@ export interface AgentRunResult {
   answer: string;
   toolResults: SkillExecutionResult[];
   iterations: number;
+  completed: boolean;
 }
