@@ -7,7 +7,7 @@ import {
 } from "../lib/conversationMemory";
 
 export function useConversationMemory() {
-  const [initialUserName] = useState(() => loadUserName());
+  const initialUserName = useMemo(() => loadUserName(), []);
   const [userName, setUserName] = useState<string>(initialUserName);
   const [showWelcomeModal, setShowWelcomeModal] = useState(!initialUserName);
   const [showMemoryModal, setShowMemoryModal] = useState(false);
