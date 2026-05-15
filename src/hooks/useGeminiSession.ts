@@ -236,6 +236,7 @@ export function useGeminiSession() {
                     ragContext,
                     weeklySummary,
                     browserControlEnabled,
+                    visionEnabled: enableVideo,
                   }),
                 }],
               },

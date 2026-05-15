@@ -33,7 +33,7 @@ export function useOpenRouterSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onRecordingStart, browserControlEnabled } = options;
+    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onRecordingStart, browserControlEnabled, enableVideo } = options;
 
     setStatus("listening");
     setErrorMsg("");
@@ -41,7 +41,8 @@ export function useOpenRouterSession() {
     // Initialize system prompt
     const systemPrompt = buildSystemPrompt(avatarId, { 
       userName: userName ?? undefined,
-      browserControlEnabled
+      browserControlEnabled,
+      visionEnabled: enableVideo
     });
     conversationHistory.current = [{ role: "system", content: systemPrompt }];
 

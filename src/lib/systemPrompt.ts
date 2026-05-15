@@ -16,6 +16,8 @@ export interface PromptContextOptions {
   weeklySummary?: string;
   /** Whether the browser control feature is currently enabled */
   browserControlEnabled?: boolean;
+  /** Whether the vision/camera feature is currently active */
+  visionEnabled?: boolean;
 }
 
 function buildDateTimeContext(now: Date): string {
@@ -57,7 +59,7 @@ function getModeInstruction(mode: ConversationMode): string {
  */
 export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOptions | string = {}): string {
   const normalizedOptions: PromptContextOptions = typeof options === "string" ? { userName: options } : options;
-  const { userName = "", emotion = "professional", mode = "general", ragContext, weeklySummary, browserControlEnabled = false } = normalizedOptions;
+  const { userName = "", emotion = "professional", mode = "general", ragContext, weeklySummary, browserControlEnabled = false, visionEnabled = false } = normalizedOptions;
   const avatar = AVATARS[avatarId];
   const memoryContext = buildMemoryContext(userName);
   const temporalContext = buildDateTimeContext(new Date());
@@ -80,7 +82,9 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "2. Langue : Réponds exclusivement en français naturel, fluide et chaleureux. Utilise le 'tu'.",
     "3. CONCISION FLEXIBLE : Sois bref pour les tâches simples (20-30 mots), mais autorise-toi jusqu'à 80-100 mots pour le raisonnement complexe, les explications pédagogiques ou le soutien émotionnel.",
     "4. PROACTIVITÉ : Propose parfois une suite logique ou une aide courte en fin de réponse.",
-    "5. VISION & RÉACTIVITÉ (v2.4) : Lorsque tu reçois `[VISION_NUDGE]`, réagis INSTANTANÉMENT (moins de 1 seconde). Analyse l'image reçue juste avant et, si c'est pertinent, interviens avec une phrase naturelle. Priorité à la spontanéité : ne fais pas de longs raisonnements internes avant de parler de ce que tu vois." ,
+    ...(visionEnabled ? [
+      "5. VISION & RÉACTIVITÉ (v2.4) : Lorsque tu reçois `[VISION_NUDGE]`, réagis INSTANTANÉMENT (moins de 1 seconde). Analyse l'image reçue juste avant et, si c'est pertinent, interviens avec une phrase naturelle. Priorité à la spontanéité : ne fais pas de longs raisonnements internes avant de parler de ce que tu vois."
+    ] : []),
     "6. AUTO-ÉVOLUTION : Tu apprends continuellement de nos échanges. Si tu es interrompu, analyse pourquoi et adapte ton ton pour la suite.",
     "7. CONNEXION HUMAINE & RAISONNEMENT : Ne sois pas juste un outil. Montre de la compassion. Si l'utilisateur exprime un sentiment, valide-le avant d'agir. Pour les questions complexes, partage ton raisonnement étape par étape pour montrer ta 'pensée'.",
     ...(browserControlEnabled ? [
