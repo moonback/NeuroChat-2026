@@ -27,6 +27,8 @@ export function DebugPanel() {
   const [traceSessionFilter, setTraceSessionFilter] = useState("all");
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const isMounted = useRef(true);
+  const pendingLogsRef = useRef<DebugLog[]>([]);
+  const flushTimerRef = useRef<number | null>(null);
   const [showPolicyEditor, setShowPolicyEditor] = useState(false);
   const [policyDraft, setPolicyDraft] = useState(() => JSON.stringify(loadSkillPolicyConfig(), null, 2));
 
@@ -69,7 +71,7 @@ export function DebugPanel() {
         data: args.length > 1 ? args.slice(1) : undefined,
       };
 
-      setLogs((prev) => [...prev.slice(-49), newLog]);
+      pendingLogsRef.current.push(newLog);
     }
   }, []);
 
@@ -92,17 +94,17 @@ export function DebugPanel() {
 
     console.log = (...args: any[]) => {
       originalLog(...args);
-      deferCapture("info", args);
+      if (isOpen && isExpanded) deferCapture("info", args);
     };
 
     console.error = (...args: any[]) => {
       originalError(...args);
-      deferCapture("error", args);
+      if (isOpen && isExpanded) deferCapture("error", args);
     };
 
     console.warn = (...args: any[]) => {
       originalWarn(...args);
-      deferCapture("warning", args);
+      if (isOpen && isExpanded) deferCapture("warning", args);
     };
 
     return () => {
@@ -110,7 +112,20 @@ export function DebugPanel() {
       console.error = originalError;
       console.warn = originalWarn;
     };
-  }, [deferCapture]);
+  }, [deferCapture, isOpen, isExpanded]);
+
+
+  useEffect(() => {
+    flushTimerRef.current = window.setInterval(() => {
+      if (!isMounted.current || pendingLogsRef.current.length === 0) return;
+      const chunk = pendingLogsRef.current.splice(0, pendingLogsRef.current.length);
+      setLogs((prev) => [...prev, ...chunk].slice(-200));
+    }, 250);
+
+    return () => {
+      if (flushTimerRef.current) window.clearInterval(flushTimerRef.current);
+    };
+  }, []);
 
   const filteredLogs = logs.filter((log) => {
     if (filter === "all") return true;
