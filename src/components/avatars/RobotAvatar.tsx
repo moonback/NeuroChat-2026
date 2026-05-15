@@ -30,7 +30,7 @@ import { RobotAntenna } from "./RobotAntenna";
 import { RobotHalo } from "./RobotHalo";
 import { RobotEffects } from "./RobotEffects";
 
-export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps) {
+export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity = false }: AvatarProps) {
   // Normalize and clamp audio input
   const safeAudioLevel = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
   /** Updated every render; the RAF loop reads this so we must not put audio level in the effect deps. */
@@ -109,6 +109,13 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0 }: AvatarProps)
 
       // Glitch effect (error state)
       state.glitchActive = status === "error";
+
+      // Visual Activity Reaction (Vision Nudge)
+      if (visualActivity) {
+        state.eyeOffsetX = lerp(state.eyeOffsetX, (Math.random() - 0.5) * 15, 0.3);
+        state.eyeOffsetY = lerp(state.eyeOffsetY, (Math.random() - 0.5) * 15, 0.3);
+        state.headTiltX = lerp(state.headTiltX, (Math.random() - 0.5) * 2, 0.2);
+      }
 
       // Update every 3rd frame to reduce reconciliation overhead
       frameCount++;

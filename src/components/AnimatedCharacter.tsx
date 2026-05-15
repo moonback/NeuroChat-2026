@@ -45,7 +45,7 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
 
   /** Render the appropriate avatar SVG */
   function renderAvatar() {
-    const props = { status, isSpeaking, audioLevel: safeAudioLevel };
+    const props = { status, isSpeaking, audioLevel: safeAudioLevel, visualActivity };
     return <RobotAvatar {...props} />;
   }
 

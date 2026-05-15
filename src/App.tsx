@@ -368,6 +368,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#020408] text-white flex flex-col font-sans relative overflow-hidden">
+      {/* Premium Background Noise Texture */}
+      <div className="absolute inset-0 bg-noise pointer-events-none z-0" />
+
       {/* Welcome Modal */}
       <AnimatePresence>
         {showWelcomeModal && (
@@ -375,15 +378,18 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 md:p-12 shadow-2xl max-w-md w-full mx-4"
+              className="glass-dark rounded-[32px] p-8 md:p-12 shadow-2xl max-w-md w-full mx-4 overflow-hidden relative"
               style={{ boxShadow: `0 20px 60px ${avatar.colors[0]}33` }}
             >
+              {/* Decorative gradient inside modal */}
+              <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-500/10 blur-[60px] pointer-events-none" />
+              
               <div className="text-center mb-8">
                 <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${avatar.accentClass} flex items-center justify-center shadow-lg`}>
                   <Sparkles className="w-8 h-8 text-white" />
@@ -419,7 +425,7 @@ export default function App() {
                     autoFocus
                     placeholder="Ex: Marie"
                     aria-label="Votre prénom"
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-2xl text-white placeholder:text-slate-500 focus:outline-none focus:border-slate-500 transition-colors"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-white placeholder:text-slate-500 focus:outline-none focus:border-white/30 transition-all focus:bg-white/10"
                   />
                 </div>
 
@@ -511,7 +517,7 @@ export default function App() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="text-red-300 font-medium bg-red-900/40 border border-red-500/30 px-6 py-3 rounded-full text-sm shadow-2xl backdrop-blur-md max-w-lg text-center"
+                className="text-red-300 font-medium glass border-red-500/30 px-6 py-3 rounded-full text-sm shadow-2xl max-w-lg text-center"
               >
                 {errorMsg}
               </motion.p>
@@ -587,7 +593,7 @@ export default function App() {
                       className={`absolute ${pipExpanded 
                         ? "-bottom-8 -right-8 w-[480px] h-[360px]" 
                         : "-bottom-4 -right-4 w-40 h-30 sm:w-56 sm:h-42"
-                      } bg-slate-900/80 backdrop-blur-md rounded-3xl border border-white/20 overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] z-30 group cursor-grab active:cursor-grabbing transition-all duration-300`}
+                      } glass-dark rounded-3xl overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] z-30 group cursor-grab active:cursor-grabbing transition-all duration-300`}
                     >
                       <video
                         ref={videoPreviewRef}
@@ -732,7 +738,7 @@ export default function App() {
             exit={{ opacity: 0, y: 50 }}
             className="relative z-10 px-10 py-12 flex justify-center items-end"
           >
-            <div className="flex items-center gap-4 bg-slate-900/60 backdrop-blur-xl border border-white/10 p-2 rounded-[40px] shadow-2xl">
+            <div className="flex items-center gap-4 glass-dark p-2 rounded-[40px] shadow-2xl border-white/5">
               <button
                 onClick={() => {
                   setCameraActive(!cameraActive);
