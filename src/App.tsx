@@ -35,6 +35,12 @@ export default function App() {
   const screenCaptureServiceRef = useRef<ScreenCaptureService | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
+  
+  const [visualActivity, setVisualActivity] = useState(false);
+  const triggerVisualActivity = () => {
+    setVisualActivity(true);
+    setTimeout(() => setVisualActivity(false), 800);
+  };
 
   const avatar = AVATARS[avatarId];
 
@@ -277,7 +283,8 @@ export default function App() {
           screenCaptureServiceRef.current = null;
           setScreenShareActive(false);
           setVideoStream(videoServiceRef.current?.getStream() ?? null);
-        }
+        },
+        triggerVisualActivity
       );
       await svc.start();
       screenCaptureServiceRef.current = svc;
@@ -314,7 +321,7 @@ export default function App() {
       console.log("🎥 Activation de la caméra...");
       videoServiceRef.current = new VideoService((videoBase64) => {
         sendInputRef.current?.(videoBase64, 'video');
-      });
+      }, triggerVisualActivity);
 
       videoServiceRef.current.start(facingMode)
         .then(() => {
@@ -523,11 +530,11 @@ export default function App() {
                 title="Clique pour parler !"
                 aria-label="Démarrer la conversation vocale"
               >
-                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
+                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} visualActivity={visualActivity} />
               </motion.button>
             ) : (
               <div className="relative">
-                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} />
+                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} visualActivity={visualActivity} />
 
                 {/* Video PiP Preview */}
                 <AnimatePresence>
