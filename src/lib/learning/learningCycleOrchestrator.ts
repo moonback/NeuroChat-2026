@@ -142,7 +142,7 @@ export class LearningCycleOrchestrator {
       await manager.createVersion({
         promptText: application.promptText,
         changeDescription: `Applied ${accepted.length} auto-improvements`,
-        appliedProposals: accepted.map((p) => p.id),
+        appliedProposals: accepted,
         performanceMetrics: report.metrics,
       });
 

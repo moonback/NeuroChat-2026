@@ -1,4 +1,4 @@
-import type { PerformanceMetrics, PromptVersion, PromptVersionHistory } from './types';
+import type { ImprovementProposal, PerformanceMetrics, PromptVersion, PromptVersionHistory } from './types';
 import { logAutoImprovement } from './autoImprovementLog';
 import { getLearningStorage } from './storage';
 
@@ -15,7 +15,7 @@ export class PromptVersionManager {
   async createVersion(input: {
     promptText: string;
     changeDescription: string;
-    appliedProposals: string[];
+    appliedProposals: (string | ImprovementProposal)[];
     performanceMetrics?: PerformanceMetrics;
   }): Promise<PromptVersion> {
     const storage = getLearningStorage(this.userId);
