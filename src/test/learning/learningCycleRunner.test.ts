@@ -42,6 +42,9 @@ describe('runLearningCycleForUser', () => {
     await storage.updateFeedback({
       userId: 'runner-user',
       signals: [{
+        id: 'test-sig',
+        sessionId: 'test-session',
+        type: 'explicit',
         category: 'user_interruption',
         sentiment: 'negative',
         turnIndex: 0,
