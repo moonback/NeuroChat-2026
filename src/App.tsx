@@ -70,7 +70,8 @@ export default function App() {
     stopSession,
     sendTextMessage,
     activeProvider,
-    agentEvents
+    agentEvents,
+    runAgentTask
   } = useAIConversation();
 
   // Browser control hook
@@ -142,6 +143,21 @@ export default function App() {
           if (fullText) {
             console.log(`💾 Sauvegarde tour IA: "${fullText.slice(0, 60)}"`);
             addTurn(userName, "assistant", fullText);
+          }
+          
+          // DÉTECTION MULTI-AGENT
+          if (fullText && fullText.toLowerCase().includes("tool:")) {
+             const taskMatch = fullText.match(/tool:\s*(.*)/i);
+             if (taskMatch && taskMatch[1]) {
+                const task = taskMatch[1].trim();
+                console.log(`🤖 [App] Lancement de l'orchestrateur agentique avec la tâche: ${task}`);
+                runAgentTask(task, `live-${Date.now()}`, userName).then(result => {
+                    sendTextMessage(`[SYSTEM] L'agent a terminé la tâche demandée. Voici le résultat final : ${result.answer}. Informe brièvement l'utilisateur du succès.`);
+                }).catch(err => {
+                    console.error("Erreur agent:", err);
+                    sendTextMessage(`[SYSTEM] L'agent a échoué avec l'erreur: ${err.message || err}. Dis-le à l'utilisateur.`);
+                });
+             }
           }
           
           // PARSER ICI avec le texte complet

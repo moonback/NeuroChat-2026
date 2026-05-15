@@ -64,18 +64,6 @@ export function useAIConversation() {
       ...options,
       onTranscription: (text, finished) => {
         options.onTranscription(text, finished);
-        if (finished && options.userName) {
-          void processUserText(text, `live-${Date.now()}`, options.userName)
-            .then((agentResult) => {
-              if (!agentResult) return;
-              options.onAudioResponse("", agentResult.answer);
-              options.onTurnComplete();
-            })
-            .catch((err) => {
-              console.warn("[AgentLive] auto-run failed", err);
-              options.onInterrupted();
-            });
-        }
       },
     };
 
