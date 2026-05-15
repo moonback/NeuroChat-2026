@@ -275,11 +275,28 @@ export function useGeminiSession() {
     });
   }, []);
 
+  const sendTextMessage = useCallback((text: string) => {
+    if (sessionRef.current) {
+      console.log(`📤 Envoi texte à la session: "${text.slice(0, 50)}..."`);
+      sessionRef.current.sendRealtimeInput({
+        clientContent: {
+          turns: [
+            {
+              role: "user",
+              parts: [{ text }]
+            }
+          ]
+        }
+      });
+    }
+  }, []);
+
   return {
     status,
     errorMsg,
     setErrorMsg,
     startSession,
-    stopSession
+    stopSession,
+    sendTextMessage
   };
 }

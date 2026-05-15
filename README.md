@@ -203,13 +203,10 @@ src/lib/skills/
 - **Observabilité**: Historique persistant de chaque étape de réflexion de l'agent.
 
 ### Skills par défaut
-
-- `open_website`
-- `extract_page`
-- `retrieve_context`
-- `save_memory_note`
-- `get_desktop_info`
-- `summarize_text`
+- `open_website`, `extract_page` : Navigation web.
+- `pick_workdir`, `list_files`, `read_file`, `write_file` : Système de fichiers local.
+- `save_memory_note`, `retrieve_context` : Mémoire persistante.
+- `summarize_text`, `get_desktop_info` : Système & IA.
 
 Tu peux ajouter des skills de prompt en Markdown dans `src/skills-md/*.md` (chargées automatiquement dans le system prompt).
 

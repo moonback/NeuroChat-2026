@@ -32,7 +32,12 @@ export interface BrowserAction {
     | "zoomIn"
     | "zoomOut"
     | "zoomReset"
-    | "fullscreen";
+    | "fullscreen"
+    | "pickWorkdir"
+    | "listDir"
+    | "readFile"
+    | "writeFile"
+    | "deleteFile";
   params?: BrowserActionParams;
   requiresConfirmation?: boolean;
 }
@@ -60,6 +65,8 @@ export interface BrowserActionParams {
   fullPage?: boolean;
   fields?: Record<string, string>;
   duration?: number;
+  path?: string;
+  content?: string;
 }
 
 export interface BrowserActionResultData {
@@ -69,6 +76,7 @@ export interface BrowserActionResultData {
   headings?: string[];
   links?: Array<{ text: string; href: string }>;
   forms?: Array<{ action: string; method: string; fields: string[] }>;
+  path?: string;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -102,11 +110,18 @@ function asRecordString(value: unknown): Record<string, string> | undefined {
  */
 export class BrowserController {
   private actionHistory: BrowserAction[] = [];
+  private currentWorkdir: string | null = null;
   private maxHistorySize = 50;
   private onConfirmationNeeded?: (action: BrowserAction) => Promise<boolean>;
 
   constructor(onConfirmationNeeded?: (action: BrowserAction) => Promise<boolean>) {
     this.onConfirmationNeeded = onConfirmationNeeded;
+    // Restaurer le dossier de travail depuis localStorage
+    const savedDir = localStorage.getItem("neurochat_workdir");
+    if (savedDir) {
+      this.currentWorkdir = savedDir;
+      console.log(`📂 [BrowserController] Dossier restauré: ${savedDir}`);
+    }
   }
 
   /**
@@ -197,6 +212,27 @@ export class BrowserController {
         
         case "fullscreen":
           return await this.toggleFullscreen();
+        
+        case "pickWorkdir":
+          const pickResult = await this.pickWorkdir();
+          if (pickResult.success && pickResult.data?.path) {
+            const newDir = pickResult.data.path as string;
+            this.currentWorkdir = newDir;
+            localStorage.setItem("neurochat_workdir", newDir);
+          }
+          return pickResult;
+        
+        case "listDir":
+          return await this.listDir(asString(action.params?.path));
+        
+        case "readFile":
+          return await this.readFile(asString(action.params?.path));
+        
+        case "writeFile":
+          return await this.writeFile(asString(action.params?.path), asString(action.params?.content));
+        
+        case "deleteFile":
+          return await this.deleteFile(asString(action.params?.path));
         
         default:
           return {
@@ -787,6 +823,114 @@ export class BrowserController {
   clearHistory(): void {
     this.actionHistory = [];
   }
+
+  /**
+   * Ouvre le sélecteur de dossier natif
+   */
+  private async pickWorkdir(): Promise<BrowserActionResult> {
+    if (!window.neurochatElectron) {
+      return { success: false, error: "Mode Desktop requis" };
+    }
+
+    try {
+      const result = await window.neurochatElectron.dialog.showOpenDialog({
+        title: "Sélectionner un dossier de travail",
+        properties: ["openDirectory"]
+      });
+
+      if (result.canceled) {
+        return { success: false, error: "Sélection annulée" };
+      }
+
+      return {
+        success: true,
+        data: { path: result.filePaths[0] },
+      };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
+    }
+  }
+
+  /**
+   * Liste le contenu d'un dossier
+   */
+  private async listDir(path?: string): Promise<BrowserActionResult> {
+    if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
+    
+    const targetPath = path || this.currentWorkdir;
+    console.log(`📂 [BrowserController] listing dir: ${targetPath}`);
+    if (!targetPath) return { success: false, error: "Aucun dossier sélectionné. Utilisez 'pickWorkdir' d'abord." };
+
+    try {
+      const files = await window.neurochatElectron.fs.listDir(targetPath);
+      console.log(`✅ [BrowserController] found ${files.length} files`);
+      return {
+        success: true,
+        data: { path: targetPath, files: files.slice(0, 50) },
+      };
+    } catch (error: unknown) {
+      console.error(`❌ [BrowserController] listDir failed:`, error);
+      return { success: false, error: getErrorMessage(error) };
+    }
+  }
+
+  /**
+   * Lit le contenu d'un fichier
+   */
+  private async readFile(path?: string): Promise<BrowserActionResult> {
+    if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
+    console.log(`📄 [BrowserController] reading file: ${path}`);
+    if (!path) return { success: false, error: "Chemin de fichier manquant" };
+
+    try {
+      const content = await window.neurochatElectron.fs.readFile(path);
+      console.log(`✅ [BrowserController] read success (${content.length} chars)`);
+      return {
+        success: true,
+        data: { path, content: content.slice(0, 5000) },
+      };
+    } catch (error: unknown) {
+      console.error(`❌ [BrowserController] readFile failed:`, error);
+      return { success: false, error: getErrorMessage(error) };
+    }
+  }
+
+  /**
+   * Écrit dans un fichier
+   */
+  private async writeFile(path?: string, content?: string): Promise<BrowserActionResult> {
+    if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
+    console.log(`📝 [BrowserController] writing to file: ${path}`);
+    if (!path) return { success: false, error: "Chemin de fichier manquant" };
+    if (content === undefined) return { success: false, error: "Contenu manquant" };
+
+    try {
+      await window.neurochatElectron.fs.writeFile(path, content);
+      console.log(`✅ [BrowserController] write success`);
+      return { success: true, data: { path } };
+    } catch (error: unknown) {
+      console.error(`❌ [BrowserController] writeFile failed:`, error);
+      return { success: false, error: getErrorMessage(error) };
+    }
+  }
+
+  /**
+   * Supprime un fichier ou dossier
+   */
+  private async deleteFile(path?: string): Promise<BrowserActionResult> {
+    if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
+    console.log(`🗑️ [BrowserController] deleting: ${path}`);
+    if (!path) return { success: false, error: "Chemin manquant" };
+
+    try {
+      await window.neurochatElectron.fs.deleteItem(path);
+      console.log(`✅ [BrowserController] delete success`);
+      return { success: true, data: { path } };
+    } catch (error: unknown) {
+      console.error(`❌ [BrowserController] deleteFile failed:`, error);
+      return { success: false, error: getErrorMessage(error) };
+    }
+  }
 }
 
 /**
@@ -855,6 +999,11 @@ export function parseNaturalLanguageCommand(command: string): BrowserAction | nu
   }
   if (lowerCommand.includes("suivant") || lowerCommand.includes("avance")) {
     return { type: "forward" };
+  }
+
+  // Dossiers / Système
+  if (lowerCommand.includes("sélecteur de dossier") || lowerCommand.includes("choisir un dossier") || lowerCommand.includes("changer de dossier")) {
+    return { type: "pickWorkdir" };
   }
 
   return null;

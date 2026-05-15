@@ -51,6 +51,16 @@ export function BrowserControlPanel({
         return "Soumettre un formulaire";
       case "wait":
         return `Attendre ${action.params?.duration}ms`;
+      case "pickWorkdir":
+        return "Ouvrir le sélecteur de dossier";
+      case "listDir":
+        return `Lister le contenu de ${action.params?.path || "ce dossier"}`;
+      case "readFile":
+        return `Lire le fichier ${action.params?.path}`;
+      case "writeFile":
+        return `Écrire dans le fichier ${action.params?.path}`;
+      case "deleteFile":
+        return `Supprimer ${action.params?.path}`;
       default:
         return "Action inconnue";
     }
@@ -70,6 +80,11 @@ export function BrowserControlPanel({
       fill_form: "📝",
       submit_form: "✉️",
       wait: "⏱️",
+      pickWorkdir: "📂",
+      listDir: "📁",
+      readFile: "📄",
+      writeFile: "✍️",
+      deleteFile: "🗑️",
     };
     return icons[type] || "🔧";
   };
@@ -77,22 +92,21 @@ export function BrowserControlPanel({
   return (
     <>
       {/* Toggle Button */}
-      {/* <motion.button
+      <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => onToggle(!isEnabled)}
-        className={`fixed top-24 right-6 z-40 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg backdrop-blur-md transition-all ${
-          isEnabled
+        className={`fixed top-24 right-6 z-40 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg backdrop-blur-md transition-all ${isEnabled
             ? "bg-green-500/20 border border-green-500/50 text-green-400"
             : "bg-slate-800/80 border border-slate-700 text-slate-400"
-        }`}
+          }`}
         title={isEnabled ? "Désactiver le contrôle du navigateur" : "Activer le contrôle du navigateur"}
       >
         <Globe className="w-4 h-4" />
         <span className="text-sm font-medium">
           {isEnabled ? "Contrôle actif" : "Contrôle inactif"}
         </span>
-      </motion.button> */}
+      </motion.button>
 
       {/* Current Action Indicator */}
       <AnimatePresence>

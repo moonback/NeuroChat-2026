@@ -1,6 +1,104 @@
-const { app, BrowserWindow, session, desktopCapturer, dialog } = require('electron');
+const { app, BrowserWindow, session, desktopCapturer, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { shell } = require('electron');
+const fs = require('fs/promises');
+const { existsSync } = require('fs');
+
+/**
+ * Register FS and Dialog handlers
+ */
+function registerIpcHandlers() {
+  // Directory picker
+  ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
+    console.log('[ipc] dialog:showOpenDialog requested', options);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return dialog.showOpenDialog(win || undefined, options);
+  });
+
+  // FS: List directory
+  ipcMain.handle('fs:listDir', async (event, dirPath) => {
+    try {
+      console.log(`[fs] Listing directory: ${dirPath}`);
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      const result = entries.map(entry => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+        size: entry.isFile() ? 0 : undefined,
+      }));
+      console.log(`[fs] Found ${result.length} entries`);
+      return result;
+    } catch (error) {
+      console.error('[electron] listDir failed', error);
+      throw error;
+    }
+  });
+
+  // FS: Read file
+  ipcMain.handle('fs:readFile', async (event, filePath) => {
+    try {
+      console.log(`[fs] Reading file: ${filePath}`);
+      const content = await fs.readFile(filePath, 'utf-8');
+      console.log(`[fs] Read ${content.length} characters`);
+      return content;
+    } catch (error) {
+      console.error('[electron] readFile failed', error);
+      throw error;
+    }
+  });
+
+  // FS: Write file
+  ipcMain.handle('fs:writeFile', async (event, filePath, content) => {
+    try {
+      await fs.writeFile(filePath, content, 'utf-8');
+      return true;
+    } catch (error) {
+      console.error('[electron] writeFile failed', error);
+      throw error;
+    }
+  });
+
+  // FS: Delete item
+  ipcMain.handle('fs:deleteItem', async (event, itemPath) => {
+    try {
+      await fs.rm(itemPath, { recursive: true, force: true });
+      return true;
+    } catch (error) {
+      console.error('[electron] deleteItem failed', error);
+      throw error;
+    }
+  });
+
+  // FS: Mkdir
+  ipcMain.handle('fs:mkdir', async (event, dirPath) => {
+    try {
+      await fs.mkdir(dirPath, { recursive: true });
+      return true;
+    } catch (error) {
+      console.error('[electron] mkdir failed', error);
+      throw error;
+    }
+  });
+
+  // FS: Exists
+  ipcMain.handle('fs:exists', async (event, itemPath) => {
+    return existsSync(itemPath);
+  });
+
+  // FS: Stats
+  ipcMain.handle('fs:getStats', async (event, itemPath) => {
+    try {
+      const stats = await fs.stat(itemPath);
+      return {
+        size: stats.size,
+        mtime: stats.mtime,
+        isDirectory: stats.isDirectory(),
+      };
+    } catch (error) {
+      console.error('[electron] getStats failed', error);
+      throw error;
+    }
+  });
+}
 
 /** Set by npm script `electron:dev` so the window loads the Vite dev server. */
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -111,6 +209,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   registerDisplayMediaHandler();
+  registerIpcHandlers();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
