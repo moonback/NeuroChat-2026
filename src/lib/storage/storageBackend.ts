@@ -34,4 +34,6 @@ export interface StorageBackend {
 
   saveTrace(trace: any): Promise<void>;
   loadTraces(): Promise<any[]>;
+
+  migrate(payload: any): Promise<void>;
 }

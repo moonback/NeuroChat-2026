@@ -41,6 +41,7 @@ declare global {
         clearSummaries: () => Promise<boolean>;
         saveTrace: (trace: any) => Promise<boolean>;
         loadTraces: () => Promise<any[]>;
+        migrate: (payload: any) => Promise<boolean>;
       };
     };
   }

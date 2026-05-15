@@ -26,4 +26,6 @@ export class SqliteBackend implements StorageBackend {
 
   async saveTrace(trace: any): Promise<void> { await window.neurochatElectron.db.saveTrace(trace); }
   async loadTraces(): Promise<any[]> { return window.neurochatElectron.db.loadTraces(); }
+
+  async migrate(payload: any): Promise<void> { await window.neurochatElectron.db.migrate(payload); }
 }

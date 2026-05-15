@@ -59,4 +59,6 @@ export class LocalStorageBackend implements StorageBackend {
     localStorage.setItem(TRACE_KEY, JSON.stringify(current.slice(-200)));
   }
   async loadTraces(): Promise<any[]> { return JSON.parse(localStorage.getItem(TRACE_KEY) || '[]'); }
+
+  async migrate(_payload: any): Promise<void> { /* no-op in web fallback */ }
 }

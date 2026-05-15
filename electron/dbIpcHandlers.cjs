@@ -84,4 +84,47 @@ function registerDbIpcHandlers() {
   ipcMain.handle('db:traces:load', () => getDb().prepare('SELECT * FROM agent_traces ORDER BY timestamp DESC LIMIT 200').all().map((r) => ({ id: r.id, sessionId: r.session_id, userId: r.user_id, timestamp: r.timestamp, events: JSON.parse(r.events || '[]') })));
 }
 
+  ipcMain.handle('db:migrate', (_event, payload) => {
+    const db = getDb();
+    const tx = db.transaction((data) => {
+      if (Array.isArray(data.vectors)) {
+        const addVector = db.prepare('INSERT OR REPLACE INTO vectors(id, text, vector, session_id, user_name, speaker, timestamp) VALUES(?, ?, ?, ?, ?, ?, ?)');
+        for (const v of data.vectors) {
+          const vectorData = Array.isArray(v.vector) ? v.vector : v.vector?.values ?? [];
+          const meta = v.metadata || {};
+          addVector.run(v.id, v.text || '', Buffer.from(Float64Array.from(vectorData).buffer), v.sessionId || meta.sessionId || 'unknown', v.userName || meta.userName || 'unknown', v.speaker || meta.speaker || 'assistant', v.timestamp || meta.timestamp || Date.now());
+        }
+      }
+      if (Array.isArray(data.sessions)) {
+        const upsertSession = db.prepare('INSERT OR REPLACE INTO sessions(id, user_name, start_time, end_time, topic, summary) VALUES(?, ?, ?, ?, ?, ?)');
+        const clearTurns = db.prepare('DELETE FROM turns WHERE session_id = ?');
+        const insertTurn = db.prepare('INSERT INTO turns(session_id, timestamp, speaker, message) VALUES(?, ?, ?, ?)');
+        for (const s of data.sessions) {
+          upsertSession.run(s.id, s.userName, s.startTime, s.endTime ?? null, s.topic ?? null, s.summary ?? null);
+          clearTurns.run(s.id);
+          for (const t of s.turns || []) insertTurn.run(s.id, t.timestamp, t.speaker, t.message);
+        }
+      }
+      if (data.profiles && typeof data.profiles === 'object') {
+        const upsertProfile = db.prepare('INSERT OR REPLACE INTO user_profiles(name, preferences, last_active, total_conversations) VALUES(?, ?, ?, ?)');
+        for (const [name, profile] of Object.entries(data.profiles)) upsertProfile.run(name, JSON.stringify(profile.preferences || []), profile.lastActive || Date.now(), profile.totalConversations || 0);
+      }
+      if (Array.isArray(data.summaries)) {
+        const upsertSummary = db.prepare('INSERT OR REPLACE INTO weekly_summaries(week_id, date_range, text, topics, generated_at, session_count, turn_count) VALUES(?, ?, ?, ?, ?, ?, ?)');
+        for (const sm of data.summaries) upsertSummary.run(sm.weekId, sm.dateRange, sm.text, JSON.stringify(sm.topics || []), sm.generatedAt, sm.sessionCount || 0, sm.turnCount || 0);
+      }
+      if (Array.isArray(data.traces)) {
+        const upsertTrace = db.prepare('INSERT OR REPLACE INTO agent_traces(id, session_id, user_id, timestamp, events) VALUES(?, ?, ?, ?, ?)');
+        for (const tr of data.traces) upsertTrace.run(tr.id, tr.sessionId, tr.userId, tr.timestamp, JSON.stringify(tr.events || []));
+      }
+      if (data.kv && typeof data.kv === 'object') {
+        const upsertKv = db.prepare('INSERT OR REPLACE INTO kv_store(key, value) VALUES(?, ?)');
+        for (const [k, v] of Object.entries(data.kv)) upsertKv.run(k, String(v));
+      }
+      db.prepare('INSERT OR REPLACE INTO kv_store(key, value) VALUES(?, ?)').run('migration_v1_done', 'true');
+    });
+    tx(payload || {});
+    return true;
+  });
+
 module.exports = { registerDbIpcHandlers };
