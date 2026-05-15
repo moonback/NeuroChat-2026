@@ -52,7 +52,7 @@ describe('PromptOptimizer', () => {
     expect(proposals.length).toBeGreaterThan(0);
     expect(proposals.length).toBeLessThanOrEqual(3);
     expect(proposals[0].targetSection).toBe('CORE OPERATIONAL RULES');
-    expect(proposals[0].justification).toContain('Concision ratio');
+    expect(proposals[0].justification).toContain('Ratio de concision');
     expect(proposals[0].motivatingData.patterns).toContain('user_interruption observed');
   });
 
@@ -93,5 +93,32 @@ describe('PromptOptimizer', () => {
     const proposals = await optimizer.generateProposals(report(), { userId: 'Marie' });
 
     expect(proposals[0].proposedChange).toContain('Réponse claire et utile');
+    expect(proposals[0].proposedChange).toContain('Inspire-toi de tes réussites');
+  });
+
+  it('triggers empathy template for low satisfaction', async () => {
+    const optimizer = new PromptOptimizer({ now: () => 1000 });
+    const lowSatisfactionReport = report({
+      metrics: {
+        ...report().metrics,
+        userSatisfaction: 30,
+      },
+      patterns: [
+        {
+          type: 'failure',
+          description: 'explicit_negative observed',
+          frequency: 5,
+          severity: 9,
+          examples: [1],
+          improvementArea: 'Improve emotional intelligence and empathy',
+        }
+      ],
+      improvementAreas: ['Improve emotional intelligence and empathy'],
+    });
+
+    const proposals = await optimizer.generateProposals(lowSatisfactionReport);
+    const empathyProposal = proposals.find(p => p.proposedChange.includes('émotion'));
+    expect(empathyProposal).toBeDefined();
+    expect(empathyProposal?.justification).toContain('Satisfaction faible');
   });
 });
