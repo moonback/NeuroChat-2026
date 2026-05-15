@@ -86,7 +86,21 @@ export function PromptVersionDisplay({ userId, accentColor, refreshKey = 0 }: Pr
                   )}
                 </div>
                 <p className="mt-1 text-xs text-slate-400">{version.changeDescription}</p>
-                <p className="mt-1 text-[10px] text-slate-600">{version.appliedProposals.length} amélioration(s) · {new Date(version.timestamp).toLocaleString('fr-FR')}</p>
+                
+                {/* Detailed improvements list */}
+                {version.appliedProposals.length > 0 && typeof version.appliedProposals[0] !== 'string' && (
+                  <div className="mt-3 space-y-2 border-t border-slate-800/50 pt-3">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Améliorations appliquées :</p>
+                    {version.appliedProposals.map((prop: any, i) => (
+                      <div key={i} className="bg-slate-900/40 rounded-lg p-2 border border-slate-800/30">
+                        <p className="text-[11px] text-slate-200 font-medium">✨ {prop.proposedChange}</p>
+                        <p className="text-[10px] text-slate-500 mt-1 italic">Raison: {prop.justification}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="mt-2 text-[10px] text-slate-600">{version.appliedProposals.length} amélioration(s) · {new Date(version.timestamp).toLocaleString('fr-FR')}</p>
                 {version.performanceMetrics && (
                   <p className="mt-1 text-[10px] text-slate-500">Score qualité: {Math.round(version.performanceMetrics.compositeQualityScore)}/100 · {version.performanceMetrics.turnCount} tour(s)</p>
                 )}

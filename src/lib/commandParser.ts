@@ -14,7 +14,13 @@ export interface ParsedCommand {
 /**
  * Patterns de commandes reconnus
  */
-const COMMAND_PATTERNS = [
+type CommandPattern = {
+  regex: RegExp;
+  type: BrowserAction["type"];
+  extract: (match: RegExpMatchArray) => Record<string, unknown>;
+};
+
+const COMMAND_PATTERNS: CommandPattern[] = [
   // Navigation - patterns plus flexibles et robustes
   {
     regex: /(?:va(?:\s+sur)?|ouvre(?:\s+moi)?|navigue(?:\s+vers)?)\s+([a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:\/[^\s]*)?)/gi,
@@ -133,6 +139,11 @@ const COMMAND_PATTERNS = [
   },
 ];
 
+function getAllMatches(text: string, regex: RegExp): RegExpMatchArray[] {
+  regex.lastIndex = 0;
+  return Array.from(text.matchAll(regex));
+}
+
 /**
  * Parse le texte de l'assistant pour détecter des commandes de contrôle du navigateur
  */
@@ -143,7 +154,7 @@ export function parseAssistantResponse(text: string): ParsedCommand {
   let detectedAction: BrowserAction | null = null;
 
   for (const pattern of COMMAND_PATTERNS) {
-    const matches = Array.from(text.matchAll(pattern.regex));
+    const matches = getAllMatches(text, pattern.regex);
     
     if (matches.length > 0) {
       const match = matches[0];
@@ -161,7 +172,7 @@ export function parseAssistantResponse(text: string): ParsedCommand {
       detectedAction = {
         type: pattern.type,
         params,
-        requiresConfirmation: pattern.type === "navigate" || pattern.type === "submit_form",
+        requiresConfirmation: pattern.type === "navigate",
       };
 
       console.log("🎯 [CommandParser] Action créée:", detectedAction);
@@ -193,7 +204,10 @@ export function parseAssistantResponse(text: string): ParsedCommand {
  * Vérifie si un texte contient une commande de contrôle du navigateur
  */
 export function containsBrowserCommand(text: string): boolean {
-  return COMMAND_PATTERNS.some((pattern) => pattern.regex.test(text));
+  return COMMAND_PATTERNS.some((pattern) => {
+    pattern.regex.lastIndex = 0;
+    return pattern.regex.test(text);
+  });
 }
 
 /**
@@ -203,14 +217,14 @@ export function extractAllCommands(text: string): BrowserAction[] {
   const actions: BrowserAction[] = [];
 
   for (const pattern of COMMAND_PATTERNS) {
-    const matches = Array.from(text.matchAll(pattern.regex));
+    const matches = getAllMatches(text, pattern.regex);
     
     for (const match of matches) {
       const params = pattern.extract(match);
       actions.push({
         type: pattern.type,
         params,
-        requiresConfirmation: pattern.type === "navigate" || pattern.type === "submit_form",
+        requiresConfirmation: pattern.type === "navigate",
       });
     }
   }

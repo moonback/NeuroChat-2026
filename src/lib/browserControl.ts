@@ -23,13 +23,13 @@ export interface BrowserAction {
     | "fill_form"
     | "submit_form"
     | "wait";
-  params?: Record<string, any>;
+  params?: BrowserActionParams;
   requiresConfirmation?: boolean;
 }
 
 export interface BrowserActionResult {
   success: boolean;
-  data?: any;
+  data?: BrowserActionResultData;
   error?: string;
   screenshot?: string; // base64
 }
@@ -39,6 +39,52 @@ export interface ElementSelector {
   text?: string;
   role?: string;
   placeholder?: string;
+}
+
+export interface BrowserActionParams {
+  url?: string;
+  selector?: ElementSelector;
+  text?: string;
+  direction?: "up" | "down" | "top" | "bottom";
+  amount?: number;
+  fullPage?: boolean;
+  fields?: Record<string, string>;
+  duration?: number;
+}
+
+export interface BrowserActionResultData {
+  [key: string]: unknown;
+  title?: string;
+  url?: string;
+  headings?: string[];
+  links?: Array<{ text: string; href: string }>;
+  forms?: Array<{ action: string; method: string; fields: string[] }>;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return "Erreur inconnue";
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function asRecordString(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
 }
 
 /**
@@ -77,22 +123,22 @@ export class BrowserController {
     try {
       switch (action.type) {
         case "navigate":
-          return await this.navigate(action.params?.url);
+          return await this.navigate(asString(action.params?.url));
         
         case "click":
-          return await this.click(action.params?.selector);
+          return await this.click(action.params?.selector as ElementSelector | undefined);
         
         case "type":
-          return await this.typeText(action.params?.selector, action.params?.text);
+          return await this.typeText(action.params?.selector as ElementSelector | undefined, asString(action.params?.text));
         
         case "scroll":
-          return await this.scroll(action.params?.direction, action.params?.amount);
+          return await this.scroll((action.params?.direction as "up" | "down" | "top" | "bottom" | undefined), asNumber(action.params?.amount));
         
         case "extract":
-          return await this.extractContent(action.params?.selector);
+          return await this.extractContent(action.params?.selector as ElementSelector | undefined);
         
         case "screenshot":
-          return await this.takeScreenshot(action.params?.fullPage);
+          return await this.takeScreenshot(asBoolean(action.params?.fullPage));
         
         case "back":
           return await this.goBack();
@@ -104,13 +150,13 @@ export class BrowserController {
           return await this.reload();
         
         case "fill_form":
-          return await this.fillForm(action.params?.fields);
+          return await this.fillForm(asRecordString(action.params?.fields));
         
         case "submit_form":
-          return await this.submitForm(action.params?.selector);
+          return await this.submitForm(action.params?.selector as ElementSelector | undefined);
         
         case "wait":
-          return await this.wait(action.params?.duration);
+          return await this.wait(asNumber(action.params?.duration));
         
         default:
           return {
@@ -118,11 +164,11 @@ export class BrowserController {
             error: `Action inconnue: ${action.type}`,
           };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Erreur lors de l'exécution de l'action ${action.type}:`, error);
       return {
         success: false,
-        error: error.message || "Erreur inconnue",
+        error: getErrorMessage(error),
       };
     }
   }
@@ -130,7 +176,7 @@ export class BrowserController {
   /**
    * Navigue vers une URL
    */
-  private async navigate(url: string): Promise<BrowserActionResult> {
+  private async navigate(url?: string): Promise<BrowserActionResult> {
     if (!url) {
       return { success: false, error: "URL manquante" };
     }
@@ -150,10 +196,10 @@ export class BrowserController {
         success: true,
         data: { url, opened: true },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        error: error.message,
+        error: getErrorMessage(error),
       };
     }
   }
@@ -161,8 +207,8 @@ export class BrowserController {
   /**
    * Clique sur un élément
    */
-  private async click(selector: ElementSelector): Promise<BrowserActionResult> {
-    const element = this.findElement(selector);
+  private async click(selector?: ElementSelector): Promise<BrowserActionResult> {
+    const element = selector ? this.findElement(selector) : null;
     
     if (!element) {
       return {
@@ -180,8 +226,8 @@ export class BrowserController {
         };
       }
       return { success: false, error: "L'élément n'est pas cliquable" };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -189,10 +235,10 @@ export class BrowserController {
    * Saisit du texte dans un champ
    */
   private async typeText(
-    selector: ElementSelector,
-    text: string
+    selector: ElementSelector | undefined,
+    text?: string
   ): Promise<BrowserActionResult> {
-    const element = this.findElement(selector);
+    const element = selector ? this.findElement(selector) : null;
     
     if (!element) {
       return { success: false, error: "Élément introuvable" };
@@ -203,7 +249,7 @@ export class BrowserController {
         element instanceof HTMLInputElement ||
         element instanceof HTMLTextAreaElement
       ) {
-        element.value = text;
+        element.value = text ?? "";
         element.dispatchEvent(new Event("input", { bubbles: true }));
         element.dispatchEvent(new Event("change", { bubbles: true }));
         
@@ -213,8 +259,8 @@ export class BrowserController {
         };
       }
       return { success: false, error: "L'élément n'accepte pas de texte" };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -245,8 +291,8 @@ export class BrowserController {
         success: true,
         data: { scrolled: true, direction, amount },
       };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -285,8 +331,8 @@ export class BrowserController {
           forms: this.extractForms(),
         },
       };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -301,8 +347,8 @@ export class BrowserController {
         success: false,
         error: "La capture d'écran nécessite l'installation de html2canvas",
       };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -313,8 +359,8 @@ export class BrowserController {
     try {
       window.history.back();
       return { success: true, data: { navigated: "back" } };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -325,8 +371,8 @@ export class BrowserController {
     try {
       window.history.forward();
       return { success: true, data: { navigated: "forward" } };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -337,8 +383,8 @@ export class BrowserController {
     try {
       window.location.reload();
       return { success: true, data: { reloaded: true } };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -346,12 +392,12 @@ export class BrowserController {
    * Remplit un formulaire
    */
   private async fillForm(
-    fields: Record<string, string>
+    fields?: Record<string, string>
   ): Promise<BrowserActionResult> {
     try {
       const results: Record<string, boolean> = {};
       
-      for (const [fieldName, value] of Object.entries(fields)) {
+      for (const [fieldName, value] of Object.entries(fields ?? {})) {
         const element = this.findElement({ selector: `[name="${fieldName}"]` });
         
         if (element && (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
@@ -368,8 +414,8 @@ export class BrowserController {
         success: true,
         data: { filled: results },
       };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -395,8 +441,8 @@ export class BrowserController {
 
       form.submit();
       return { success: true, data: { submitted: true } };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: getErrorMessage(error) };
     }
   }
 
@@ -414,7 +460,11 @@ export class BrowserController {
   /**
    * Trouve un élément dans le DOM
    */
-  private findElement(selector: ElementSelector): Element | null {
+  private findElement(selector?: ElementSelector): Element | null {
+    if (!selector) {
+      return null;
+    }
+
     if (selector.selector) {
       return document.querySelector(selector.selector);
     }
@@ -438,11 +488,11 @@ export class BrowserController {
   /**
    * Obtient les informations d'un élément
    */
-  private getElementInfo(element: Element): Record<string, any> {
+  private getElementInfo(element: Element): Record<string, string> {
     return {
       tagName: element.tagName.toLowerCase(),
       id: element.id,
-      className: element.className,
+      className: typeof element.className === "string" ? element.className : "",
       text: element.textContent?.trim().substring(0, 100),
     };
   }

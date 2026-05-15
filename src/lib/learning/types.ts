@@ -193,7 +193,7 @@ export interface PromptVersion {
   /** Description of changes in this version */
   changeDescription: string;
   /** Improvement proposals applied in this version */
-  appliedProposals: string[]; // IDs of applied proposals
+  appliedProposals: (string | ImprovementProposal)[]; // IDs or full objects of applied proposals
   /** Performance metrics for this version */
   performanceMetrics?: PerformanceMetrics;
   /** Whether this version is currently active */

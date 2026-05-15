@@ -1,25 +1,27 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { loadUserName, saveUserName } from "../lib/avatarConfig";
 import { 
   addConversationTurn, 
   clearConversationHistory, 
-  getConversationStats,
-  loadAllSessions,
-  getUserProfile,
-  ConversationSession
+  getConversationStats
 } from "../lib/conversationMemory";
 
 export function useConversationMemory() {
-  const [userName, setUserName] = useState(loadUserName());
-  const [showWelcomeModal, setShowWelcomeModal] = useState(!loadUserName());
+  const [{ userName, showWelcomeModal }, setUserContext] = useState(() => {
+    const initialUserName = loadUserName();
+    return {
+      userName: initialUserName,
+      showWelcomeModal: !initialUserName,
+    };
+  });
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [memoryRevision, setMemoryRevision] = useState(0);
 
   const handleWelcomeSubmit = useCallback((name: string) => {
     console.log(`[useConversationMemory] 👋 Soumission du nom d'utilisateur: ${name}`);
-    setUserName(name);
+    setUserContext((prev) => ({ ...prev, userName: name, showWelcomeModal: false }));
     saveUserName(name);
-    setShowWelcomeModal(false);
     console.log("[useConversationMemory] ✅ Modal de bienvenue fermée");
   }, []);
 
@@ -29,45 +31,44 @@ export function useConversationMemory() {
       console.log("[useConversationMemory] ✅ Confirmation reçue, effacement en cours...");
       clearConversationHistory();
       setShowMemoryModal(false);
+      setSelectedSessionId(null);
+      setMemoryRevision((revision) => revision + 1);
       alert("La mémoire a été effacée avec succès !");
-      console.log("[useConversationMemory] 🔄 Rechargement de la page...");
-      window.location.reload(); // Refresh to clear state
+      console.log("[useConversationMemory] ✅ État mémoire local réinitialisé");
     } else {
       console.log("[useConversationMemory] ❌ Effacement annulé par l'utilisateur");
     }
   }, []);
 
   const updateUserName = useCallback((name: string) => {
-    setUserName(name);
+    setUserContext((prev) => ({ ...prev, userName: name }));
     saveUserName(name);
   }, []);
 
   // Compute stats and session list
   const memoryData = useMemo(() => {
-    console.log("[useConversationMemory] 📊 Calcul des données de mémoire...");
-    if (!userName) {
-      console.log("[useConversationMemory] ⚠️ Pas de nom d'utilisateur, données nulles");
-      return null;
-    }
-    const data = getConversationStats(userName);
-    console.log(`[useConversationMemory] ✅ Données calculées: ${data.totalSessions} sessions`);
-    return data;
-  }, [userName, showMemoryModal]); // Refresh when modal opens
+    if (!userName) return null;
+    return getConversationStats(userName);
+  }, [userName, memoryRevision]); // Refresh when memory changes
 
   const selectedSession = useMemo(() => {
-    console.log(`[useConversationMemory] 🔍 Recherche de la session sélectionnée: ${selectedSessionId}`);
-    if (!selectedSessionId || !memoryData) {
-      console.log("[useConversationMemory] ℹ️ Aucune session sélectionnée");
-      return null;
-    }
-    const session = memoryData.sessions.find(s => s.id === selectedSessionId) || null;
-    if (session) {
-      console.log(`[useConversationMemory] ✅ Session trouvée: ${session.topic} (${session.turns.length} tours)`);
-    } else {
-      console.log("[useConversationMemory] ⚠️ Session non trouvée");
-    }
-    return session;
+    if (!selectedSessionId || !memoryData) return null;
+    return memoryData.sessions.find(s => s.id === selectedSessionId) || null;
   }, [selectedSessionId, memoryData]);
+
+  useEffect(() => {
+    if (selectedSessionId && !selectedSession) {
+      setSelectedSessionId(null);
+    }
+  }, [selectedSessionId, selectedSession]);
+
+  const addTurn = useCallback(
+    (name: string, speaker: "user" | "assistant" | "child" | "companion", message: string) => {
+      addConversationTurn(name, speaker, message);
+      setMemoryRevision((revision) => revision + 1);
+    },
+    []
+  );
 
   return {
     userName,
@@ -80,6 +81,6 @@ export function useConversationMemory() {
     memoryData,
     selectedSession,
     setSelectedSessionId,
-    addTurn: addConversationTurn
+    addTurn
   };
 }

@@ -2,7 +2,7 @@
  * DebugPanel - Panneau de débogage pour le contrôle du navigateur
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Bug, X, ChevronDown, ChevronUp, TestTube } from "lucide-react";
 import { testCommandPatterns } from "../lib/commandParser";
@@ -20,12 +20,24 @@ export function DebugPanel() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [logs, setLogs] = useState<DebugLog[]>([]);
   const [filter, setFilter] = useState<string>("all");
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => { isMounted.current = false; };
+  }, []);
 
   const captureLog = useCallback((level: "info" | "success" | "warning" | "error", args: any[]) => {
+    if (!isMounted.current) return;
     const message = args[0];
 
-    // Never mirror render-spam lines: they match [BrowserWindow] and cause setState → re-render loops with console patching.
-    if (typeof message === "string" && /\[BrowserWindow\].*Rendu/i.test(message)) {
+    // Never mirror render-spam lines or system/vite errors that cause infinite loops.
+    if (typeof message === "string" && (
+      /\[BrowserWindow\].*Rendu/i.test(message) || 
+      /\[BrowserControlPanel\].*État/i.test(message) ||
+      /\[BrowserControl\].*Contrôle/i.test(message) ||
+      message.includes("Maximum update depth exceeded") ||
+      message.includes("[vite] failed to connect to websocket")
+    )) {
       return;
     }
 
@@ -55,11 +67,14 @@ export function DebugPanel() {
 
   /** Never invoke captureLog synchronously from console.* (can run during another component's render). */
   const deferCapture = useCallback((level: "info" | "success" | "warning" | "error", args: any[]) => {
-    requestAnimationFrame(() => {
+    // Schedule for next microtask AND next frame to be extremely safe
+    setTimeout(() => {
       requestAnimationFrame(() => {
-        setTimeout(() => captureLog(level, args), 0);
+        if (isMounted.current) {
+          captureLog(level, args);
+        }
       });
-    });
+    }, 0);
   }, [captureLog]);
 
   useEffect(() => {
