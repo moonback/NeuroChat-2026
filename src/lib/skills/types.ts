@@ -19,6 +19,14 @@ export interface SkillPermission {
   level: "read" | "write" | "execute";
 }
 
+export type RiskLevel = "low" | "medium" | "high";
+
+export interface SkillExample<TParams = any, TResult = any> {
+  input: TParams;
+  output: TResult;
+  explanation?: string;
+}
+
 export interface SkillContext {
   sessionId: string;
   userId: string;
@@ -31,7 +39,12 @@ export interface SkillDefinition<TParams = unknown, TResult = unknown> {
   description: string;
   category: SkillCategory;
   parameters: JsonSchema;
+  outputSchema?: JsonSchema;
   permissions: SkillPermission[];
+  riskLevel?: RiskLevel;
+  estimatedCost?: number;
+  examples?: SkillExample<TParams, TResult>[];
+  isIdempotent?: boolean;
   cooldownMs?: number;
   requiresConfirmation?: boolean;
   execute: (params: TParams, context: SkillContext) => Promise<TResult>;
@@ -42,6 +55,9 @@ export interface SkillExecutionResult<TResult = unknown> {
   skill: string;
   data?: TResult;
   error?: string;
+  confidence?: number;
+  observations?: string[];
+  nextSuggestions?: string[];
   elapsedMs: number;
   timestamp: number;
 }

@@ -1,5 +1,23 @@
 import type { SkillExecutionResult } from "../skills/types";
 
+export type AgentStatus = 
+  | "IDLE" 
+  | "PLANNING" 
+  | "EXECUTING" 
+  | "ANALYZING" 
+  | "REFLECTING" 
+  | "RESPONDING" 
+  | "FAILED" 
+  | "RECOVERING";
+
+export interface WorkingMemory {
+  currentGoal: string;
+  attemptedActions: string[];
+  failedActions: string[];
+  extractedFacts: Record<string, any>;
+  temporaryVariables: Record<string, any>;
+}
+
 export interface ToolCall {
   name: string;
   arguments: Record<string, unknown>;
@@ -18,6 +36,9 @@ export interface AgentExecutionState {
   input: string;
   iteration: number;
   maxIterations: number;
+  status: AgentStatus;
+  workingMemory: WorkingMemory;
+  dynamicPolicies: string[];
   transcript: string[];
   toolResults: SkillExecutionResult[];
 }
@@ -36,6 +57,7 @@ export type AgentEvent =
 export interface AgentRunOptions {
   maxIterations?: number;
   maxConsecutiveFailures?: number;
+  initialPolicies?: string[];
   signal?: AbortSignal;
   onEvent?: (event: AgentEvent) => void;
 }

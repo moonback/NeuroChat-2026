@@ -582,6 +582,65 @@ export class BrowserController {
   }
 
   /**
+   * Obtient un instantané du DOM compressé pour l'analyse sémantique
+   */
+  getDOMSnapshot(): Array<any> {
+    const actionableElements = Array.from(document.querySelectorAll("button, a, input, textarea, select, [role='button'], [onclick]"));
+    
+    return actionableElements.map((el, index) => {
+      const rect = el.getBoundingClientRect();
+      return {
+        id: index,
+        tagName: el.tagName.toLowerCase(),
+        text: (el.textContent?.trim() || el.getAttribute("value") || el.getAttribute("placeholder") || "").substring(0, 50),
+        role: el.getAttribute("role") || "",
+        ariaLabel: el.getAttribute("aria-label") || "",
+        rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        selector: this.generateCSSSelector(el)
+      };
+    }).filter(info => info.rect.width > 0 && info.rect.height > 0);
+  }
+
+  private generateCSSSelector(el: Element): string {
+    if (el.id) return `#${el.id}`;
+    const tag = el.tagName.toLowerCase();
+    if (el.className && typeof el.className === "string") {
+      const classes = el.className.trim().split(/\s+/).filter(c => !c.includes(":")).join(".");
+      if (classes) return `${tag}.${classes}`;
+    }
+    return tag;
+  }
+
+  /**
+   * Résout une description textuelle en sélecteur CSS via analyse du snapshot par LLM
+   */
+  async resolveSemanticSelector(description: string, model: { complete: (p: string) => Promise<string> }): Promise<string | null> {
+    const snapshot = this.getDOMSnapshot();
+    const prompt = [
+      "# SYSTEM: Semantic Browser Resolution",
+      "Find the element index (ID) matching the description from the snapshot.",
+      `Description: "${description}"`,
+      "",
+      "## Snapshot",
+      JSON.stringify(snapshot.slice(0, 60)),
+      "",
+      "Return ONLY the ID (integer)."
+    ].join("\n");
+
+    try {
+      const response = await model.complete(prompt);
+      const id = parseInt(response.trim().replace(/[^0-9-]/g, ""), 10);
+      if (id >= 0 && id < snapshot.length) {
+        console.log(`[Browser] Semantic match: "${description}" -> ${snapshot[id].selector}`);
+        return snapshot[id].selector;
+      }
+    } catch (err) {
+      console.error("[Browser] Semantic resolution error:", err);
+    }
+    return null;
+  }
+
+  /**
    * Obtient l'historique des actions
    */
   getActionHistory(): BrowserAction[] {
