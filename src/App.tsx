@@ -16,17 +16,14 @@ import { BrowserWindow } from "./components/BrowserWindow";
 import { DebugPanel } from "./components/DebugPanel";
 import { AgentChat } from "./components/AgentChat";
 import { DatabaseInspector } from "./components/DatabaseInspector";
-import { parseAssistantResponse, runTests } from "./lib/commandParser";
+import { parseAssistantResponse } from "./lib/commandParser";
+
 import { EmotionEngine } from "./lib/EmotionEngine";
-import { useEffect as useOnce } from "react";
+
 
 export default function App() {
-  // Exécuter les tests du CommandParser au démarrage (dev seulement)
-  useOnce(() => {
-    if (process.env.NODE_ENV === "development") {
-      runTests();
-    }
-  }, []);
+  // Les tests du CommandParser sont désormais lancés manuellement depuis le DebugPanel si besoin
+
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
   const [cameraActive, setCameraActive] = useState(false);
