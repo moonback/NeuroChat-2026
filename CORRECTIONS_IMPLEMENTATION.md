@@ -21,6 +21,9 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 | P0-006 | Sortir les clés API du renderer | Sécurité | Fait | OpenRouter et Gemini Live passent désormais exclusivement par le main process via IPC. Les clés API ne sont plus exposées dans le renderer. |
 | P0-007 | Ajouter limites de taille sur lecture fichiers | Sécurité / stabilité | Fait | Lecture limitée à 2 MiB et écriture limitée à 1 MiB côté main process. |
 | P0-008 | Éviter les sauvegardes destructives du vector store SQLite | Mémoire / données | Fait | `saveVectors` upsert puis prune uniquement les IDs absents pour les utilisateurs touchés; clear user passe par `clearVectors(userName)`. |
+| P0-009 | Signer les IPC (sender.origin check) | Sécurité | Fait | Validation systématique de l'origine de l'expéditeur (`sender.getURL()`) dans tous les handlers IPC pour prévenir les appels malveillants. |
+| P0-010 | RAG Freshness (décroissance temporelle) | IA / mémoire | Fait | Intégration d'un score de fraîcheur avec une demi-vie de 30 jours dans la recherche sémantique pour pondérer les résultats récents. |
+| P0-011 | Ambient Emotion (Breathing Speed) | UX / Emotion | Fait | Liaison dynamique entre l'énergie détectée par `EmotionEngine` et la vitesse de respiration de l'avatar Robot. |
 
 ## Corrections P1
 

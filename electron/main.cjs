@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
 const { GoogleGenAI } = require('@google/genai');
+const { assertMainOrigin } = require('./security.cjs');
 require('dotenv').config();
 
 
@@ -186,6 +187,7 @@ function assertContentSize(content) {
 function registerIpcHandlers() {
   // Directory picker
   ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
+    assertMainOrigin(event);
     console.log('[ipc] dialog:showOpenDialog requested', options);
     const win = BrowserWindow.fromWebContents(event.sender);
     const result = await dialog.showOpenDialog(win || undefined, options);
@@ -194,6 +196,7 @@ function registerIpcHandlers() {
 
   // FS: List directory
   ipcMain.handle('fs:listDir', async (event, dirPath) => {
+    assertMainOrigin(event);
     try {
       const safeDirPath = assertAuthorizedPath(dirPath, 'listDir');
       console.log(`[fs] Listing directory: ${safeDirPath}`);
@@ -214,6 +217,7 @@ function registerIpcHandlers() {
 
   // FS: Read file
   ipcMain.handle('fs:readFile', async (event, filePath) => {
+    assertMainOrigin(event);
     try {
       const safeFilePath = assertAuthorizedPath(filePath, 'readFile');
       const stats = await fs.stat(safeFilePath);
@@ -232,6 +236,7 @@ function registerIpcHandlers() {
 
   // FS: Write file
   ipcMain.handle('fs:writeFile', async (event, filePath, content) => {
+    assertMainOrigin(event);
     try {
       const safeFilePath = assertMutationAllowed(filePath, 'writeFile');
       assertContentSize(content);
@@ -246,6 +251,7 @@ function registerIpcHandlers() {
 
   // FS: Delete item
   ipcMain.handle('fs:deleteItem', async (event, itemPath) => {
+    assertMainOrigin(event);
     try {
       const safeItemPath = assertMutationAllowed(itemPath, 'deleteItem');
       await fs.rm(safeItemPath, { recursive: true, force: true });
@@ -259,6 +265,7 @@ function registerIpcHandlers() {
 
   // FS: Mkdir
   ipcMain.handle('fs:mkdir', async (event, dirPath) => {
+    assertMainOrigin(event);
     try {
       const safeDirPath = assertMutationAllowed(dirPath, 'mkdir');
       await fs.mkdir(safeDirPath, { recursive: true });
@@ -272,12 +279,14 @@ function registerIpcHandlers() {
 
   // FS: Exists
   ipcMain.handle('fs:exists', async (event, itemPath) => {
+    assertMainOrigin(event);
     const safeItemPath = assertAuthorizedPath(itemPath, 'exists');
     return existsSync(safeItemPath);
   });
 
   // FS: Stats
   ipcMain.handle('fs:getStats', async (event, itemPath) => {
+    assertMainOrigin(event);
     try {
       const safeItemPath = assertAuthorizedPath(itemPath, 'getStats');
       const stats = await fs.stat(safeItemPath);
@@ -292,7 +301,8 @@ function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle('ai:openrouter:chat', async (_event, messages) => {
+  ipcMain.handle('ai:openrouter:chat', async (event, messages) => {
+    assertMainOrigin(event);
     let lastError;
     for (const model of OPENROUTER_MODELS) {
       try {
@@ -312,7 +322,8 @@ function registerIpcHandlers() {
     throw lastError || new Error('All OpenRouter models failed');
   });
 
-  ipcMain.handle('ai:openrouter:completeStepWithTools', async (_event, prompt, tools) => {
+  ipcMain.handle('ai:openrouter:completeStepWithTools', async (event, prompt, tools) => {
+    assertMainOrigin(event);
     if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('OpenRouter prompt must be a non-empty string');
     const data = await callOpenRouter({
       model: 'openai/gpt-4o-mini',
@@ -332,6 +343,7 @@ function registerIpcHandlers() {
 
   // GEMINI LIVE BRIDGE
   ipcMain.handle('ai:gemini:connect', async (event, config) => {
+    assertMainOrigin(event);
     try {
       if (activeGeminiSession) {
         try { activeGeminiSession.close(); } catch (e) {}
@@ -377,18 +389,21 @@ function registerIpcHandlers() {
   });
 
   ipcMain.on('ai:gemini:sendRealtimeInput', (event, input) => {
+    assertMainOrigin(event);
     if (activeGeminiSession) {
       activeGeminiSession.sendRealtimeInput(input);
     }
   });
 
   ipcMain.on('ai:gemini:sendClientContent', (event, content) => {
+    assertMainOrigin(event);
     if (activeGeminiSession) {
       activeGeminiSession.sendClientContent(content);
     }
   });
 
   ipcMain.on('ai:gemini:close', (event) => {
+    assertMainOrigin(event);
     if (activeGeminiSession) {
       try { activeGeminiSession.close(); } catch (e) {}
       activeGeminiSession = null;

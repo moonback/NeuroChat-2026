@@ -283,6 +283,20 @@ export async function embedAndStore(
 }
 
 /**
+ * Calculate a freshness multiplier (0.8 to 1.0) based on how recent the entry is.
+ * Halflife is set to 30 days — old memories still matter but recent ones get a slight boost.
+ */
+function calculateFreshness(timestamp: number): number {
+  const now = Date.now();
+  const diffDays = (now - timestamp) / (1000 * 60 * 60 * 24);
+  const halflifeDays = 30;
+  
+  // We use 0.8 as the floor so old entries aren't completely ignored if similarity is high
+  const decay = Math.pow(0.5, diffDays / halflifeDays);
+  return 0.8 + (0.2 * decay);
+}
+
+/**
  * Search the vector store for the top-k most semantically similar entries
  * to the given query text.
  *
@@ -308,10 +322,14 @@ export async function semanticSearch(
   );
 
   const scored = store
-    .map((entry) => ({
-      ...entry,
-      score: cosineSimilarity(queryVector, entry.vector),
-    }))
+    .map((entry) => {
+      const similarity = cosineSimilarity(queryVector, entry.vector);
+      const freshness = calculateFreshness(entry.metadata.timestamp);
+      return {
+        ...entry,
+        score: similarity * freshness,
+      };
+    })
     .filter((e) => e.score >= threshold)
     .sort((a, b) => b.score - a.score)
     .slice(0, topK);

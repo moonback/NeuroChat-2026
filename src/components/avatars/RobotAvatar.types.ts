@@ -24,6 +24,7 @@ export interface AnimationState {
   breathPhase: number;
   scanProgress: number;
   glitchActive: boolean;
+  energy: number;
 }
 
 export interface AudioReactivity {

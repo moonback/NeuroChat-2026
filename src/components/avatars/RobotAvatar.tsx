@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useRuntime } from "../../runtime/RuntimeProvider";
 import type { AvatarProps } from "./AvatarProps";
 import type { AnimationState, AudioReactivity } from "./RobotAvatar.types";
 import {
@@ -31,6 +32,8 @@ import { RobotHalo } from "./RobotHalo";
 import { RobotEffects } from "./RobotEffects";
 
 export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity = false }: AvatarProps) {
+  const { emotionEngineRef } = useRuntime();
+
   // Normalize and clamp audio input
   const safeAudioLevel = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
   /** Updated every render; the RAF loop reads this so we must not put audio level in the effect deps. */
@@ -49,6 +52,7 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity
     breathPhase: 0,
     scanProgress: 0,
     glitchActive: false,
+    energy: 0.5,
   });
 
   const lastFrameTimeRef = useRef<number>(0);
@@ -100,8 +104,17 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity
         state.eyeOffsetY = lerp(state.eyeOffsetY, saccade.y, 0.1);
       }
 
-      // Breathing motion
-      state.breathPhase = timestamp * 0.0008;
+      // ── AMBIENT EMOTION: BREATHING SPEED ──
+      // Link breathing speed to user energy level detected by EmotionEngine
+      const metrics = emotionEngineRef.current?.getMetrics();
+      const targetEnergy = metrics?.energyLevel ?? 0.5;
+      
+      // Lerp energy for smooth visual transitions
+      state.energy = lerp(state.energy || 0.5, targetEnergy, 0.05);
+
+      // Base speed is 0.0008. Range: 0.0004 (deep focus/calm) to 0.0018 (agitated/excited)
+      const breathSpeed = 0.0004 + (state.energy * 0.0014);
+      state.breathPhase += deltaTime * breathSpeed;
 
       // Scan line progress
       state.scanProgress += deltaTime * 0.08 * theme.pulseSpeed;
@@ -128,7 +141,7 @@ export function RobotAvatar({ status, isSpeaking, audioLevel = 0, visualActivity
 
     rafId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafId);
-  }, [status, theme.pulseSpeed]);
+  }, [status, theme.pulseSpeed, emotionEngineRef]);
 
   // Compute derived animation values
   const state = animStateRef.current;
