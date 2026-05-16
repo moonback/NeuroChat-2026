@@ -5,6 +5,7 @@ const fs = require('fs/promises');
 const { existsSync } = require('fs');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
+const { registerGeminiHandlers } = require('./geminiService.cjs');
 
 /**
  * Register FS and Dialog handlers
@@ -208,6 +209,8 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
+
+  return win;
 }
 
 app.whenReady().then(() => {
@@ -229,7 +232,10 @@ app.whenReady().then(() => {
   ensureDb(app);
   registerIpcHandlers();
   registerDbIpcHandlers();
-  createWindow();
+  
+  const win = createWindow();
+  registerGeminiHandlers(win);
+  
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

@@ -48,6 +48,16 @@ declare global {
         clearTraces: () => Promise<boolean>;
         migrate: (payload: any) => Promise<boolean>;
       };
+      gemini?: {
+        connect: (prompt: string) => Promise<boolean>;
+        disconnect: () => Promise<boolean>;
+        sendAudio: (base64: string) => void;
+        sendVideo: (base64: string) => void;
+        sendText: (text: string) => void;
+        sendFunctionResponse: (name: string, response: any) => void;
+        onEvent: (callback: (data: any) => void) => void;
+        removeListener: () => void;
+      };
     };
   }
 }

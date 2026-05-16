@@ -37,5 +37,19 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
     loadTraces: () => ipcRenderer.invoke('db:traces:load'),
     clearTraces: () => ipcRenderer.invoke('db:traces:clear'),
     migrate: (payload) => ipcRenderer.invoke('db:migrate', payload),
+  },
+  gemini: {
+    connect: (prompt) => ipcRenderer.invoke('gemini:connect', prompt),
+    disconnect: () => ipcRenderer.invoke('gemini:disconnect'),
+    sendAudio: (base64) => ipcRenderer.send('gemini:sendAudio', base64),
+    sendVideo: (base64) => ipcRenderer.send('gemini:sendVideo', base64),
+    sendText: (text) => ipcRenderer.send('gemini:sendText', text),
+    sendFunctionResponse: (name, response) => ipcRenderer.send('gemini:sendFunctionResponse', { name, response }),
+    onEvent: (callback) => {
+      ipcRenderer.on('gemini:event', (event, data) => callback(data));
+    },
+    removeListener: () => {
+      ipcRenderer.removeAllListeners('gemini:event');
+    }
   }
 });

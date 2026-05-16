@@ -25,6 +25,7 @@ export default function App() {
   // Les tests du CommandParser sont désormais lancés manuellement depuis le DebugPanel si besoin
 
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
+  const [currentWorkdir, setCurrentWorkdir] = useState<string | null>(null);
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
   const [cameraActive, setCameraActive] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
@@ -145,6 +146,37 @@ export default function App() {
       enableVideo: cameraActive,
       browserControlEnabled,
       userState: emotionEngineRef.current.getSystemContext(),
+      currentWorkdir: currentWorkdir,
+      onFunctionCall: async (name, args) => {
+        if (name === "execute_agent_task" && args?.task && userName) {
+          console.log(`🧠 [Inner Monologue] L'IA a décidé d'exécuter l'agent pour: ${args.task}`);
+          try {
+            const result = await runAgentTask(args.task, `live-${Date.now()}`, userName);
+            // On renvoie le résultat en "functionResponse"
+            if (window.neurochatElectron?.gemini) {
+               window.neurochatElectron.gemini.sendFunctionResponse(name, { answer: result.answer, status: "success" });
+            }
+          } catch (err: any) {
+            console.error("Erreur agent (Inner Monologue):", err);
+            if (window.neurochatElectron?.gemini) {
+               window.neurochatElectron.gemini.sendFunctionResponse(name, { error: err.message || String(err), status: "failed" });
+            }
+          }
+        } else if (name === "browser_control" && args?.action) {
+          console.log(`🌐 [Inner Monologue] Commande navigateur: ${args.action}`, args);
+          try {
+            const result = await executeAction({ type: args.action, params: args });
+            if (window.neurochatElectron?.gemini) {
+               window.neurochatElectron.gemini.sendFunctionResponse(name, { result, status: "success" });
+            }
+          } catch (err: any) {
+            console.error("Erreur navigateur (Inner Monologue):", err);
+            if (window.neurochatElectron?.gemini) {
+               window.neurochatElectron.gemini.sendFunctionResponse(name, { error: err.message || String(err), status: "failed" });
+            }
+          }
+        }
+      },
       onAudioResponse: async (base64, aiText) => {
         if (base64) playAudio(base64);
         // Accumule les fragments de transcription IA (outputTranscription)
@@ -190,62 +222,7 @@ export default function App() {
             addTurn(userName, "assistant", fullText);
           }
           
-          // DÉTECTION MULTI-AGENT
-          if (fullText && fullText.toLowerCase().includes("tool:")) {
-             const taskMatch = fullText.match(/tool:\s*(.*)/i);
-             if (taskMatch && taskMatch[1]) {
-                const task = taskMatch[1].trim();
-                console.log(`🤖 [App] Lancement de l'orchestrateur agentique avec la tâche: ${task}`);
-                runAgentTask(task, `live-${Date.now()}`, userName).then(result => {
-                    sendTextMessage(`[SYSTEM] L'agent a terminé la tâche demandée. Voici le résultat final : ${result.answer}. Informe brièvement l'utilisateur du succès.`);
-                }).catch(err => {
-                    console.error("Erreur agent:", err);
-                    sendTextMessage(`[SYSTEM] L'agent a échoué avec l'erreur: ${err.message || err}. Dis-le à l'utilisateur.`);
-                });
-             }
-          }
-          
-          // PARSER ICI avec le texte complet
-          if (browserControlEnabled && fullText) {
-            console.log("🌐 [App] Contrôle du navigateur activé, analyse du texte complet...");
-            const parsed = parseAssistantResponse(fullText);
-            
-            if (parsed.actions.length > 0) {
-              console.log(`🎯 [App] ${parsed.actions.length} commande(s) détectée(s)`);
-              
-              // Exécuter les commandes séquentiellement
-              for (const action of parsed.actions) {
-                try {
-                  console.log("🚀 [App] Exécution de:", action.type);
-                  const result = await executeAction(action);
-                  if (result.success) {
-                    console.log(`✅ [App] Commande ${action.type} exécutée avec succès`);
-                    
-                    // Retourner le résultat à l'IA pour qu'elle le "voie" réellement
-                    if (action.type === "pickWorkdir") {
-                      sendTextMessage(`[SYSTEM] SUCCESS: Dossier sélectionné : ${result.data?.path}. Tu DOIS maintenant utiliser list_files pour voir son contenu.`);
-                    } else if (action.type === "listDir") {
-                      const files = Array.isArray((result.data as any)?.files) ? (result.data as any).files as Array<{name?: string}> : [];
-                      const fileNames = files.map((f) => f.name ?? "").filter(Boolean).join(", ");
-                      sendTextMessage(`[SYSTEM] SUCCESS: Résultats de list_files dans ${result.data?.path}.\nFichiers trouvés (${files.length}) : ${fileNames || "Dossier vide"}\n\nACTION REQUIRED: Analyse cette liste et réponds vocalement à l'utilisateur maintenant.`);
-                    } else if (action.type === "readFile") {
-                      sendTextMessage(`[SYSTEM] Contenu de ${result.data?.path} :\n${result.data?.content}`);
-                    } else if (action.type === "extract") {
-                      sendTextMessage(`[SYSTEM] Contenu de la page extrait avec succès.`);
-                    }
-                  } else {
-                    console.error(`❌ [App] Échec de la commande ${action.type}:`, result.error);
-                    sendTextMessage(`[SYSTEM] Erreur lors de l'action ${action.type} : ${result.error}`);
-                  }
-                } catch (error) {
-                  console.error(`💥 [App] Erreur lors de l'exécution de ${action.type}:`, error);
-                }
-              }
-            } else {
-              console.log("ℹ️ [App] Aucune commande détectée dans le texte complet");
-            }
-          }
-          
+          // Ancien parseur obsolète (remplacé par function calls)
           aiTextAccumulator.length = 0;
         }
       },

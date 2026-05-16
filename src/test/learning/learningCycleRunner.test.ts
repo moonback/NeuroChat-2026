@@ -42,11 +42,14 @@ describe('runLearningCycleForUser', () => {
     await storage.updateFeedback({
       userId: 'runner-user',
       signals: [{
+        id: 'mock-id-1',
+        sessionId: 'mock-session',
+        type: 'explicit',
         category: 'user_interruption',
         sentiment: 'negative',
         turnIndex: 0,
         timestamp: 1000,
-        text: 'Too long!'
+        content: 'Too long!'
       }],
       lastUpdated: 1000
     });

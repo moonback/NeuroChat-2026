@@ -15,6 +15,8 @@ interface SessionOptions {
   enableVideo?: boolean;
   browserControlEnabled?: boolean;
   userState?: string;
+  onFunctionCall?: (name: string, args: any) => void;
+  currentWorkdir?: string | null;
 }
 
 export function useOpenRouterSession() {

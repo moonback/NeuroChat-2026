@@ -12,11 +12,13 @@ interface SessionOptions {
   onTranscription: (text: string, finished: boolean) => void;
   onTurnComplete: () => void;
   onInterrupted: () => void;
+  onFunctionCall?: (name: string, args: any) => void;
   onRecordingStart: (sendInput: (base64: string, type: 'audio' | 'video') => void) => void;
   onStopRecording: () => void;
   enableVideo?: boolean;
   browserControlEnabled?: boolean;
   userState?: string;
+  currentWorkdir?: string | null;
 }
 
 function shouldAutoRunAgent(text: string): boolean {

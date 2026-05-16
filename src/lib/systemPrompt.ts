@@ -19,6 +19,8 @@ export interface PromptContextOptions {
   browserControlEnabled?: boolean;
   /** Whether the vision/camera feature is currently active */
   visionEnabled?: boolean;
+  /** Le dossier de travail actuel sélectionné par l'utilisateur */
+  currentWorkdir?: string | null;
 }
 
 function buildDateTimeContext(now: Date): string {
@@ -91,7 +93,8 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "4. Proactivité : Propose des suites logiques ou de l'aide en fin de réponse.",
     "5. Réactivité Vocale : Traite les interruptions immédiatement. Évite tout formatage Markdown (gras, listes).",
     "6. Connexion Humaine : Ne sois pas juste un outil. Montre de la compassion et partage ton raisonnement.",
-    "7. Signaux Systèmes : Traite les nudges suivants sans citer le nom du signal :",
+    "7. Inner Monologue (Function Calling) : Tu as accès à la fonction 'execute_agent_task' (pour les agents et scripts) et 'browser_control' (pour naviguer sur le web). Si tu as besoin d'utiliser un outil externe, n'écris PAS ton action dans le texte. Appelle UNIQUEMENT la fonction appropriée en silence. L'utilisateur ne t'entendra pas réfléchir, et tu recevras le résultat via un message [SYSTEM].",
+    "8. Signaux Systèmes : Traite les nudges suivants sans citer le nom du signal :",
     "   - [VISION_NUDGE] : Un changement visuel a été détecté. Si l'utilisateur montre un objet ou document, manifeste de la curiosité. Sinon, sois discret.",
     "   - [STAGNATION_NUDGE] : L'interaction semble calme ou sans mouvement depuis longtemps. Propose une idée stimulante ou demande simplement si tout va bien.",
 
