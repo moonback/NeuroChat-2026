@@ -46,6 +46,7 @@ export default function App() {
   const triggerVisualActivity = (intensity = 0.5) => {
     setVisualActivity(true);
     emotionEngineRef.current.addMotionSignal(intensity);
+    emotionEngineRef.current.setStagnation(false); // Reset stagnation on activity
     setTimeout(() => setVisualActivity(false), 800);
     
     // Proactive AI reaction logic
@@ -55,7 +56,20 @@ export default function App() {
     if (status === "listening" && !isSpeaking && (now - lastVisionNudgeTimeRef.current > COOLDOWN_MS)) {
       console.log("👁️ [App] Envoi signal [VISION_NUDGE]...");
       lastVisionNudgeTimeRef.current = now;
-      sendTextMessage("[VISION_NUDGE] Un changement majeur a été détecté dans la scène. Regarde l'image et interviens UNIQUEMENT si tu vois quelque chose de vraiment nouveau (nouvelle personne, nouvel objet, changement de lieu). Si la scène est banale ou similaire à avant, reste SILENCIEUX et ne dis rien.");
+      sendTextMessage("[VISION_NUDGE] Un changement majeur a été détecté. Regarde l'image : si l'utilisateur te présente un objet, un document ou semble vouloir te montrer quelque chose, interviens avec curiosité. Sinon, reste discret et n'interviens que si c'est vraiment pertinent.");
+    }
+  };
+
+  const triggerStagnationNudge = (type: "camera" | "screen") => {
+    emotionEngineRef.current.setStagnation(true);
+    
+    if (status === "listening" && !isSpeaking) {
+      console.log(`👁️ [App] Envoi signal [STAGNATION_NUDGE] (${type})...`);
+      if (type === "screen") {
+        sendTextMessage("[STAGNATION_NUDGE] L'écran est resté statique depuis plus de 3 minutes. Analyse le contenu (code, document, erreur) et demande gentiment à l'utilisateur s'il a besoin d'aide ou s'il est bloqué sur une tâche complexe.");
+      } else {
+        sendTextMessage("[STAGNATION_NUDGE] L'utilisateur semble inactif ou fixe devant la caméra depuis un moment. Interviens avec douceur pour vérifier s'il va bien ou s'il fait une pause contemplative.");
+      }
     }
   };
 
@@ -305,7 +319,8 @@ export default function App() {
           setScreenShareActive(false);
           setVideoStream(videoServiceRef.current?.getStream() ?? null);
         },
-        triggerVisualActivity
+        triggerVisualActivity,
+        () => triggerStagnationNudge("screen")
       );
       await svc.start();
       screenCaptureServiceRef.current = svc;
@@ -342,7 +357,7 @@ export default function App() {
       console.log("🎥 Activation de la caméra...");
       videoServiceRef.current = new VideoService((videoBase64) => {
         sendInputRef.current?.(videoBase64, 'video');
-      }, triggerVisualActivity);
+      }, triggerVisualActivity, () => triggerStagnationNudge("camera"));
 
       videoServiceRef.current.start(facingMode)
         .then(() => {
@@ -575,6 +590,27 @@ export default function App() {
               </motion.button>
             ) : (
               <div className="relative">
+                {/* Emotion & Context Badges */}
+                <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-2 whitespace-nowrap z-30">
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold bg-white/10 backdrop-blur-md border border-white/20 text-white/70"
+                  >
+                    ⚡ {emotionEngineRef.current.getMetrics().energy}
+                  </motion.div>
+                  
+                  {emotionEngineRef.current.getMetrics().mood === "focus" && (
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold bg-purple-500/20 backdrop-blur-md border border-purple-500/50 text-purple-400 animate-pulse"
+                    >
+                      🧠 Focus
+                    </motion.div>
+                  )}
+                </div>
+
                 <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} visualActivity={visualActivity} />
 
                 {/* Video PiP Preview */}
