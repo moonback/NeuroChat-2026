@@ -16,6 +16,7 @@ export class VideoService {
   // Motion detection (Physical)
   private lastImageData: ImageData | null = null;
   private lastFrameTime: number = 0;
+  private lastFrameSentTime: number = 0;
   private readonly MOTION_THRESHOLD = 0.15;
   private readonly MIN_INTERVAL_MS = 500;
   private readonly MAX_INTERVAL_MS = 8000;
@@ -107,9 +108,10 @@ export class VideoService {
     this.updateSemanticHistory(snapshot);
     
     // 3. Envoi de la frame si nécessaire (mouvement ou intervalle forcé)
-    if (hasMotion || !this.lastImageData || (now - this.lastFrameTime > this.MAX_INTERVAL_MS)) {
+    if (hasMotion || !this.lastImageData || (now - this.lastFrameSentTime > this.MAX_INTERVAL_MS)) {
       const base64 = this.canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
       this.onFrame(base64);
+      this.lastFrameSentTime = now;
     }
 
     this.lastImageData = currentImageData;
@@ -222,6 +224,7 @@ export class VideoService {
       this.animationFrameId = null;
     }
     this.lastImageData = null;
+    this.lastFrameSentTime = 0;
     this.semanticHistory = [];
     
     if (this.stream) {

@@ -244,10 +244,7 @@ export async function semanticSearch(
  * Delete all vector entries for a given user (called on memory clear).
  */
 export async function clearUserVectors(userName: string): Promise<void> {
-  const store = (await loadVectorStore()).filter(
-    (e) => e.metadata.userName !== userName
-  );
-  await saveVectorStore(store);
+  await getStorageBackend().clearVectors(userName);
 }
 
 /**

@@ -6,6 +6,79 @@ const { existsSync } = require('fs');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
 
+const MAX_READ_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_WRITE_FILE_BYTES = 1 * 1024 * 1024;
+const EXACT_BLOCKED_MUTATION_PATHS = new Set([
+  path.parse(process.cwd()).root,
+  process.env.HOME,
+  process.env.USERPROFILE,
+].filter(Boolean).map((p) => path.resolve(p)));
+
+const RECURSIVE_BLOCKED_MUTATION_PATHS = [
+  '/etc',
+  '/bin',
+  '/usr',
+  '/System',
+  'C:\\Windows',
+].filter(Boolean).map((p) => path.resolve(p));
+
+const authorizedWorkdirs = new Set();
+
+function assertSafePath(inputPath, operation) {
+  if (typeof inputPath !== 'string' || !inputPath.trim()) {
+    throw new Error(`${operation}: chemin invalide`);
+  }
+  if (inputPath.includes('\0')) {
+    throw new Error(`${operation}: chemin contenant un caractère interdit`);
+  }
+  if (inputPath.length > 4096) {
+    throw new Error(`${operation}: chemin trop long`);
+  }
+  return path.resolve(inputPath);
+}
+
+function isPathInside(candidate, root) {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function assertAuthorizedPath(inputPath, operation) {
+  const resolved = assertSafePath(inputPath, operation);
+  if (!Array.from(authorizedWorkdirs).some((root) => isPathInside(resolved, root))) {
+    throw new Error(`${operation}: accès refusé hors dossier de travail autorisé`);
+  }
+  return resolved;
+}
+
+function assertMutationAllowed(inputPath, operation) {
+  const resolved = assertAuthorizedPath(inputPath, operation);
+  if (EXACT_BLOCKED_MUTATION_PATHS.has(resolved) || RECURSIVE_BLOCKED_MUTATION_PATHS.some((root) => isPathInside(resolved, root))) {
+    throw new Error(`${operation}: mutation refusée sur un dossier système ou racine`);
+  }
+  return resolved;
+}
+
+function authorizeSelectedDirectories(result, options) {
+  if (!result?.canceled && Array.isArray(result?.filePaths) && options?.properties?.includes('openDirectory')) {
+    for (const filePath of result.filePaths) {
+      const resolved = assertSafePath(filePath, 'dialog:showOpenDialog');
+      authorizedWorkdirs.add(resolved);
+      console.log(`[fs] Authorized workspace: ${resolved}`);
+    }
+  }
+  return result;
+}
+
+function assertContentSize(content) {
+  if (typeof content !== 'string') {
+    throw new Error('writeFile: contenu invalide');
+  }
+  if (Buffer.byteLength(content, 'utf-8') > MAX_WRITE_FILE_BYTES) {
+    throw new Error(`writeFile: contenu trop volumineux (max ${MAX_WRITE_FILE_BYTES} octets)`);
+  }
+}
+
+
 /**
  * Register FS and Dialog handlers
  */
@@ -14,14 +87,16 @@ function registerIpcHandlers() {
   ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
     console.log('[ipc] dialog:showOpenDialog requested', options);
     const win = BrowserWindow.fromWebContents(event.sender);
-    return dialog.showOpenDialog(win || undefined, options);
+    const result = await dialog.showOpenDialog(win || undefined, options);
+    return authorizeSelectedDirectories(result, options);
   });
 
   // FS: List directory
   ipcMain.handle('fs:listDir', async (event, dirPath) => {
     try {
-      console.log(`[fs] Listing directory: ${dirPath}`);
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      const safeDirPath = assertAuthorizedPath(dirPath, 'listDir');
+      console.log(`[fs] Listing directory: ${safeDirPath}`);
+      const entries = await fs.readdir(safeDirPath, { withFileTypes: true });
       const result = entries.map(entry => ({
         name: entry.name,
         isDirectory: entry.isDirectory(),
@@ -38,8 +113,12 @@ function registerIpcHandlers() {
   // FS: Read file
   ipcMain.handle('fs:readFile', async (event, filePath) => {
     try {
-      console.log(`[fs] Reading file: ${filePath}`);
-      const content = await fs.readFile(filePath, 'utf-8');
+      const safeFilePath = assertAuthorizedPath(filePath, 'readFile');
+      const stats = await fs.stat(safeFilePath);
+      if (!stats.isFile()) throw new Error('readFile: le chemin ne pointe pas vers un fichier');
+      if (stats.size > MAX_READ_FILE_BYTES) throw new Error(`readFile: fichier trop volumineux (max ${MAX_READ_FILE_BYTES} octets)`);
+      console.log(`[fs] Reading file: ${safeFilePath}`);
+      const content = await fs.readFile(safeFilePath, 'utf-8');
       console.log(`[fs] Read ${content.length} characters`);
       return content;
     } catch (error) {
@@ -51,7 +130,9 @@ function registerIpcHandlers() {
   // FS: Write file
   ipcMain.handle('fs:writeFile', async (event, filePath, content) => {
     try {
-      await fs.writeFile(filePath, content, 'utf-8');
+      const safeFilePath = assertMutationAllowed(filePath, 'writeFile');
+      assertContentSize(content);
+      await fs.writeFile(safeFilePath, content, 'utf-8');
       return true;
     } catch (error) {
       console.error('[electron] writeFile failed', error);
@@ -62,7 +143,8 @@ function registerIpcHandlers() {
   // FS: Delete item
   ipcMain.handle('fs:deleteItem', async (event, itemPath) => {
     try {
-      await fs.rm(itemPath, { recursive: true, force: true });
+      const safeItemPath = assertMutationAllowed(itemPath, 'deleteItem');
+      await fs.rm(safeItemPath, { recursive: true, force: true });
       return true;
     } catch (error) {
       console.error('[electron] deleteItem failed', error);
@@ -73,7 +155,8 @@ function registerIpcHandlers() {
   // FS: Mkdir
   ipcMain.handle('fs:mkdir', async (event, dirPath) => {
     try {
-      await fs.mkdir(dirPath, { recursive: true });
+      const safeDirPath = assertMutationAllowed(dirPath, 'mkdir');
+      await fs.mkdir(safeDirPath, { recursive: true });
       return true;
     } catch (error) {
       console.error('[electron] mkdir failed', error);
@@ -83,13 +166,15 @@ function registerIpcHandlers() {
 
   // FS: Exists
   ipcMain.handle('fs:exists', async (event, itemPath) => {
-    return existsSync(itemPath);
+    const safeItemPath = assertAuthorizedPath(itemPath, 'exists');
+    return existsSync(safeItemPath);
   });
 
   // FS: Stats
   ipcMain.handle('fs:getStats', async (event, itemPath) => {
     try {
-      const stats = await fs.stat(itemPath);
+      const safeItemPath = assertAuthorizedPath(itemPath, 'getStats');
+      const stats = await fs.stat(safeItemPath);
       return {
         size: stats.size,
         mtime: stats.mtime,
@@ -211,19 +296,21 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Allow framing of external websites in the browser control panel
-  session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
-    const responseHeaders = { ...details.responseHeaders };
-    
-    Object.keys(responseHeaders).forEach(key => {
-      const lower = key.toLowerCase();
-      if (lower === 'x-frame-options' || lower === 'content-security-policy') {
-        delete responseHeaders[key];
-      }
-    });
+  if (process.env.NEUROCHAT_ALLOW_UNSAFE_FRAME_HEADER_STRIPPING === 'true') {
+    console.warn('[electron] UNSAFE: stripping frame/CSP headers is enabled by environment flag');
+    session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
 
-    callback({ cancel: false, responseHeaders });
-  });
+      Object.keys(responseHeaders).forEach(key => {
+        const lower = key.toLowerCase();
+        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
+          delete responseHeaders[key];
+        }
+      });
+
+      callback({ cancel: false, responseHeaders });
+    });
+  }
 
   registerDisplayMediaHandler();
   ensureDb(app);
