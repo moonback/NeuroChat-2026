@@ -14,7 +14,7 @@ export const retrieveContextSkill: SkillDefinition<{ query: string }, { contextB
   permissions: [{ resource: "memory", level: "read" }],
   cooldownMs: 300,
   async execute(params, context) {
-    const rag = await retrieveRelevantContext(params.query, context.userId, 6, 0.62);
+    const rag = await retrieveRelevantContext(params.query, context.userId, null, 6, 0.62);
     return { contextBlock: rag.contextBlock, hasContext: rag.hasContext };
   },
 };

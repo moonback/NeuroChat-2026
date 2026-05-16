@@ -125,6 +125,17 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     userState ? `CONTEXTE UTILISATEUR: ${userState}` : ""
   );
 
+  // Phase 2: Inject active project context
+  if (normalizedOptions.currentWorkdir) {
+    const folderName = normalizedOptions.currentWorkdir.split(/[\\/]/).pop() || normalizedOptions.currentWorkdir;
+    sections.push(
+      "### PROJET ACTIF",
+      `Dossier de travail : "${folderName}" (${normalizedOptions.currentWorkdir}).`,
+      "Tu as accès au contenu indexé de ce projet via le RAG local. Si l'utilisateur pose une question technique, cherche d'abord dans le contexte projet injecté ci-dessus avant de supposer.",
+      "Mentionne le nom du projet naturellement si pertinent (ex: \"dans ton projet ${folderName}...\")."
+    );
+  }
+
   sections.push(
     "### RESPONSE FORMAT",
     "Sortie = Texte parlé pur. Pas de métadonnées, pas de commentaires, juste la réponse vocale directe."

@@ -42,7 +42,11 @@ export default function App() {
   const [visualActivity, setVisualActivity] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
   const [pipExpanded, setPipExpanded] = useState(false);
-  const [emotionMetrics, setEmotionMetrics] = useState({ energy: "neutre", mood: "neutre", confidence: 1, trend: "stable", isStagnated: false });
+  const [emotionMetrics, setEmotionMetrics] = useState<import("./lib/EmotionEngine").EmotionMetrics>({
+    energy: "neutre", mood: "neutre", confidence: 1, trend: "stable", isStagnated: false,
+    breathingRate: 4, moodEmoji: "😐", moodColor: "#6366f1", rawAudioAvg: 0, rawMotionAvg: 0,
+  });
+
   const emotionEngineRef = useRef(new EmotionEngine());
 
 
@@ -111,7 +115,7 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       const metrics = emotionEngineRef.current.getMetrics();
-      setEmotionMetrics(metrics as any);
+      setEmotionMetrics(metrics);
     }, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -647,8 +651,9 @@ export default function App() {
               </motion.button>
             ) : (
               <div className="relative">
-                {/* Emotion & Context Badges */}
+                {/* Emotion & Context Badges (Phase 4 Enhanced) */}
                 <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-2 whitespace-nowrap z-30">
+                  {/* Energy badge */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -657,20 +662,43 @@ export default function App() {
                     ⚡ {emotionMetrics.energy}
                   </motion.div>
 
-
-                  {emotionMetrics.mood === "focus" && (
+                  {/* Mood badge — only shows for non-neutral moods */}
+                  {emotionMetrics.mood !== "neutre" && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold bg-purple-500/20 backdrop-blur-md border border-purple-500/50 text-purple-400 animate-pulse"
+                      className="px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold backdrop-blur-md border animate-pulse"
+                      style={{
+                        backgroundColor: `${(emotionMetrics as any).moodColor || '#6366f1'}20`,
+                        borderColor: `${(emotionMetrics as any).moodColor || '#6366f1'}50`,
+                        color: (emotionMetrics as any).moodColor || '#6366f1',
+                      }}
                     >
-                      🧠 Focus
+                      {(emotionMetrics as any).moodEmoji || '😐'} {emotionMetrics.mood}
                     </motion.div>
                   )}
 
+                  {/* Trend indicator */}
+                  {emotionMetrics.trend !== "stable" && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="px-2 py-1 rounded-full text-[10px] font-bold bg-white/5 backdrop-blur-md border border-white/10 text-white/50"
+                    >
+                      {emotionMetrics.trend === "increasing" ? "📈" : "📉"}
+                    </motion.div>
+                  )}
                 </div>
 
-                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} visualActivity={visualActivity} />
+                <AnimatedCharacter
+                  status={status}
+                  isSpeaking={isSpeaking}
+                  avatarId={avatarId}
+                  audioLevel={audioLevel}
+                  visualActivity={visualActivity}
+                  emotionMetrics={emotionMetrics}
+                />
+
 
                 {/* Video PiP Preview */}
                 <AnimatePresence>

@@ -2,64 +2,48 @@ import { motion, AnimatePresence } from "motion/react";
 import type { AvatarId } from "../lib/avatarConfig";
 import { AVATARS } from "../lib/avatarConfig";
 import { RobotAvatar } from "./avatars/RobotAvatar";
+import type { EmotionMetrics } from "../lib/EmotionEngine";
 
 interface Props {
   status: "idle" | "connecting" | "listening";
   isSpeaking: boolean;
   avatarId?: AvatarId;
-  /** Normalized 0-1 audio level from the microphone */
   audioLevel?: number;
-  /** True when motion or screen changes are detected */
   visualActivity?: boolean;
-  emotionMetrics?: {
-    energy: string;
-    mood: string;
-    confidence: number;
-    trend: string;
-    isStagnated: boolean;
-  };
+  emotionMetrics?: Partial<EmotionMetrics>;
 }
 
-export function AnimatedCharacter({ 
-  status, 
-  isSpeaking, 
-  avatarId = "robot", 
-  audioLevel = 0, 
+const DEFAULT_METRICS: EmotionMetrics = {
+  energy: "neutre",
+  mood: "neutre",
+  confidence: 1,
+  trend: "stable",
+  isStagnated: false,
+  breathingRate: 4,
+  moodEmoji: "😐",
+  moodColor: "#6366f1",
+  rawAudioAvg: 0,
+  rawMotionAvg: 0,
+};
+
+export function AnimatedCharacter({
+  status,
+  isSpeaking,
+  avatarId = "robot",
+  audioLevel = 0,
   visualActivity = false,
-  emotionMetrics = { energy: "neutre", mood: "neutre", confidence: 1, trend: "stable", isStagnated: false }
+  emotionMetrics: partialMetrics,
 }: Props) {
   const avatar = AVATARS[avatarId];
+  const em = { ...DEFAULT_METRICS, ...partialMetrics };
 
-  // Map mood to colors
-  const getMoodColor = () => {
-    switch (emotionMetrics.mood) {
-      case "stressé": return "#ef4444"; // Red
-      case "focus": return "#8b5cf6"; // Purple
-      case "joyeux": return "#fbbf24"; // Amber
-      case "calme": return "#10b981"; // Emerald
-      case "triste": return "#3b82f6"; // Blue
-      default: return avatar.colors[0];
-    }
-  };
-
-  const moodColor = getMoodColor();
-
-  // Map energy to animation speed
-  const getPulseDuration = () => {
-    switch (emotionMetrics.energy) {
-      case "agitation": return 0.5;
-      case "élevée": return 1;
-      case "calme": return 4;
-      default: return 2;
-    }
-  };
-
-  const pulseDuration = getPulseDuration();
+  // Use EmotionEngine's native color and breathing rate
+  const moodColor = em.moodColor;
+  const breathingRate = em.breathingRate;
 
   // Robust audio level handling
   const safeAudioLevel = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
 
-  // Helper for safe animation values
   const safe = (val: number, fallback = 0) => {
     return Number.isFinite(val) ? val : fallback;
   };
@@ -83,7 +67,6 @@ export function AnimatedCharacter({
         ? { duration: 0.5, repeat: Infinity, ease: "easeInOut" as const }
         : { duration: 3, repeat: Infinity, ease: "easeInOut" as const };
 
-  /** Render the appropriate avatar SVG */
   function renderAvatar() {
     const props = { status, isSpeaking, audioLevel: safeAudioLevel, visualActivity };
     return <RobotAvatar {...props} />;
@@ -112,20 +95,38 @@ export function AnimatedCharacter({
             animate={{ scale: 1.5, opacity: 0.4 }}
             exit={{ scale: 1.8, opacity: 0 }}
             className="absolute w-60 h-60 rounded-full blur-[40px] border-2 border-blue-400/30 pointer-events-none z-0"
-            style={{ backgroundColor: "rgba(59, 130, 246, 0.4)" }}
+            style={{ backgroundColor: `${moodColor}66` }}
           />
         )}
       </AnimatePresence>
 
-      {/* Background Glow — color-matched to the avatar/mood, reactive to sound and energy */}
+      {/* Breathing Ring — slow inhale/exhale cycle driven by emotion engine */}
+      <motion.div
+        animate={{
+          scale: [1, 1.08, 1],
+          opacity: [0.05, 0.15, 0.05],
+        }}
+        transition={{
+          duration: breathingRate,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+        className="absolute w-60 h-60 rounded-full pointer-events-none"
+        style={{
+          border: `2px solid ${moodColor}40`,
+          boxShadow: `0 0 20px ${moodColor}20`,
+        }}
+      />
+
+      {/* Background Glow — color-matched to mood, reactive to sound */}
       <motion.div
         animate={{
           scale: glowScale,
           opacity: glowOpacity,
           backgroundColor: moodColor,
         }}
-        transition={{ 
-          backgroundColor: { duration: 1.5 },
+        transition={{
+          backgroundColor: { duration: 2, ease: "easeInOut" },
           scale: { duration: 0.15 },
           opacity: { duration: 0.15 }
         }}
@@ -135,16 +136,16 @@ export function AnimatedCharacter({
       {/* Heartbeat pulse based on energy */}
       <motion.div
         animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.1, 0.2, 0.1],
+          scale: [1, 1.12, 1],
+          opacity: [0.08, 0.2, 0.08],
         }}
         transition={{
-          duration: pulseDuration,
+          duration: em.energy === "agitation" ? 0.6 : em.energy === "élevée" ? 1.2 : 2.5,
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className="absolute w-64 h-64 rounded-full border border-white/10 pointer-events-none"
-        style={{ borderColor: moodColor }}
+        className="absolute w-64 h-64 rounded-full pointer-events-none"
+        style={{ borderColor: moodColor, border: `1px solid ${moodColor}33` }}
       />
 
       <motion.div

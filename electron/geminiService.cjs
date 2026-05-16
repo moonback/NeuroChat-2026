@@ -147,58 +147,95 @@ function registerGeminiHandlers(mainWindow) {
     }
   });
 
-  // Variables d'état pour la vision proactive
+  // ── Phase 1: Vision Proactive (améliorée) ──────────────────────────────────
   let lastVisionContext = "";
   let stagnationCounter = 0;
+
+  // Circuit breaker: après N échecs consécutifs, pause pendant COOLDOWN_MS
+  let visionFailures = 0;
+  const VISION_MAX_FAILURES = 3;
+  const VISION_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+  let visionCooldownUntil = 0;
+
+  // Ordered list of free vision-capable models (fallback chain)
+  const VISION_MODELS = [
+    "google/gemma-4-31b-it:free",
+    "nvidia/nvidia-nemotron-3-nano-omni:free",
+    "openrouter/free",
+  ];
 
   async function callOpenRouterVision(base64, prompt) {
     const apiKey = process.env.VITE_OPENROUTER_API_KEY;
     if (!apiKey) throw new Error("VITE_OPENROUTER_API_KEY manquante");
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://neurochatia.vercel.app",
-        "X-Title": "NeuroChat",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp:free",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64}`
-                }
-              }
-            ]
-          }
-        ],
-        response_format: { type: "json_object" }
-      }),
-    });
+    let lastError = null;
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error?.message || `HTTP ${response.status}`);
+    for (const model of VISION_MODELS) {
+      try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://neurochatia.vercel.app",
+            "X-Title": "NeuroChat",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:image/jpeg;base64,${base64}`
+                    }
+                  }
+                ]
+              }
+            ],
+            response_format: { type: "json_object" }
+          }),
+        });
+
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}));
+          console.warn(`[Vision] Modèle ${model} échoué (${response.status}): ${errBody.error?.message || "unknown"}`);
+          lastError = new Error(errBody.error?.message || `HTTP ${response.status}`);
+          continue; // Try next model
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          console.log(`[Vision] ✅ Modèle ${model} utilisé avec succès`);
+          return content;
+        }
+      } catch (err) {
+        console.warn(`[Vision] Modèle ${model} exception:`, err.message);
+        lastError = err;
+        continue;
+      }
     }
 
-    const data = await response.json();
-    return data.choices[0].message.content;
+    throw lastError || new Error("Aucun modèle de vision disponible");
   }
 
   ipcMain.handle('gemini:analyzeStagnation', async (event, payload) => {
+    // Circuit breaker check
+    const now = Date.now();
+    if (now < visionCooldownUntil) {
+      return { isStagnant: false };
+    }
+
     try {
       const { base64, source } = payload;
-      
+
       let prompt = "";
       if (source === "camera") {
-        prompt = `Voici une image de la webcam de l'utilisateur. Analyse son humeur, son énergie et sa posture. 
+        prompt = `Voici une image de la webcam de l'utilisateur. Analyse son humeur, son énergie et sa posture.
 Est-ce que l'utilisateur semble s'affaisser, être très fatigué, se frotter les yeux, ou avoir l'air bloqué / frustré ?
 Réponds strictement au format JSON : {"progress": boolean, "newContext": "description de sa posture/humeur"}. "progress": false signifie qu'il est en stagnation physique/fatigue.`;
       } else {
@@ -211,14 +248,22 @@ Réponds strictement au format JSON : {"progress": boolean, "newContext": "descr
       const aiResponse = await callOpenRouterVision(base64, prompt);
 
       if (aiResponse) {
-        const result = JSON.parse(aiResponse);
+        // Reset circuit breaker on success
+        visionFailures = 0;
+
+        // Parse JSON robustly (handle markdown code blocks)
+        let jsonStr = aiResponse;
+        const jsonMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) jsonStr = jsonMatch[1].trim();
+
+        const result = JSON.parse(jsonStr);
         lastVisionContext = result.newContext;
 
         if (!result.progress) {
           stagnationCounter++;
-          console.log(`[Vision Proactive] 🧠 Stagnation sémantique confirmée (${stagnationCounter}/3) : ${result.newContext}`);
+          console.log(`[Vision Proactive] 🧠 Stagnation confirmée (${stagnationCounter}/3) : ${result.newContext}`);
           if (stagnationCounter >= 3) {
-            stagnationCounter = 0; // Reset
+            stagnationCounter = 0;
             return { isStagnant: true, context: result.newContext };
           }
         } else {
@@ -228,7 +273,14 @@ Réponds strictement au format JSON : {"progress": boolean, "newContext": "descr
       }
       return { isStagnant: false };
     } catch (err) {
-      console.error("[Vision Proactive] Erreur d'analyse:", err);
+      visionFailures++;
+      if (visionFailures >= VISION_MAX_FAILURES) {
+        visionCooldownUntil = Date.now() + VISION_COOLDOWN_MS;
+        console.error(`[Vision Proactive] ⛔ Circuit breaker activé (${VISION_MAX_FAILURES} échecs). Pause de 5 min.`);
+        visionFailures = 0;
+      } else {
+        console.warn(`[Vision Proactive] ⚠️ Échec ${visionFailures}/${VISION_MAX_FAILURES}: ${err.message}`);
+      }
       return { isStagnant: false };
     }
   });

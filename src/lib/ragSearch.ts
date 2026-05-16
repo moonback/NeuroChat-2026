@@ -48,12 +48,12 @@ export async function retrieveRelevantContext(
     projectResults = await window.neurochatElectron.memory.search({ query, workdir });
   }
 
-
-  if (results.length === 0) {
+  // No results from either source
+  if (results.length === 0 && projectResults.length === 0) {
     return { contextBlock: "", entries: [], hasContext: false };
   }
 
-  // Sort by timestamp so the context reads chronologically
+  // Sort conversation results by timestamp so the context reads chronologically
   const sorted = [...results].sort(
     (a, b) => a.metadata.timestamp - b.metadata.timestamp
   );
@@ -93,7 +93,8 @@ export async function retrieveRelevantContext(
     "Utilise ces informations pour enrichir ta réponse si pertinent. Si tu vois du code source, aide l'utilisateur avec précision.",
   ].join("\n");
 
-  return { contextBlock, entries: results, hasContext: results.length > 0 || projectResults.length > 0 };
+  return { contextBlock, entries: results, hasContext: true };
+
 }
 
 /**
