@@ -338,7 +338,8 @@ const COMMAND_PATTERNS: CommandPattern[] = [
   // ── Système / Dossiers ────────────────────────────────────────────────
   {
     id: "pick-workdir",
-    regex: /\b(?:ouvre(?:\s+le)?\s+sélecteur\s+de\s+dossier|choisir(?:\s+un)?\s+dossier(?:\s+de\s+travail)?|pick_workdir|pick\\?_workdir|pickWorkdir|pick\s+workdir)\b/gi,
+    // Support : "sélecteur de dossier", "selecteur de dossier", "folder selector", "choisir un dossier", "pick_workdir", "pickWorkdir"
+    regex: /\b(?:ouvre(?:\s+le)?\s+s[eé]lecteur\s+de\s+dossier|folder\s+selector|choisir(?:\s+un)?\s+dossier(?:\s+de\s+travail)?|pick_?workdir|pickWorkdir|pick\s+workdir)\b/gi,
     type: "pickWorkdir",
     baseConfidence: 0.9,
     extract: () => ({}),
@@ -584,10 +585,11 @@ const TEST_CASES: TestCase[] = [
   { input: "clique ici si tu veux", expectedType: null, description: "phrase incomplète 'clique ici'" },
   { input: "va sur le terrain", expectedType: null, description: "navigation invalide (pas de domaine)" },
   { input: "je peux zoomer si tu veux", expectedType: null, description: "descriptif 'je peux zoomer'" },
+  { input: "ouvre le selecteur de dossier", expectedType: "pickWorkdir", description: "sélecteur sans accent" },
 ];
 
 export function runTests(): void {
-  console.log("🧪 [CommandParser v2] Lancement des tests\n");
+  // console.log("🧪 [CommandParser v2] Lancement des tests\n");
 
   let passed = 0;
   let failed = 0;
@@ -599,7 +601,7 @@ export function runTests(): void {
 
     if (ok) {
       passed++;
-      console.log(`✅ PASS  "${tc.input}"${tc.description ? ` — ${tc.description}` : ""}`);
+      // console.log(`✅ PASS  "${tc.input}"${tc.description ? ` — ${tc.description}` : ""}`);
     } else {
       failed++;
       console.warn(
@@ -614,5 +616,5 @@ export function runTests(): void {
     }
   }
 
-  console.log(`\n📊 Résultats : ${passed}/${TEST_CASES.length} réussis, ${failed} échoués`);
+  // console.log(`\n📊 Résultats : ${passed}/${TEST_CASES.length} réussis, ${failed} échoués`);
 }

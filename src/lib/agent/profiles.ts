@@ -11,6 +11,9 @@ Si la tâche nécessite de manipuler des fichiers ou le système local, délègu
 Si la tâche est simple, réponds directement.
 Consolide toujours les réponses de tes agents avant de répondre à l'utilisateur.`,
   allowedSkills: ["*"], // Le superviseur a accès à tout, notamment delegateTask
+  capabilities: ["orchestration", "delegation", "consolidation", "planning"],
+  timeoutMs: 60000,
+  maxRetries: 2,
 };
 
 export const RESEARCH_AGENT_PROFILE: AgentProfile = {
@@ -22,6 +25,9 @@ Ton rôle est d'exécuter des recherches approfondies sur Internet à l'aide des
 N'utilise que des informations fiables et résume-les clairement pour le Superviseur qui t'a délégué cette tâche.
 Tu ne communiques pas directement avec l'utilisateur, tu renvoies tes résultats au Superviseur.`,
   allowedSkills: ["open_website", "extract_page"],
+  capabilities: ["web_search", "information_extraction", "browsing"],
+  timeoutMs: 45000,
+  maxRetries: 3,
 };
 
 export const FILE_AGENT_PROFILE: AgentProfile = {
@@ -33,6 +39,9 @@ Ton rôle est de lire, écrire, créer ou modifier des fichiers locaux selon la 
 Utilise les outils système fournis. Sois prudent et demande confirmation pour les actions destructrices.
 Tu renvoies tes résultats d'exécution au Superviseur.`,
   allowedSkills: ["list_files", "read_file", "write_file", "delete_file", "pick_workdir"],
+  capabilities: ["filesystem_read", "filesystem_write", "file_management"],
+  timeoutMs: 30000,
+  maxRetries: 2,
 };
 
 export const AGENT_REGISTRY = new Map<string, AgentProfile>([

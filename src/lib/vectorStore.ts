@@ -26,6 +26,10 @@ export interface VectorEntry {
     userName: string;
     speaker: "user" | "assistant";
     timestamp: number;
+    /** Confidence score (0-1) provided at creation time */
+    confidence?: number;
+    /** Sensitivity level to control usage in different contexts */
+    sensitivity?: "low" | "medium" | "high";
   };
 }
 
@@ -201,16 +205,52 @@ export async function semanticSearch(
     (e) => e.metadata.userName === userName
   );
 
-  const scored = store
-    .map((entry) => ({
-      ...entry,
-      score: cosineSimilarity(queryVector, entry.vector),
-    }))
-    .filter((e) => e.score >= threshold)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
+  const now = Date.now();
+  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 
-  return scored;
+  const scored = store
+    .map((entry) => {
+      const similarity = cosineSimilarity(queryVector, entry.vector);
+      
+      // Decay factor: starts at 1.0, drops to 0.7 over 30 days
+      const age = now - entry.metadata.timestamp;
+      const decay = Math.max(0.7, 1 - (age / THIRTY_DAYS) * 0.3);
+      
+      // Incorporate confidence (default to 0.9 if not provided)
+      const confidence = entry.metadata.confidence ?? 0.9;
+      
+      // Combined weighted score
+      const score = (similarity * 0.6) + (decay * 0.3) + (confidence * 0.1);
+
+      return {
+        ...entry,
+        score,
+        baseSimilarity: similarity,
+      };
+    })
+    .filter((e) => e.baseSimilarity >= threshold)
+    .sort((a, b) => b.score - a.score);
+
+  return deduplicateAndResolveConflicts(scored).slice(0, topK);
+}
+
+/**
+ * Deduplicate results and resolve conflicts by preferring higher scores (newer/higher confidence).
+ */
+function deduplicateAndResolveConflicts<T extends VectorEntry & { score: number }>(entries: T[]): T[] {
+  const seen = new Map<string, T>();
+  
+  for (const entry of entries) {
+    // Basic deduplication by text normalization
+    const key = entry.text.toLowerCase().trim().slice(0, 100);
+    const existing = seen.get(key);
+    
+    if (!existing || entry.score > existing.score) {
+      seen.set(key, entry);
+    }
+  }
+  
+  return Array.from(seen.values()).sort((a, b) => b.score - a.score);
 }
 
 /**

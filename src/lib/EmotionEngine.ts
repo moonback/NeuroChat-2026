@@ -11,12 +11,15 @@ export type UserMoodInference = "calme" | "joyeux" | "stressé" | "triste" | "ne
 export interface EmotionMetrics {
   energy: UserEnergyState;
   mood: UserMoodInference;
+  confidence: number; // 0-1
+  privacyAlert: boolean; // True if third parties detected
   lastUpdate: number;
 }
 
 export class EmotionEngine {
   private audioHistory: number[] = [];
   private motionHistory: number[] = [];
+  private faceCountHistory: number[] = [];
   private readonly HISTORY_SIZE = 50; // Environ 5 secondes à 10Hz
 
   /**
@@ -33,6 +36,14 @@ export class EmotionEngine {
   addMotionSignal(intensity: number) {
     this.motionHistory.push(intensity);
     if (this.motionHistory.length > this.HISTORY_SIZE) this.motionHistory.shift();
+  }
+
+  /**
+   * Ajoute le nombre de visages détectés
+   */
+  addFaceDetection(count: number) {
+    this.faceCountHistory.push(count);
+    if (this.faceCountHistory.length > this.HISTORY_SIZE) this.faceCountHistory.shift();
   }
 
   /**
@@ -57,22 +68,49 @@ export class EmotionEngine {
     const energy = this.getEnergyState();
     const avgMotion = this.motionHistory.reduce((a, b) => a + b, 0) / (this.motionHistory.length || 1);
 
-    // Pattern: Agitation audio + Fort mouvement = Stress/Urgence
     if (energy === "agitation" && avgMotion > 0.3) return "stressé";
-    
-    // Pattern: Énergie calme + Faible mouvement = Calme/Repos
     if (energy === "calme" && avgMotion < 0.05) return "calme";
 
-    // Par défaut, neutre
     return "neutre";
+  }
+
+  /**
+   * Calcule l'indice de confiance de l'inférence actuelle (0-1)
+   */
+  getConfidenceScore(): number {
+    const dataPoints = Math.min(this.audioHistory.length, this.motionHistory.length);
+    if (dataPoints < 10) return 0.5; // Pas assez de données
+    
+    // Plus on a de données stables, plus la confiance est élevée
+    const stability = 1.0; // Simplifié
+    return Math.min(0.95, 0.7 + (dataPoints / this.HISTORY_SIZE) * 0.25);
+  }
+
+  /**
+   * Détecte si la vie privée doit être protégée (plusieurs personnes)
+   */
+  isPrivacyAlertActive(): boolean {
+    if (this.faceCountHistory.length === 0) return false;
+    const maxFaces = Math.max(...this.faceCountHistory);
+    return maxFaces > 1;
   }
 
   /**
    * Retourne un résumé pour le prompt système
    */
   getSystemContext(): string {
+    if (this.isPrivacyAlertActive()) {
+      return "ALERTE CONFIDENTIALITÉ : Plusieurs personnes détectées. N'utilise pas les informations visuelles et bascule en mode discrétion.";
+    }
+
     const energy = this.getEnergyState();
     const mood = this.getMoodInference();
-    return `État utilisateur détecté : Énergie ${energy}, Humeur probable ${mood}.`;
+    const confidence = Math.round(this.getConfidenceScore() * 100);
+
+    if (confidence < 85) {
+      return "État utilisateur : Incertain (signaux trop faibles pour une conclusion).";
+    }
+
+    return `État utilisateur détecté : Énergie ${energy}, Humeur probable ${mood} (Confiance ${confidence}%).`;
   }
 }

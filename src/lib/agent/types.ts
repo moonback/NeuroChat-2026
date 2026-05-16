@@ -6,6 +6,12 @@ export interface AgentProfile {
   description: string;
   systemPrompt: string;
   allowedSkills: string[]; // '*' for all, or array of skill names
+  /** Capabilities manifest (for the Supervisor to know what this agent can do) */
+  capabilities?: string[];
+  /** Default timeout for this agent's tasks (ms) */
+  timeoutMs?: number;
+  /** Max retries for tool calls before escalating or failing */
+  maxRetries?: number;
 }
 
 

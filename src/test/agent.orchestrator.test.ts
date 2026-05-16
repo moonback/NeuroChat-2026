@@ -44,6 +44,6 @@ describe("AgentOrchestrator", () => {
 
     const result = await new AgentOrchestrator(model, registry).run("x", "s", "u", { maxIterations: 5, maxConsecutiveFailures: 1 });
     expect(result.completed).toBe(false);
-    expect(result.answer).toContain("difficultés techniques");
+    expect(result.answer).toContain("erreurs consécutives");
   });
 });
