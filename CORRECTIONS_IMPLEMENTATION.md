@@ -27,7 +27,7 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 | ID | Correction | Domaine | Statut | Notes |
 |---|---|---|---|---|
 | P1-001 | Découper `App.tsx` en contrôleurs runtime | Architecture | À faire | `RuntimeProvider`, `VisionController`, `SessionController`. |
-| P1-002 | Worker embeddings Transformers | Performance | À faire | Décharger le renderer. |
+| P1-002 | Worker embeddings Transformers | Partiel | Le backend `@xenova/transformers` est chargé dynamiquement uniquement au premier embedding; le déplacement complet en Worker reste à faire. |
 | P1-003 | Code splitting des panels lourds | Performance | Fait | `ConversationVault`, `DatabaseInspector`, `DebugPanel` et `AgentChat` sont chargés via `React.lazy`; coffre/DB/agent ne chargent plus tant qu’ils ne sont pas affichés. |
 | P1-004 | Permission center utilisateur | Sécurité / UX | À faire | Permissions temporelles et scoped. |
 | P1-005 | Remplacer `window.confirm` par confirmation auditée | Sécurité / UX | À faire | Dialog interne avec risk badge. |
@@ -58,3 +58,4 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - Correction complémentaire : résolution cross-platform des chemins relatifs dans le BrowserController pour éviter les chemins Windows-only (`\\`) sur Linux/macOS.
 - P0-006 partiel : appels OpenRouter Desktop déplacés derrière IPC Electron (`ai:openrouter:*`) avec clé lue côté main process; fallback web `VITE_OPENROUTER_API_KEY` conservé uniquement pour usage navigateur.
 - P1-003 terminé : code-splitting des panels lourds (`ConversationVault`, `DatabaseInspector`, `DebugPanel`, `AgentChat`) via `React.lazy` et rendu conditionnel pour les panels à la demande.
+- P1-002 partiel : `@xenova/transformers` est retiré des imports statiques du vector store et chargé dynamiquement au premier embedding; la workerisation complète reste à planifier.
