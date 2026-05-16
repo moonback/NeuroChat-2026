@@ -1,7 +1,9 @@
-import type { ConfirmationHandler, PermissionAuthorizer, SkillPermission } from "./types";
+import type { ConfirmationHandler, PermissionAuthorizer, RiskLevel, SkillPermission } from "./types";
 
 import { defaultSecurityLogger } from "../learning/securityLogger";
 import { loadSkillPolicyConfig } from "./policyStore";
+
+const MAX_CONFIRMATION_REASON_CHARS = 280;
 
 interface PolicyRecord {
   roles: string[];
@@ -31,14 +33,20 @@ function summarizePermissions(permissions: SkillPermission[]): string {
   return permissions.map((perm) => `${perm.resource}:${perm.level}`).join(", ");
 }
 
-function formatRiskLevel(riskLevel: string | undefined): string {
+function formatRiskLevel(riskLevel: RiskLevel | undefined): string {
   if (riskLevel === "high") return "Risque élevé";
   if (riskLevel === "medium") return "Risque moyen";
   if (riskLevel === "low") return "Risque faible";
   return "Risque non spécifié";
 }
 
-function showSkillConfirmationDialog(skillName: string, reason: string, permissions: string, riskLevel?: string): Promise<boolean> {
+function formatConfirmationReason(reason: string): string {
+  if (!reason) return "Aucun contexte détaillé fourni.";
+  if (reason.length <= MAX_CONFIRMATION_REASON_CHARS) return `Contexte: ${reason}`;
+  return `Contexte: ${reason.slice(0, MAX_CONFIRMATION_REASON_CHARS).trimEnd()}…`;
+}
+
+function showSkillConfirmationDialog(skillName: string, reason: string, permissions: string, riskLevel?: RiskLevel): Promise<boolean> {
   if (typeof document === "undefined" || !document.body) return Promise.resolve(false);
 
   return new Promise<boolean>((resolve) => {
@@ -91,7 +99,7 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
     permissionText.style.cssText = "margin:0 0 12px;font-size:13px;color:#fbbf24";
 
     const reasonText = document.createElement("p");
-    reasonText.textContent = reason ? `Contexte: ${reason}` : "Aucun contexte détaillé fourni.";
+    reasonText.textContent = formatConfirmationReason(reason);
     reasonText.style.cssText = "margin:0 0 20px;font-size:13px;color:#94a3b8;line-height:1.45";
 
     const actions = document.createElement("div");
@@ -118,7 +126,19 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close(false);
+      if (event.key === "Escape") {
+        close(false);
+        return;
+      }
+
+      if (event.key === "Tab") {
+        event.preventDefault();
+        if (document.activeElement === cancel) {
+          confirm.focus();
+        } else {
+          cancel.focus();
+        }
+      }
     };
 
     cancel.addEventListener("click", () => close(false));
@@ -129,7 +149,7 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
     panel.append(title, riskBadge, description, permissionText, reasonText, actions);
     overlay.append(panel);
     document.body.append(overlay);
-    confirm.focus();
+    cancel.focus();
   });
 }
 
@@ -140,14 +160,16 @@ export const defaultConfirmationHandler: ConfirmationHandler = async (skill, con
   const accepted = await showSkillConfirmationDialog(skill.name, reason, permissions, skill.riskLevel);
   const metadataKeys = Object.keys(context.metadata ?? {}).sort();
 
-  void defaultSecurityLogger.logModificationAttempt("skill_confirmation", accepted ? "Skill confirmation accepted" : "Skill confirmation rejected", {
-    skillName: skill.name,
-    permissions,
-    accepted,
-    riskLevel: skill.riskLevel ?? "unspecified",
-    reasonPresent: reason.length > 0,
-    metadataKeys,
-  });
+  void defaultSecurityLogger
+    .logModificationAttempt("skill_confirmation", accepted ? "Skill confirmation accepted" : "Skill confirmation rejected", {
+      skillName: skill.name,
+      permissions,
+      accepted,
+      riskLevel: skill.riskLevel ?? "unspecified",
+      reasonPresent: reason.length > 0,
+      metadataKeys,
+    })
+    .catch(() => undefined);
 
   return accepted;
 };

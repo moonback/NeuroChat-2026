@@ -41,6 +41,10 @@ describe("defaultConfirmationHandler", () => {
     expect(await screen.findByRole("dialog", { name: "Autoriser une action sensible ?" })).toBeInTheDocument();
     expect(screen.getByText("Risque élevé")).toBeInTheDocument();
     expect(screen.getByText("Permissions: filesystem:write")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refuser" })).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Autoriser" })).toHaveFocus();
 
     fireEvent.click(screen.getByRole("button", { name: "Autoriser" }));
 
@@ -54,6 +58,24 @@ describe("defaultConfirmationHandler", () => {
       metadataKeys: ["reason", "ticketId"],
     });
     expect(auditSpy.mock.calls[0][2]).not.toHaveProperty("reason");
+  });
+
+
+  it("truncates long confirmation reasons before rendering", async () => {
+    vi.spyOn(defaultSecurityLogger, "logModificationAttempt").mockRejectedValue(new Error("storage unavailable"));
+    const longReason = `${"A".repeat(320)} hidden suffix`;
+
+    const confirmation = defaultConfirmationHandler(sensitiveSkill, {
+      sessionId: "session-1",
+      userId: "user-1",
+      metadata: { reason: longReason },
+    }, {});
+
+    expect(await screen.findByText(`Contexte: ${"A".repeat(280)}…`)).toBeInTheDocument();
+    expect(screen.queryByText(/hidden suffix/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refuser" }));
+    await expect(confirmation).resolves.toBe(false);
   });
 
   it("resolves rejected confirmations from Escape", async () => {
