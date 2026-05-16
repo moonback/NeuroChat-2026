@@ -3,68 +3,51 @@
 > **Votre Compagnon de Vie qui Voit et Ressent** — Un ami IA multimodal, proactif et empathique avec mémoire SQLite persistante, analyse émotionnelle et design premium.
 
 <div align="center">
-  <!-- <img src="./public/header.png" alt="Bannière NeuroChat" width="100%"> -->
   <img src="./public/header2.png" alt="Bannière NeuroChat" width="100%">
 
   ![build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)
-  ![version](https://img.shields.io/badge/version-2.3.0--companion-blueviolet?style=for-the-badge)
+  ![version](https://img.shields.io/badge/version-2.4.0--companion-blueviolet?style=for-the-badge)
   ![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
   ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)
   ![vitest](https://img.shields.io/badge/vitest-running-yellow?style=for-the-badge)
-  ![tests](https://img.shields.io/badge/tests-138-brightgreen?style=for-the-badge)
+  ![tests](https://img.shields.io/badge/tests-142-brightgreen?style=for-the-badge)
   
-  **[Fonctionnalités](#-fonctionnalités)** · **[Démarrage Rapide](#-démarrage-rapide)** · **[Architecture](#-architecture)** · **[Runtime Agentique](#-runtime-agentique--skills)** · **[Contribution](#-contribution)**
+  **[Fonctionnalités](#-fonctionnalités) · [Démarrage Rapide](#-démarrage-rapide) · [Architecture](#-architecture) · [Runtime Agentique](#-runtime-agentique--skills) · [Contribution](#-contribution)**
 </div>
 
 ---
 
 ## 🌟 Pourquoi NeuroChat ?
 
-La plupart des assistants IA sont des outils passifs. **NeuroChat est un compagnon.** Il s'exécute sur votre bureau, vous voit via votre caméra, ressent votre énergie par votre voix, et adapte son comportement à votre rythme de vie (matin, travail, détente). Grâce à sa mémoire SQLite à long terme, il ne se contente pas de répondre à vos questions : il évolue avec vous pour devenir un soutien proactif au quotidien.
+La plupart des assistants IA sont des outils passifs qui attendent vos ordres. **NeuroChat est un compagnon de vie.** 
+
+Il s'exécute silencieusement sur votre bureau, perçoit votre environnement via votre caméra, ressent votre état émotionnel par votre voix, et adapte son comportement à votre rythme biologique (matin, focus, détente, repos). Grâce à sa mémoire SQLite à long terme et son auto-apprentissage, il devient une extension de vous-même, capable d'anticiper vos besoins et de vous soutenir moralement et techniquement.
 
 ---
 
-## ✨ Fonctionnalités
+## ✨ Fonctionnalités Clés
 
-### 🎭 Intelligence Émotionnelle & Réactivité (v2.3)
-NeuroChat ne se contente pas d'écouter les mots, il perçoit l'intention et l'énergie.
+### 🎭 Intelligence Émotionnelle & Empathie Visuelle
+NeuroChat ne se contente pas d'écouter les mots, il perçoit l'âme de l'interaction.
+- **EmotionEngine™** : Analyse en temps réel du RMS audio et de la cadence pour inférer votre énergie.
+- **Vision Empathique** : Détection des micro-expressions et de la posture pour ajuster son ton.
+- **Avatar Réactif** : Un avatar 3D/SVG qui réagit physiquement à votre présence (regard, inclinaison).
 
-| Capacité | Description |
-|:---|:---|
-| **Analyse d'Énergie** | Détecte l'agitation ou le calme via le niveau audio (RMS) et la cadence de parole |
-| **Humeur Probable** | Infère votre état (stressé, joyeux, calme) pour adapter spontanément son ton |
-| **Avatar Émotionnel** | L'avatar `RobotAvatar` est réactif à la vision (yeux saccadés, inclinaisons de tête attentives) |
-| **Design Glassmorphism** | Interface premium avec flou gaussien, textures de grain (noise) et hiérarchie visuelle haut de gamme |
+### 🕰️ Rituels de Vie & Proactivité (v2.4)
+L'IA synchronisée sur votre horloge biologique et vos habitudes.
+- **Cycle Circadien** : Adaptation dynamique du style de réponse (énergique le matin, apaisant le soir).
+- **Silence Intelligent** : En mode "Focus", NeuroChat observe mais n'intervient que si vous semblez bloqué ou fatigué.
+- **Journal de Bord Automatique** : Résumé quotidien des accomplissements et de l'humeur.
 
-### 🕰️ Rituels de Vie & Proactivité
-L'IA adapte son comportement selon votre cycle quotidien.
+### 🧠 Mémoire Cognitive & Recherche Sémantique
+- **Voute de Conversation (Vault)** : Interface premium pour explorer vos souvenirs et les apprentissages de l'IA.
+- **Database Inspector** : Outil intégré pour visualiser et gérer vos données locales en toute transparence.
+- **Vector Store SQLite** : Recherche sémantique instantanée sur des milliers de sessions passées.
 
-| Phase | Comportement |
-|:---|:---|
-| **Matin** | Énergique, synthétique, prêt pour la planification de journée |
-| **Travail (Focus)** | Discret, ne parle que sur demande, aide à la concentration |
-| **Détente** | Chaleureux, conversationnel, partage des curiosités |
-| **Nuit** | Voix douce, réponses courtes, encourage le repos |
-
-### 👁️ Vision Contextuelle & Intelligence Visuelle
-NeuroChat voit ce que vous voyez et comprend votre contexte visuel de manière intelligente.
-
-| Capacité | Description |
-|:---|:---|
-| **Double Vision (Cam + Écran)** | Activez caméra et partage d'écran simultanément avec double PiP |
-| **Moteur de Mouvement Smart** | Seuil à 15% + 3 frames consécutives — seuls les vrais changements de scène déclenchent l'analyse |
-| **Silence par Défaut** | L'IA observe silencieusement et n'intervient que sur des événements majeurs |
-
-### 📂 Système de Fichiers & Web Agentique
-Une architecture hiérarchique `Supervisor` -> `Agents` pour des tâches complexes.
-- **Chercheur Web** : Navigation via `<webview>` pour extraire des données sans restrictions.
-- **Gestionnaire de Fichiers** : Lecture/Écriture locale via pont IPC sécurisé.
-- **Séquençage Autonome** : Enchaînement de tâches : *"Cherche les actus IA, résume-les et crée un fichier .md"*.
-
-### 🧠 Mémoire à Long Terme SQLite
-- **Massive Performance** : Migration de LocalStorage vers SQLite pour une scalabilité infinie.
-- **Batch Processing** : Sauvegarde des vecteurs et sessions par lots avec transactions atomiques.
-- **Vector Store Local** : Embeddings 3072 dims stockés nativement pour une recherche sémantique instantanée.
+### 👁️ Vision Contextuelle Avancée
+- **Double Flux** : Analyse simultanée de votre caméra et de votre écran.
+- **Détection de Changement Smart** : Évite les hallucinations en n'analysant que les changements visuels significatifs (>15%).
+- **Analyse de Documents** : Capacité à lire et comprendre des documents physiques présentés à la caméra.
 
 ---
 
@@ -72,54 +55,44 @@ Une architecture hiérarchique `Supervisor` -> `Agents` pour des tâches complex
 
 ### Prérequis
 - **Node.js** ≥ 20.x
-- **Clé API Gemini** — Requise pour les sessions live et les embeddings.
-- **Clé API OpenRouter** — Optionnelle, pour les résumés et le failover.
+- **Clé API Gemini** — Le moteur multimodal de NeuroChat.
+- **Clé API OpenRouter** — Optionnelle, pour le failover et les modèles spécialisés.
 
-### Installation
+### Installation & Lancement
 
 ```bash
+# Clonez le dépôt
 git clone https://github.com/moonback/NeuroChat.git
 cd NeuroChat
+
+# Installez les dépendances
 npm install
-cp .env.example .env # Éditez avec vos clés
-```
 
-### Lancement
+# Configurez votre environnement
+cp .env.example .env
 
-```bash
-npm run electron:dev  # Mode Desktop (Recommandé)
-npm run dev           # Mode Web uniquement
-```
-
----
-
-## 🏗 Architecture
-
-```
-src/
-├── components/        # UI (Avatar, Browser, Vault, Debug, Emotion)
-├── hooks/             # Logique (Gemini, OpenRouter, EmotionEngine)
-├── lib/               # Moteurs (CommandParser, BrowserControl, Memory, SQLite)
-│   ├── agent/         # Runtime Agentique (Orchestrator, Planner)
-│   └── learning/      # Système d'auto-amélioration
-└── skills-md/         # Rituels de Vie & Compétences Markdown
+# Lancez l'expérience
+npm run electron:dev
 ```
 
 ---
 
-## 🗺️ Roadmap
+## 🏗 Architecture & Système
 
-- [x] Interaction vocale multimodale (Gemini Live)
-- [x] Mémoire long terme SQLite (Performance & Scalabilité)
-- [x] **Rituels de Vie** : Adaptation au cycle quotidien (Matin, Travail, Nuit)
-- [x] **Analyse Émotionnelle** : Détection humeur/énergie via voix & vision
-- [x] **Refonte UI Premium** : Design Glassmorphism & Avatar réactif
-- [x] Double Vision (Caméra + Écran) & Silence par Défaut
+NeuroChat repose sur une architecture de **Runtime Agentique** pilotée par des compétences en Markdown :
 
-#### **Phase Prochaine : Mémoire Visuelle & Contexte Profond**
-- [ ] **Journal Visuel Persistant** : Se souvenir des objets vus dans le passé.
-- [ ] **Ancrage Spatial** : Comprendre la géométrie de l'environnement immédiat.
-- [ ] **Vision Collaborative** : Analyse de documents physiques en temps réel.
+- **Supervisor Agent** : Coordonne les tâches complexes et délègue aux agents spécialisés.
+- **Dynamic Skill Activation** : L'IA ne charge que les compétences nécessaires (Fichiers, Web, Analyse) pour économiser les ressources.
+- **Bridge IPC Sécurisé** : Communication fluide entre l'interface React et le système Electron.
+
+---
+
+## 🗺️ Roadmap Prioritaire
+
+- [x] **v2.3** : Migration SQLite & EmotionEngine.
+- [x] **v2.4** : Database Inspector & Optimisation de la Vision.
+- [ ] **v3.0** : Intégration domotique (Home Assistant) & Coaching Postural.
+- [ ] **v3.5** : Synchronisation mobile E2EE (Compagnon de poche).
 
 ---
 
