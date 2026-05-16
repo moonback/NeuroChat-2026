@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Brain, User, LogOut, Database } from "lucide-react";
+import { Sparkles, Brain, User, LogOut, Database, RefreshCcw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { AvatarConfig } from "../../lib/avatarConfig";
 
@@ -10,6 +10,9 @@ interface HeaderProps {
   updateUserName: (name: string) => void;
   onShowMemory: () => void;
   onShowDatabase: () => void;
+  currentWorkdir: string | null;
+  isIndexing: boolean;
+  onPickWorkdir: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,7 +21,10 @@ export const Header: React.FC<HeaderProps> = ({
   userName,
   updateUserName,
   onShowMemory,
-  onShowDatabase
+  onShowDatabase,
+  currentWorkdir,
+  isIndexing,
+  onPickWorkdir
 }) => {
   return (
     <nav className="relative z-50 flex items-center justify-between px-4 py-3 sm:px-10 sm:py-6 lg:px-16">
@@ -107,6 +113,27 @@ export const Header: React.FC<HeaderProps> = ({
                   title="Database Inspector"
                 >
                   <Database className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
+                </motion.button>
+              )}
+
+              {/* Workdir Button (Phase 3) */}
+              {userName && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onPickWorkdir}
+                  className={`hidden sm:flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-all shadow-xl backdrop-blur-md border ${currentWorkdir ? 'bg-blue-500/10 border-blue-500/30' : 'bg-slate-800/80 border-slate-700/50'} group`}
+                  title={currentWorkdir || "Sélectionner un dossier de travail"}
+                >
+                  <motion.div
+                    animate={isIndexing ? { rotate: 360 } : {}}
+                    transition={isIndexing ? { repeat: Infinity, duration: 2, ease: "linear" } : {}}
+                  >
+                    <RefreshCcw className={`w-5 h-5 ${isIndexing ? 'text-blue-400' : 'text-slate-400'}`} />
+                  </motion.div>
+                  <span className="text-sm font-semibold text-slate-200">
+                    {isIndexing ? "Indexation..." : currentWorkdir ? "Projet OK" : "Dossier"}
+                  </span>
                 </motion.button>
               )}
 

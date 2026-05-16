@@ -110,9 +110,9 @@ function registerDbIpcHandlers() {
     events: JSON.parse(r.events || '[]') 
   })));
   ipcMain.handle('db:traces:clear', () => (getDb().prepare('DELETE FROM agent_traces').run(), true));
-}
 
   ipcMain.handle('db:migrate', (_event, payload) => {
+
     const db = getDb();
     const tx = db.transaction((data) => {
       if (Array.isArray(data.vectors)) {
@@ -155,4 +155,41 @@ function registerDbIpcHandlers() {
     return true;
   });
 
+  ipcMain.handle('db:project:add', (_event, entry) => {
+    const vectorBuffer = Buffer.from(Float64Array.from(entry.vector).buffer);
+    getDb().prepare('INSERT OR REPLACE INTO project_vectors(id, path, content, vector, mtime, workdir) VALUES(?, ?, ?, ?, ?, ?)')
+      .run(entry.id, entry.path, entry.content, vectorBuffer, entry.mtime, entry.workdir);
+    return true;
+  });
+
+  ipcMain.handle('db:project:search', (_event, { queryVector, workdir, topK = 5 }) => {
+    const db = getDb();
+    const rows = db.prepare('SELECT * FROM project_vectors WHERE workdir = ?').all(workdir);
+    
+    const results = rows.map(row => {
+      const vector = Array.from(new Float64Array(row.vector.buffer, row.vector.byteOffset, row.vector.byteLength / 8));
+      // Cosine similarity in JS (Main process)
+      let dot = 0, normA = 0, normB = 0;
+      for (let i = 0; i < queryVector.length; i++) {
+        dot += queryVector[i] * vector[i];
+        normA += queryVector[i] * queryVector[i];
+        normB += vector[i] * vector[i];
+      }
+      const score = dot / (Math.sqrt(normA) * Math.sqrt(normB));
+      return { path: row.path, content: row.content, score };
+    })
+    .filter(r => r.score > 0.4)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+
+    return results;
+  });
+
+  ipcMain.handle('db:project:clear', (_event, workdir) => {
+    getDb().prepare('DELETE FROM project_vectors WHERE workdir = ?').run(workdir);
+    return true;
+  });
+}
+
 module.exports = { registerDbIpcHandlers };
+

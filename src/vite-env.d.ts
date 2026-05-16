@@ -47,6 +47,15 @@ declare global {
         loadTraces: () => Promise<any[]>;
         clearTraces: () => Promise<boolean>;
         migrate: (payload: any) => Promise<boolean>;
+        project: {
+          add: (entry: any) => Promise<boolean>;
+          search: (payload: { queryVector: number[], workdir: string, topK?: number }) => Promise<any[]>;
+          clear: (workdir: string) => Promise<boolean>;
+        };
+      };
+      memory: {
+        indexWorkdir: (workdir: string) => Promise<{ success: boolean, fileCount?: number, error?: string }>;
+        search: (payload: { query: string, workdir: string }) => Promise<any[]>;
       };
       gemini?: {
         connect: (prompt: string) => Promise<boolean>;

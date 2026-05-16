@@ -6,6 +6,8 @@ const { existsSync } = require('fs');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
 const { registerGeminiHandlers } = require('./geminiService.cjs');
+const { registerMemoryHandlers } = require('./memoryService.cjs');
+
 
 /**
  * Register FS and Dialog handlers
@@ -232,6 +234,7 @@ app.whenReady().then(() => {
   ensureDb(app);
   registerIpcHandlers();
   registerDbIpcHandlers();
+  registerMemoryHandlers();
   
   const win = createWindow();
   registerGeminiHandlers(win);

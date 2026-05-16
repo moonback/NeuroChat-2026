@@ -21,6 +21,18 @@ function ensureDb(app) {
     CREATE INDEX IF NOT EXISTS idx_vectors_user ON vectors(user_name);
     CREATE INDEX IF NOT EXISTS idx_vectors_session ON vectors(session_id);
 
+    CREATE TABLE IF NOT EXISTS project_vectors (
+      id TEXT PRIMARY KEY,
+      path TEXT NOT NULL,
+      content TEXT NOT NULL,
+      vector BLOB NOT NULL,
+      mtime INTEGER NOT NULL,
+      workdir TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_vectors_path ON project_vectors(path);
+    CREATE INDEX IF NOT EXISTS idx_project_vectors_workdir ON project_vectors(workdir);
+
+
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       user_name TEXT NOT NULL,

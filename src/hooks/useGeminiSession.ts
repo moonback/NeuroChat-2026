@@ -118,8 +118,9 @@ export function useGeminiSession() {
             // Run RAG retrieval and weekly summary fetch in parallel
             const [ragResult, weeklyResult] = await Promise.allSettled([
               retrieveRelevantContext(
-                "résumé de nos conversations précédentes, sujets importants, préférences",
+                "résumé de nos conversations précédentes, sujets importants, préférences, code et projet",
                 userName,
+                currentWorkdir,
                 6,
                 0.55
               ),
@@ -131,7 +132,7 @@ export function useGeminiSession() {
 
             if (ragResult.status === "fulfilled" && ragResult.value.hasContext) {
               ragContext = ragResult.value.contextBlock;
-              console.log(`🔍 RAG: ${ragResult.value.entries.length} entrées pertinentes injectées.`);
+              console.log(`🔍 RAG: ${ragResult.value.entries.length} entrées pertinentes injectées (Inclus Projet: ${!!currentWorkdir}).`);
             }
 
             if (weeklyResult.status === "fulfilled" && weeklyResult.value) {
@@ -252,6 +253,7 @@ export function useGeminiSession() {
       await attemptConnection();
     });
   }, []);
+
 
   const sendTextMessage = useCallback((text: string) => {
     if (sessionRef.current && window.neurochatElectron?.gemini) {

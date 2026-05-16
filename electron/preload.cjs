@@ -37,6 +37,15 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
     loadTraces: () => ipcRenderer.invoke('db:traces:load'),
     clearTraces: () => ipcRenderer.invoke('db:traces:clear'),
     migrate: (payload) => ipcRenderer.invoke('db:migrate', payload),
+    project: {
+      add: (entry) => ipcRenderer.invoke('db:project:add', entry),
+      search: (payload) => ipcRenderer.invoke('db:project:search', payload),
+      clear: (workdir) => ipcRenderer.invoke('db:project:clear', workdir),
+    }
+  },
+  memory: {
+    indexWorkdir: (workdir) => ipcRenderer.invoke('memory:indexWorkdir', workdir),
+    search: (payload) => ipcRenderer.invoke('memory:search', payload),
   },
   gemini: {
     connect: (prompt) => ipcRenderer.invoke('gemini:connect', prompt),

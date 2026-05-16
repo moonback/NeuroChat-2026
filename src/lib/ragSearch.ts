@@ -31,6 +31,7 @@ export interface RAGContext {
 export async function retrieveRelevantContext(
   query: string,
   userName: string,
+  workdir?: string | null,
   topK = 5,
   threshold = 0.62
 ): Promise<RAGContext> {
@@ -39,6 +40,14 @@ export async function retrieveRelevantContext(
   }
 
   const results = await semanticSearch(query, userName, topK, threshold);
+
+  // --- LOCAL PROJECT RAG (Phase 3) ---
+  let projectResults: any[] = [];
+  if (workdir && window.neurochatElectron?.memory) {
+    console.log(`[RAG] 📁 Recherche sémantique dans le projet: ${workdir}`);
+    projectResults = await window.neurochatElectron.memory.search({ query, workdir });
+  }
+
 
   if (results.length === 0) {
     return { contextBlock: "", entries: [], hasContext: false };
@@ -58,16 +67,33 @@ export async function retrieveRelevantContext(
     return `[${date}] ${speaker}: ${entry.text}`;
   });
 
+  const projectLines = projectResults.map(r => `[Fichier: ${r.path}] (Score: ${r.score.toFixed(2)})\n${r.content}`);
+
+  const contextBlocks = [];
+  
+  if (lines.length > 0) {
+    contextBlocks.push(
+      "### MÉMOIRE SÉMANTIQUE (historique conversations)",
+      ...lines
+    );
+  }
+
+  if (projectLines.length > 0) {
+    contextBlocks.push(
+      "",
+      "### CONTEXTE DU PROJET (fichiers locaux)",
+      "Voici des extraits pertinents de tes fichiers de travail :",
+      ...projectLines
+    );
+  }
+
   const contextBlock = [
-    "### MÉMOIRE SÉMANTIQUE (extraits pertinents de l'historique complet)",
-    "Ces échanges passés sont sémantiquement liés à la question actuelle :",
+    ...contextBlocks,
     "",
-    ...lines,
-    "",
-    "Utilise ces informations pour enrichir ta réponse si pertinent, sans les citer mot pour mot.",
+    "Utilise ces informations pour enrichir ta réponse si pertinent. Si tu vois du code source, aide l'utilisateur avec précision.",
   ].join("\n");
 
-  return { contextBlock, entries: results, hasContext: true };
+  return { contextBlock, entries: results, hasContext: results.length > 0 || projectResults.length > 0 };
 }
 
 /**

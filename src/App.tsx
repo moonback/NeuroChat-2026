@@ -26,6 +26,8 @@ export default function App() {
 
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
   const [currentWorkdir, setCurrentWorkdir] = useState<string | null>(null);
+  const [isIndexing, setIsIndexing] = useState(false);
+
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
   const [cameraActive, setCameraActive] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
@@ -100,7 +102,35 @@ export default function App() {
     if (status === "listening") {
       emotionEngineRef.current.addAudioSignal(audioLevel);
     }
-  }, [audioLevel, status]);
+  }, [status, audioLevel]);
+
+  // Phase 3: Background RAG Indexing
+  useEffect(() => {
+    if (currentWorkdir && window.neurochatElectron?.memory) {
+      console.log(`[App] 📂 Nouveau dossier détecté: ${currentWorkdir}. Lancement de l'indexation...`);
+      setIsIndexing(true);
+      window.neurochatElectron.memory.indexWorkdir(currentWorkdir)
+        .then(result => {
+          if (result.success) {
+            console.log(`[App] ✅ Indexation terminée: ${result.fileCount} fichiers traités.`);
+          } else {
+            console.error(`[App] ❌ Échec de l'indexation: ${result.error}`);
+          }
+        })
+        .finally(() => setIsIndexing(false));
+    }
+  }, [currentWorkdir]);
+
+  const handlePickWorkdir = async () => {
+    if (window.neurochatElectron?.dialog) {
+      const result = await window.neurochatElectron.dialog.showOpenDialog({
+        properties: ['openDirectory']
+      });
+      if (!result.canceled && result.filePaths.length > 0) {
+        setCurrentWorkdir(result.filePaths[0]);
+      }
+    }
+  };
 
   const {
     userName,
@@ -489,6 +519,9 @@ export default function App() {
         updateUserName={updateUserName}
         onShowMemory={() => setShowMemoryModal(true)}
         onShowDatabase={() => setShowDatabase(true)}
+        currentWorkdir={currentWorkdir}
+        isIndexing={isIndexing}
+        onPickWorkdir={handlePickWorkdir}
       />
 
       <DatabaseInspector 
