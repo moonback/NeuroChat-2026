@@ -76,29 +76,35 @@ export async function loadVectorStore(): Promise<VectorEntry[]> {
   }
 }
 
+let saveTimeout: any = null;
 async function saveVectorStore(entries: VectorEntry[]): Promise<void> {
-  try {
-    console.log(`[VectorStore] 💾 Sauvegarde de ${entries.length} vecteur(s)...`);
-    // Keep only the most recent entries to stay within localStorage limits
-    const limited = entries.slice(-MAX_VECTOR_ENTRIES);
-    if (limited.length < entries.length) {
-      console.log(`[VectorStore] ⚠️ Limitation à ${MAX_VECTOR_ENTRIES} vecteurs (${entries.length - limited.length} supprimé(s))`);
-    }
-    const dbEntries = limited.map(e => ({
-      id: e.id,
-      text: e.text,
-      vector: e.vector,
-      sessionId: e.metadata.sessionId,
-      userName: e.metadata.userName,
-      speaker: e.metadata.speaker,
-      timestamp: e.metadata.timestamp
-    }));
-    await getStorageBackend().saveVectors(dbEntries);
-    console.log("[VectorStore] ✅ Vecteurs sauvegardés avec succès (batch)");
-  } catch (error) {
-    console.error("[VectorStore] ❌ Échec de la sauvegarde:", error);
-  }
+  if (saveTimeout) clearTimeout(saveTimeout);
+  
+  return new Promise((resolve) => {
+    saveTimeout = setTimeout(async () => {
+      try {
+        console.log(`[VectorStore] 💾 Sauvegarde de ${entries.length} vecteur(s)...`);
+        const limited = entries.slice(-MAX_VECTOR_ENTRIES);
+        const dbEntries = limited.map(e => ({
+          id: e.id,
+          text: e.text,
+          vector: e.vector,
+          sessionId: e.metadata.sessionId,
+          userName: e.metadata.userName,
+          speaker: e.metadata.speaker,
+          timestamp: e.metadata.timestamp
+        }));
+        await getStorageBackend().saveVectors(dbEntries);
+        console.log("[VectorStore] ✅ Vecteurs sauvegardés avec succès (batch)");
+        resolve();
+      } catch (error) {
+        console.error("[VectorStore] ❌ Échec de la sauvegarde:", error);
+        resolve();
+      }
+    }, 500); // Debounce 500ms
+  });
 }
+
 
 // Singleton pour le pipeline d'embedding
 let embeddingPipeline: any = null;

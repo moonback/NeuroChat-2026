@@ -18,7 +18,7 @@ import { AgentChat } from "./components/AgentChat";
 import { DatabaseInspector } from "./components/DatabaseInspector";
 import { parseAssistantResponse } from "./lib/commandParser";
 
-import { EmotionEngine } from "./lib/EmotionEngine";
+import { EmotionEngine, type EmotionMetrics } from "./lib/EmotionEngine";
 
 
 export default function App() {
@@ -42,7 +42,7 @@ export default function App() {
   const [visualActivity, setVisualActivity] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
   const [pipExpanded, setPipExpanded] = useState(false);
-  const [emotionMetrics, setEmotionMetrics] = useState<import("./lib/EmotionEngine").EmotionMetrics>({
+  const [emotionMetrics, setEmotionMetrics] = useState<EmotionMetrics>({
     energy: "neutre", mood: "neutre", confidence: 1, trend: "stable", isStagnated: false,
     breathingRate: 4, moodEmoji: "😐", moodColor: "#6366f1", rawAudioAvg: 0, rawMotionAvg: 0,
   });
@@ -129,7 +129,7 @@ export default function App() {
       window.neurochatElectron.memory.indexWorkdir(currentWorkdir)
         .then(result => {
           if (result.success) {
-            console.log(`[App] ✅ Indexation terminée: ${result.fileCount} fichiers traités.`);
+            console.log(`[App] ✅ Indexation terminée: ${result.fileCount} nouveaux/modifiés, ${result.skippedCount} inchangés.`);
           } else {
             console.error(`[App] ❌ Échec de l'indexation: ${result.error}`);
           }
@@ -225,12 +225,14 @@ export default function App() {
         if (base64) playAudio(base64);
         // Accumule les fragments de transcription IA (outputTranscription)
         if (aiText) {
-          console.log("🤖 [App] Réponse IA reçue:", aiText);
-          aiTextAccumulator.push(aiText);
-
-          // NE PAS parser ici - attendre le texte complet dans onTurnComplete
+          const sanitized = aiText.replace(/Inner Monologue:[\s\S]*?(?=\n[A-ZÀ-ÿ]|$)/g, "").trim();
+          if (sanitized) {
+            console.log("🤖 [App] Réponse IA reçue:", sanitized);
+            aiTextAccumulator.push(sanitized);
+          }
         }
       },
+
       onTranscription: (text, finished) => {
         setCurrentTranscript(text);
         // Accumule tous les fragments (l'API envoie la phrase mot par mot)
@@ -258,37 +260,26 @@ export default function App() {
           userTranscriptParts.length = 0;
         }
 
-        // Sauvegarde le tour IA complet
+        // Sauvegarde le tour IA complet (nettoyé)
         if (userName && aiTextAccumulator.length > 0) {
-          const fullText = aiTextAccumulator.join("").trim();
+          const rawText = aiTextAccumulator.join(" ").trim();
+          const fullText = rawText.replace(/Inner Monologue:[\s\S]*?(?=\n[A-ZÀ-ÿ]|$)/g, "").trim();
+          
           if (fullText) {
             console.log(`💾 Sauvegarde tour IA: "${fullText.slice(0, 60)}"`);
             addTurn(userName, "assistant", fullText);
           }
-
-          // Ancien parseur obsolète (remplacé par function calls)
+          
           aiTextAccumulator.length = 0;
         }
+
       },
 
       onInterrupted: () => {
-        const threshold = isSpeaking ? 0.15 : 0.08;
-
-        if (audioLevel > threshold) {
-          speechFrames++;
-        } else {
-          speechFrames = 0;
-        }
-
-        // ~150 ms de parole continue
-        if (speechFrames >= 5) {
-          console.log("🗣️ Interruption valide détectée");
-
-          stopAudio();
-
-          speechFrames = 0;
-        }
+        console.log("🗣️ Interruption confirmée par Gemini");
+        stopAudio();
       },
+
       onRecordingStart: (sendInput) => {
         sendInputRef.current = sendInput;
         startRecording((audioBase64) => sendInput(audioBase64, 'audio'));

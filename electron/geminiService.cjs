@@ -77,10 +77,11 @@ function registerGeminiHandlers(mainWindow) {
             mainWindow.webContents.send('gemini:event', { type: 'error', error: error.message });
           },
           onclose: (event) => {
-            console.log("[Main] Session Gemini fermée");
+            console.log("[Main] Session Gemini fermée", event);
             mainWindow.webContents.send('gemini:event', { type: 'close' });
             activeSession = null;
           }
+
         },
         config: {
           systemInstruction: {

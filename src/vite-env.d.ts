@@ -54,7 +54,7 @@ declare global {
         };
       };
       memory: {
-        indexWorkdir: (workdir: string) => Promise<{ success: boolean, fileCount?: number, error?: string }>;
+        indexWorkdir: (workdir: string) => Promise<{ success: boolean, fileCount?: number, skippedCount?: number, error?: string }>;
         search: (payload: { query: string, workdir: string }) => Promise<any[]>;
       };
       gemini?: {

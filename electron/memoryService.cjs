@@ -95,29 +95,26 @@ async function indexFile(filePath, workdir) {
   try {
     const stats = await fs.stat(filePath);
     const mtime = stats.mtimeMs;
-    const relativePath = path.relative(workdir, filePath);
+    // Normalize path to use forward slashes for cross-platform DB consistency
+    const relativePath = path.relative(workdir, filePath).split(path.sep).join('/');
+    const workdirKey = workdir.split(path.sep).join('/');
     
     // Check if file already indexed with same mtime (incremental)
     const existing = getDb().prepare(
       'SELECT mtime FROM project_vectors WHERE path = ? AND workdir = ? LIMIT 1'
-    ).get(relativePath, workdir);
+    ).get(relativePath, workdirKey);
     
     if (existing && Math.abs(existing.mtime - mtime) < 1000) {
-      // File hasn't changed, skip
       return { skipped: true, chunks: 0 };
     }
 
     const content = await fs.readFile(filePath, 'utf-8');
-    
-    // Skip empty or tiny files
     if (content.trim().length < 50) return { skipped: true, chunks: 0 };
 
-    // Smart chunking based on file type
     const chunks = chunkFile(content, filePath);
 
-    // Clear old chunks for this file before re-indexing
     getDb().prepare('DELETE FROM project_vectors WHERE path = ? AND workdir = ?')
-      .run(relativePath, workdir);
+      .run(relativePath, workdirKey);
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
@@ -126,16 +123,16 @@ async function indexFile(filePath, workdir) {
       
       const vectorBuffer = Buffer.from(Float64Array.from(vector).buffer);
       getDb().prepare('INSERT OR REPLACE INTO project_vectors(id, path, content, vector, mtime, workdir) VALUES(?, ?, ?, ?, ?, ?)')
-        .run(id, relativePath, chunk, vectorBuffer, mtime, workdir);
+        .run(id, relativePath, chunk, vectorBuffer, mtime, workdirKey);
     }
     
-    console.log(`[MemoryService] Indexed ${relativePath} (${chunks.length} chunks)`);
     return { skipped: false, chunks: chunks.length };
   } catch (err) {
     console.error(`[MemoryService] Failed to index ${filePath}:`, err.message);
     return { skipped: true, chunks: 0 };
   }
 }
+
 
 const IGNORED_DIRS = new Set([
   'node_modules', '.git', 'dist', '.vscode', '.next', 
@@ -174,9 +171,10 @@ async function walkDir(dir, workdir, results = []) {
 // ── Phase 3 Improved: Cleanup deleted files from index ──────────────────────
 async function cleanupDeletedFiles(workdir) {
   const db = getDb();
+  const workdirKey = workdir.split(path.sep).join('/');
   const indexedPaths = db.prepare(
     'SELECT DISTINCT path FROM project_vectors WHERE workdir = ?'
-  ).all(workdir).map(r => r.path);
+  ).all(workdirKey).map(r => r.path);
   
   let removed = 0;
   for (const relPath of indexedPaths) {
@@ -186,7 +184,7 @@ async function cleanupDeletedFiles(workdir) {
     } catch {
       // File no longer exists, remove from index
       db.prepare('DELETE FROM project_vectors WHERE path = ? AND workdir = ?')
-        .run(relPath, workdir);
+        .run(relPath, workdirKey);
       removed++;
     }
   }
@@ -228,9 +226,10 @@ function registerMemoryHandlers() {
   ipcMain.handle('memory:search', async (event, { query, workdir }) => {
     try {
       const queryVector = await generateEmbedding(query);
+      const workdirKey = workdir.split(path.sep).join('/');
       
       const db = getDb();
-      const rows = db.prepare('SELECT * FROM project_vectors WHERE workdir = ?').all(workdir);
+      const rows = db.prepare('SELECT * FROM project_vectors WHERE workdir = ?').all(workdirKey);
       
       const results = rows.map(row => {
         const vector = Array.from(new Float64Array(row.vector.buffer, row.vector.byteOffset, row.vector.byteLength / 8));
