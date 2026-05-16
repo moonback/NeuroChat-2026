@@ -22,12 +22,15 @@ describe("screen semantic layer", () => {
     expect(summary.probableContent).toBe("blank_or_static");
     expect(summary.brightness).toBe("dark");
     expect(summary.textLikeDensity).toBe(0);
+    expect(summary.ocrHints.likelyReadableText).toBe(false);
   });
 
   it("produces a compact semantic signature for structured high-contrast content", () => {
     const summary = analyzeScreenSemantics(makeImage(128, 128, (x, y) => ((x + y) % 24 < 12 ? 20 : 235)));
     expect(summary.contrast).toBe("high");
     expect(summary.textLikeDensity).toBeGreaterThan(0);
+    expect(summary.ocrHints.estimatedTextBlocks).toBeGreaterThan(0);
     expect(formatScreenSemanticSummary(summary)).toContain(`screen:${summary.probableContent}`);
+    expect(formatScreenSemanticSummary(summary)).toContain("ocr:");
   });
 });

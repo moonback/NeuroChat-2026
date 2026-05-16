@@ -39,10 +39,10 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 | ID | Correction | Domaine | Statut | Notes |
 |---|---|---|---|---|
 | P2-001 | State machine agent durable | Agentique | Fait | Runs persistés avec `runId`, reprise, budgets temps/outils et annulation. |
-| P2-002 | Tool dry-run / rollback | Agentique / sécurité | Partiel | Mode dry-run agentique pour prévisualiser les outils sans les exécuter; rollback applicatif reste à faire. |
-| P2-003 | Intégration MCP sandboxée | Agentique | Partiel | Skill MCP HTTP derrière allowlist serveur/outil, policy locale et confirmation sensible. |
+| P2-002 | Tool dry-run / rollback | Agentique / sécurité | Fait | Mode dry-run agentique enrichi et rollback applicatif formalisé par skill avec pile de compensation en cas d’échec. |
+| P2-003 | Intégration MCP sandboxée | Agentique | Fait | Skill MCP HTTP derrière allowlist serveur/outil, endpoint HTTPS ou HTTP localhost uniquement, limites timeout/taille et confirmation sensible. |
 | P2-004 | Provider local Ollama | Souveraineté IA | Fait | Gateway Ollama optionnel via `VITE_OLLAMA_BASE_URL` / `VITE_OLLAMA_MODEL` dans la chaîne de fallback agentique. |
-| P2-005 | OCR / screen semantic layer | Multimodal | Partiel | Couche sémantique écran structurée (densité texte, contraste, régions, type probable) intégrée aux signatures de capture. |
+| P2-005 | OCR / screen semantic layer | Multimodal | Fait | Couche sémantique écran enrichie avec indices OCR légers (lisibilité, blocs texte estimés, orientation et régions) intégrés aux signatures. |
 
 ## Journal d'implémentation
 
@@ -67,8 +67,8 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - P1-007 terminé : timeline mémoire éditable avec modification/suppression de messages, oubli de sessions et resynchronisation des vecteurs utilisateur.
 
 - P2-001 terminé : ajout d’un store de runs agentiques durable (`runStore`) avec `runId`, reprise, annulation, budgets de temps et de nombre d’outils.
-- P2-002 partiel : ajout du mode dry-run pour produire une prévisualisation de tool call sans exécuter le skill; les rollbacks applicatifs restent à formaliser par skill.
+- P2-002 terminé : ajout du mode dry-run pour prévisualiser les tool calls, plus rollback applicatif par skill via `rollback` optionnel, pile de compensation durable et rollback automatique sur annulation/échec/budget.
 - P2-004 terminé : ajout d’un gateway Ollama local optionnel et documentation des variables `VITE_OLLAMA_BASE_URL` / `VITE_OLLAMA_MODEL`.
 
-- P2-003 partiel : ajout du skill `call_mcp_tool` protégé par policy MCP locale (`mcpPolicyStore`), allowlist serveur/outil, permission `mcp:execute` et confirmation obligatoire.
-- P2-005 partiel : ajout de `screenSemanticLayer` pour enrichir les captures écran avec résumé structuré (contraste, luminosité, densité texte, régions dominantes, contenu probable).
+- P2-003 terminé : le skill `call_mcp_tool` reste protégé par policy MCP locale, allowlist serveur/outil, permission `mcp:execute` et confirmation obligatoire; les endpoints sont normalisés, limités à HTTPS ou HTTP localhost, avec timeout et plafond de réponse.
+- P2-005 terminé : `screenSemanticLayer` enrichit les captures avec résumé structuré et indices OCR légers (régions texte probables, nombre de blocs, orientation et lisibilité).

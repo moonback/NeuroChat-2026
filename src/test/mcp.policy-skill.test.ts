@@ -15,11 +15,15 @@ describe("sandboxed MCP skill", () => {
 
   it("calls only allowlisted HTTP MCP tools", async () => {
     await saveMcpPolicyConfig({ servers: [{ id: "local", endpoint: "http://127.0.0.1:3333/mcp", allowedTools: ["read"] }] });
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true, json: async () => ({ result: { ok: true } }) } as Response);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true, headers: new Headers({ "content-length": "22" }), text: async () => JSON.stringify({ result: { ok: true } }) } as Response);
 
     const result = await callMcpToolSkill.execute({ serverId: "local", toolName: "read", arguments: { path: "README.md" } }, { sessionId: "s", userId: "u" });
 
     expect(result).toEqual({ serverId: "local", toolName: "read", result: { ok: true } });
     expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:3333/mcp", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("rejects remote plain HTTP MCP endpoints at policy save time", async () => {
+    await expect(saveMcpPolicyConfig({ servers: [{ id: "remote", endpoint: "http://example.com/mcp", allowedTools: ["read"] }] })).rejects.toThrow("Endpoint MCP refusé");
   });
 });

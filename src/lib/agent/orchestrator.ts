@@ -1,4 +1,4 @@
-import { executeToolCall } from "./executor";
+import { executeToolCall, rollbackExecutedToolCalls } from "./executor";
 import { parseAgentStep } from "./parser";
 import { buildPlannerPrompt } from "./planner";
 import { ExecutionCritic } from "./critic";
@@ -64,23 +64,27 @@ export class AgentOrchestrator {
     const persistState = async () => {
       await saveDurableAgentRun({ runId, sessionId, userId, input, status: state.status, updatedAt: Date.now(), state });
     };
+    const failWithRollback = async (answer: string, reason: string): Promise<AgentRunResult> => {
+      state.status = reason === "cancelled" ? "CANCELLED" : "FAILED";
+      if (options.rollbackOnFailure !== false && !options.dryRun) {
+        const rollbackResults = await rollbackExecutedToolCalls(this.registry, state, reason, options.signal);
+        rollbackResults.forEach((result) => options.onEvent?.({ type: "rollback_result", iteration: state.iteration, result }));
+      }
+      await persistState();
+      return { runId, answer, toolResults: state.toolResults, iterations: state.iteration, completed: false };
+    };
     await persistState();
 
     while (state.iteration < state.maxIterations) {
       if (options.signal?.aborted || state.status === "CANCELLED") {
-        state.status = "CANCELLED";
         await cancelDurableAgentRun(runId);
-        return { runId, answer: "Tâche agent annulée.", toolResults: state.toolResults, iterations: state.iteration, completed: false };
+        return failWithRollback("Tâche agent annulée.", "cancelled");
       }
       if (deadlineAt && Date.now() > deadlineAt) {
-        state.status = "FAILED";
-        await persistState();
-        return { runId, answer: "Budget temps dépassé avant la fin de la tâche.", toolResults: state.toolResults, iterations: state.iteration, completed: false };
+        return failWithRollback("Budget temps dépassé avant la fin de la tâche.", "deadline_exceeded");
       }
       if (options.maxToolCalls !== undefined && state.toolResults.length >= options.maxToolCalls) {
-        state.status = "FAILED";
-        await persistState();
-        return { runId, answer: "Budget outils dépassé avant la fin de la tâche.", toolResults: state.toolResults, iterations: state.iteration, completed: false };
+        return failWithRollback("Budget outils dépassé avant la fin de la tâche.", "tool_budget_exceeded");
       }
       state.iteration += 1;
       state.status = "PLANNING";
@@ -141,8 +145,7 @@ export class AgentOrchestrator {
         state.transcript.push(`CRITIC ${state.iteration}: ${criticism.message} [Action: ${criticism.action}]`);
 
         if (criticism.action === "abort") {
-          state.status = "FAILED";
-          break;
+          return failWithRollback(criticism.message, "critic_abort");
         }
 
         if (criticism.action === "retry" || criticism.action === "adjust_plan") {
@@ -164,11 +167,9 @@ export class AgentOrchestrator {
       await persistState();
 
       if (consecutiveFailures > maxConsecutiveFailures) {
-        state.status = "FAILED";
         const answer = "Désolé, je rencontre trop de difficultés techniques pour finaliser cette tâche.";
         options.onEvent?.({ type: "completed", iteration: state.iteration, completed: false, answer });
-        await persistState();
-        return { runId, answer, toolResults: state.toolResults, iterations: state.iteration, completed: false };
+        return failWithRollback(answer, "too_many_failures");
       }
     }
 
@@ -195,6 +196,12 @@ export class AgentOrchestrator {
       }
     } catch (e) {
       console.warn("[Orchestrator] Reflection failed:", e);
+    }
+
+    if (options.rollbackOnFailure !== false && !options.dryRun) {
+      const rollbackResults = await rollbackExecutedToolCalls(this.registry, state, "max_iterations_exceeded", options.signal);
+      rollbackResults.forEach((result) => options.onEvent?.({ type: "rollback_result", iteration: state.iteration, result }));
+      finalResult.toolResults = state.toolResults;
     }
 
     await persistState();
