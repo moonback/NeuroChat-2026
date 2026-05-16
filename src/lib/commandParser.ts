@@ -587,7 +587,7 @@ const TEST_CASES: TestCase[] = [
 ];
 
 export function runTests(): void {
-  console.log("🧪 [CommandParser v2] Lancement des tests\n");
+  // console.log("🧪 [CommandParser v2] Lancement des tests\n");
 
   let passed = 0;
   let failed = 0;
@@ -599,7 +599,7 @@ export function runTests(): void {
 
     if (ok) {
       passed++;
-      console.log(`✅ PASS  "${tc.input}"${tc.description ? ` — ${tc.description}` : ""}`);
+      // console.log(`✅ PASS  "${tc.input}"${tc.description ? ` — ${tc.description}` : ""}`);
     } else {
       failed++;
       console.warn(
@@ -614,5 +614,5 @@ export function runTests(): void {
     }
   }
 
-  console.log(`\n📊 Résultats : ${passed}/${TEST_CASES.length} réussis, ${failed} échoués`);
+  // console.log(`\n📊 Résultats : ${passed}/${TEST_CASES.length} réussis, ${failed} échoués`);
 }
