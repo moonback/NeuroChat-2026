@@ -80,6 +80,48 @@ export class GeminiAgentGateway implements AgentModelGateway, NativeToolCallingG
   }
 }
 
+
+export interface OllamaGatewayOptions {
+  baseUrl?: string;
+  model?: string;
+  systemPrompt?: string;
+}
+
+export class OllamaAgentGateway implements AgentModelGateway {
+  private readonly baseUrl: string;
+  private readonly model: string;
+  private readonly systemPrompt: string;
+
+  constructor(options: OllamaGatewayOptions = {}) {
+    this.baseUrl = (options.baseUrl ?? import.meta.env.VITE_OLLAMA_BASE_URL ?? "http://127.0.0.1:11434").replace(/\/$/, "");
+    this.model = options.model ?? import.meta.env.VITE_OLLAMA_MODEL ?? "llama3.1";
+    this.systemPrompt = options.systemPrompt ?? "You are a strict JSON planner. Output only JSON.";
+  }
+
+  async complete(prompt: string, signal?: AbortSignal): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.model,
+        stream: false,
+        messages: [
+          { role: "system", content: this.systemPrompt },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama request failed: ${response.status}`);
+    }
+
+    const data = await response.json() as { message?: { content?: string }; response?: string };
+    return data.message?.content ?? data.response ?? "";
+  }
+}
+
 export interface NativeToolCallingGateway {
   completeStepWithTools(prompt: string, tools: Array<{ name: string; description: string; parameters: object }>, signal?: AbortSignal): Promise<AgentStep>;
 }

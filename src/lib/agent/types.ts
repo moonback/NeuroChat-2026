@@ -17,7 +17,8 @@ export type AgentStatus =
   | "REFLECTING" 
   | "RESPONDING" 
   | "FAILED" 
-  | "RECOVERING";
+  | "RECOVERING"
+  | "CANCELLED";
 
 export interface WorkingMemory {
   currentGoal: string;
@@ -69,15 +70,21 @@ export type AgentEvent =
   | { type: "completed"; iteration: number; completed: boolean; answer: string; agentId?: string; agentName?: string };
 
 export interface AgentRunOptions {
+  runId?: string;
+  resumeFromRunId?: string;
   maxIterations?: number;
   maxConsecutiveFailures?: number;
   initialPolicies?: string[];
   signal?: AbortSignal;
+  deadlineMs?: number;
+  maxToolCalls?: number;
+  dryRun?: boolean;
   onEvent?: (event: AgentEvent) => void;
   activeProfile?: AgentProfile;
 }
 
 export interface AgentRunResult {
+  runId?: string;
   answer: string;
   toolResults: SkillExecutionResult[];
   iterations: number;

@@ -38,10 +38,10 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 
 | ID | Correction | Domaine | Statut | Notes |
 |---|---|---|---|---|
-| P2-001 | State machine agent durable | Agentique | À faire | Reprise de tâches, budgets, cancellations. |
-| P2-002 | Tool dry-run / rollback | Agentique / sécurité | À faire | Preview avant exécution sensible. |
+| P2-001 | State machine agent durable | Agentique | Fait | Runs persistés avec `runId`, reprise, budgets temps/outils et annulation. |
+| P2-002 | Tool dry-run / rollback | Agentique / sécurité | Partiel | Mode dry-run agentique pour prévisualiser les outils sans les exécuter; rollback applicatif reste à faire. |
 | P2-003 | Intégration MCP sandboxée | Agentique | À faire | Allowlist + policy. |
-| P2-004 | Provider local Ollama | Souveraineté IA | À faire | Mode offline/local-first. |
+| P2-004 | Provider local Ollama | Souveraineté IA | Fait | Gateway Ollama optionnel via `VITE_OLLAMA_BASE_URL` / `VITE_OLLAMA_MODEL` dans la chaîne de fallback agentique. |
 | P2-005 | OCR / screen semantic layer | Multimodal | À faire | Perception structurée de l'écran. |
 
 ## Journal d'implémentation
@@ -65,3 +65,7 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - P1-005 terminé : remplacement de `window.confirm` dans le handler de confirmation des skills par une modale contrôlée avec badge de risque, focus par défaut sur le refus, contexte tronqué, focus restauré et journalisation acceptation/refus sans persister le contexte brut.
 - P1-004 terminé : ajout d’un centre de permissions dans le coffre avec durée d’expiration, droits scoped par ressource/niveau et denylist de skills.
 - P1-007 terminé : timeline mémoire éditable avec modification/suppression de messages, oubli de sessions et resynchronisation des vecteurs utilisateur.
+
+- P2-001 terminé : ajout d’un store de runs agentiques durable (`runStore`) avec `runId`, reprise, annulation, budgets de temps et de nombre d’outils.
+- P2-002 partiel : ajout du mode dry-run pour produire une prévisualisation de tool call sans exécuter le skill; les rollbacks applicatifs restent à formaliser par skill.
+- P2-004 terminé : ajout d’un gateway Ollama local optionnel et documentation des variables `VITE_OLLAMA_BASE_URL` / `VITE_OLLAMA_MODEL`.
