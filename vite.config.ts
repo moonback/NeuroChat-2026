@@ -18,6 +18,20 @@ export default defineConfig(({mode}) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react-vendor';
+            if (id.includes('/motion/')) return 'motion-vendor';
+            if (id.includes('/lucide-react/') || id.includes('/lucide/')) return 'icons-vendor';
+            if (id.includes('/@google/genai/')) return 'ai-vendor';
+            return undefined;
+          },
+        },
+      },
+    },
     server: {
       port: 3000,
       strictPort: true,
