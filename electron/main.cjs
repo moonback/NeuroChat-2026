@@ -539,6 +539,12 @@ function createWindow() {
     webPreferences.sandbox = true;
     webPreferences.javascript = true;
     params.allowpopups = 'false';
+    
+    if (params.partition === 'persist:agent') {
+      console.log('🛡️ [security] Attaching isolated agent webview');
+      webPreferences.partition = 'persist:agent';
+    }
+
     auditSecurityEvent({ type: 'webview.attach', urlHash: hashAuditValue(params.src) });
   });
 
@@ -577,6 +583,14 @@ app.whenReady().then(() => {
   });
 
   registerDisplayMediaHandler();
+
+  // Configure Isolated Agent Session
+  const agentSession = session.fromPartition('persist:agent');
+  agentSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    console.warn(`🛡️ [security] Permission '${permission}' denied for isolated agent session.`);
+    callback(false); // Deny all permissions (camera, mic, etc.) for agent webview
+  });
+
   ensureDb(app);
   registerIpcHandlers();
   registerDbIpcHandlers();

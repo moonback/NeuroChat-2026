@@ -180,7 +180,7 @@ export function BrowserWindow({
                 src={safeCurrentUrl}
                 className="w-full h-full border-0"
                 title="Browser Window"
-                partition="persist:neurochat-browser"
+                partition="persist:agent"
               />
             ) : (
               <div className="flex items-center justify-center h-full bg-slate-900">

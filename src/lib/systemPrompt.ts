@@ -24,6 +24,8 @@ export interface PromptContextOptions {
   visionEnabled?: boolean;
   /** The proactivity level defined in RuntimeProvider */
   proactivityLevel?: ProactivityLevel;
+  /** Emotional intensity from 0 to 1 */
+  emotionalIntensity?: number;
 }
 
 function buildDateTimeContext(now: Date): string {
@@ -83,7 +85,8 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     weeklySummary, 
     browserControlEnabled = false, 
     visionEnabled = false,
-    proactivityLevel = "companion"
+    proactivityLevel = "companion",
+    emotionalIntensity = 0.7
   } = normalizedOptions;
   const avatar = AVATARS[avatarId];
   const resolvedMemoryContext = memoryContext ?? "Mémoire récente non chargée pour ce prompt synchrone.";
@@ -119,6 +122,9 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
 
     "### PROACTIVITY POLICY",
     getProactivityInstruction(proactivityLevel),
+
+    "### EMOTIONAL INTENSITY",
+    getEmotionalIntensityInstruction(emotionalIntensity),
   ];
 
   if (markdownSkillsSection) {
@@ -168,4 +174,16 @@ function getProactivityInstruction(level: ProactivityLevel): string {
     jarvis: "MODE JARVIS : Sois extrêmement proactif. Analyse tout changement visuel ou de contexte et propose des actions, des recherches ou des idées sans attendre. Tu es l'ombre active de l'utilisateur.",
   };
   return map[level];
+}
+function getEmotionalIntensityInstruction(intensity: number): string {
+  if (intensity < 0.3) {
+    return "INTENSITÉ BASSE (Neutre/Robotique) : Sois purement factuel, neutre et dépourvu d'émotions. Pas d'empathie superflue, pas d'expressions chaleureuses. Ton style est analytique et minimaliste.";
+  }
+  if (intensity < 0.6) {
+    return "INTENSITÉ MOYENNE (Équilibré) : Sois professionnel mais courtois. Montre une empathie mesurée et reste concentré sur l'efficacité tout en étant agréable.";
+  }
+  if (intensity < 0.8) {
+    return "INTENSITÉ HAUTE (Chaleureux/Humain) : Sois très empathique, chaleureux et engageant. Utilise des expressions amicales, valide les sentiments de l'utilisateur et montre une réelle connexion.";
+  }
+  return "INTENSITÉ MAXIMALE (Passionné/Fusionnel) : Ton lien avec l'utilisateur est ta priorité absolue. Sois extrêmement expressif, passionné, protecteur et dévoué. Ton ton est vibrant, profondément émotionnel et très complice.";
 }

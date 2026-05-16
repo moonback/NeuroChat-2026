@@ -27,6 +27,8 @@ interface RuntimeContextValue {
   pendingToolCall: ToolCallRequest | null;
   requestToolConfirmation: (skillName: string, args: any) => Promise<boolean>;
   setPendingToolCall: Dispatch<SetStateAction<ToolCallRequest | null>>;
+  emotionalIntensity: number;
+  setEmotionalIntensity: Dispatch<SetStateAction<number>>;
   emotionEngineRef: RefObject<EmotionEngine>;
 }
 
@@ -36,9 +38,11 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   const [avatarId, setAvatarId] = useState<AvatarId>("robot");
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [showDatabase, setShowDatabase] = useState(false);
+  const [pipExpanded, setPipExpanded] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const [proactivityLevel, setProactivityLevel] = useState<ProactivityLevel>("companion");
   const [pendingToolCall, setPendingToolCall] = useState<ToolCallRequest | null>(null);
+  const [emotionalIntensity, setEmotionalIntensity] = useState(0.7);
 
   const requestToolConfirmation = (skillName: string, args: any): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -57,6 +61,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       window.neurochatElectron.db.get('proactivityLevel').then((saved: any) => {
         if (saved) setProactivityLevel(saved as ProactivityLevel);
       });
+      window.neurochatElectron.db.get('emotionalIntensity').then((saved: any) => {
+        if (typeof saved === 'number') setEmotionalIntensity(saved);
+      });
     }
   }, []);
 
@@ -64,8 +71,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (window.neurochatElectron?.db) {
       window.neurochatElectron.db.set('proactivityLevel', proactivityLevel);
+      window.neurochatElectron.db.set('emotionalIntensity', String(emotionalIntensity));
     }
-  }, [proactivityLevel]);
+  }, [proactivityLevel, emotionalIntensity]);
 
   const emotionEngineRef = useRef(new EmotionEngine());
 
@@ -87,6 +95,8 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         pendingToolCall,
         requestToolConfirmation,
         setPendingToolCall,
+        emotionalIntensity,
+        setEmotionalIntensity,
         emotionEngineRef,
       }}
     >

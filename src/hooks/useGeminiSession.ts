@@ -21,6 +21,7 @@ interface SessionOptions {
   browserControlEnabled?: boolean;
   userState?: string;
   proactivityLevel?: ProactivityLevel;
+  emotionalIntensity?: number;
 }
 
 export function useGeminiSession() {
@@ -62,7 +63,21 @@ export function useGeminiSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo, browserControlEnabled, userState, proactivityLevel } = options;
+    const { 
+      avatarId, 
+      userName, 
+      onAudioResponse, 
+      onTranscription, 
+      onTurnComplete, 
+      onInterrupted, 
+      onRecordingStart, 
+      onStopRecording, 
+      enableVideo, 
+      browserControlEnabled, 
+      userState, 
+      proactivityLevel, 
+      emotionalIntensity 
+    } = options;
 
     if (!window.neurochatElectron?.ai?.gemini) {
       setErrorMsg("Environnement Electron non détecté ou bridge absent.");
@@ -125,6 +140,7 @@ export function useGeminiSession() {
             visionEnabled: enableVideo,
             userState,
             proactivityLevel,
+            emotionalIntensity,
           });
 
           // Configuration du bridge

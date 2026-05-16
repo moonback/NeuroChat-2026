@@ -16,6 +16,7 @@ type StartSession = (options: {
   browserControlEnabled: boolean;
   userState: string;
   proactivityLevel: ProactivityLevel;
+  emotionalIntensity: number;
   onAudioResponse: (base64?: string, aiText?: string) => Promise<void> | void;
   onTranscription: (text: string, finished?: boolean) => void;
   onTurnComplete: () => Promise<void> | void;
@@ -54,6 +55,7 @@ interface SessionControllerArgs {
   runAgentTask: (task: string, sessionId: string, userId: string) => Promise<{ answer: string }>;
   stopVisionServices: () => void;
   proactivityLevel: ProactivityLevel;
+  emotionalIntensity: number;
 }
 
 function summarizeFiles(data: Record<string, unknown> | undefined): { count: number; names: string } {
@@ -86,6 +88,7 @@ export function useSessionController({
   runAgentTask,
   stopVisionServices,
   proactivityLevel,
+  emotionalIntensity,
 }: SessionControllerArgs) {
   const handleStartSession = useCallback(async () => {
     const aiTextAccumulator: string[] = [];
@@ -98,6 +101,7 @@ export function useSessionController({
       browserControlEnabled,
       userState: emotionEngineRef.current.getSystemContext(),
       proactivityLevel,
+      emotionalIntensity,
       onAudioResponse: async (base64, aiText) => {
         if (base64) playAudio(base64);
         if (aiText) {

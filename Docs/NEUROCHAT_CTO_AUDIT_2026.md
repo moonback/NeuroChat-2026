@@ -350,17 +350,18 @@ Le marché est saturé en chatbots, mais pas en compagnons desktop souverains ca
 
 ## 10. Roadmap technique
 
-### v3 — Stabilisation et confiance (4-8 semaines)
+### v3 — Stabilisation et confiance (TERMINE ✅)
 
-| Priorité | Item | Dépendances | Difficulté | Impact |
-|---:|---|---|---:|---:|
-| P0 | Corriger preload `ai` écrasé | Aucun | Faible | Critique |
-| P0 | CSP + webview lockdown | Audit browser | Moyenne | Critique |
-| P0 | Runtime event bus + metrics | Refactor hooks | Élevée | Élevé |
-| P0 | Privacy HUD | metrics | Moyenne | Élevé |
-| P1 | DB validation IPC | schemas | Moyenne | Élevé |
-| P1 | Embedding queue incrémentale | vectorStore | Moyenne | Moyen |
-| P1 | Agent allowlist par run | orchestrator | Moyenne | Élevé |
+| Priorité | Item | Dépendances | Statut | Impact |
+|---:|---|---|---|---|
+| P0 | Corriger preload `ai` écrasé | Aucun | [x] Corrigé | Critique |
+| P0 | CSP + webview lockdown | Audit browser | [x] Isolé (persist:agent) | Critique |
+| P0 | Runtime event bus + metrics | Refactor hooks | [x] Implémenté (`events.ts`) | Élevé |
+| P0 | Privacy HUD | metrics | [x] Enrichi (Proactivité/Empathie) | Élevé |
+| P1 | DB validation IPC | schemas | [x] Handlers sécurisés | Élevé |
+| P1 | Embedding queue incrémentale | vectorStore | [x] Optimisé | Moyen |
+| P1 | Agent allowlist par run | orchestrator | [x] ToolBroker + Confirmations | Élevé |
+| P1 | Worker Vision (Performance) | Offscreen | [x] Déporté (VisionWorker) | Élevé |
 
 ### v4 — Agent fiable et mémoire supérieure (2-4 mois)
 

@@ -144,6 +144,7 @@ export class VideoService {
       const base64 = this.canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
       this.onFrame(base64);
       this.lastFrameSentTime = now;
+    }
   }
 
   private updateSemanticHistory(snapshot: SemanticSnapshot) {

@@ -49,6 +49,7 @@ function AppContent() {
     setPipExpanded,
     emotionEngineRef,
     proactivityLevel,
+    emotionalIntensity,
   } = useRuntime();
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
 
@@ -160,6 +161,7 @@ function AppContent() {
     runAgentTask,
     stopVisionServices,
     proactivityLevel,
+    emotionalIntensity,
   });
 
   return (

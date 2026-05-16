@@ -28,7 +28,14 @@ interface PrivacyStatus {
 }
 
 export const PrivacyHUD: React.FC = () => {
-  const { isPrivate, setIsPrivate, proactivityLevel, setProactivityLevel } = useRuntime();
+  const { 
+    isPrivate, 
+    setIsPrivate, 
+    proactivityLevel, 
+    setProactivityLevel,
+    emotionalIntensity,
+    setEmotionalIntensity 
+  } = useRuntime();
   const [status, setStatus] = useState<PrivacyStatus>({
     mic: false,
     camera: false,
@@ -168,6 +175,37 @@ export const PrivacyHUD: React.FC = () => {
                 onClick={() => setProactivityLevel('jarvis')}
                 label="Jarvis"
               />
+            </div>
+
+            {/* Empathy / Emotional Intensity Slider */}
+            <div className="flex flex-col gap-2 min-w-[200px] pl-4 border-l border-white/10">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                  <Heart className={`w-3 h-3 ${emotionalIntensity > 0.8 ? 'text-red-400' : 'text-slate-500'}`} />
+                  Intensité Émotionnelle
+                </div>
+                <span className="text-[10px] font-mono text-slate-400">{(emotionalIntensity * 100).toFixed(0)}%</span>
+              </div>
+              
+              <div className="relative group px-1">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={emotionalIntensity}
+                  onChange={(e) => setEmotionalIntensity(parseFloat(e.target.value))}
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-white hover:accent-red-400 transition-all"
+                  style={{
+                    background: `linear-gradient(to right, #f43f5e ${(emotionalIntensity * 100)}%, #1e293b ${(emotionalIntensity * 100)}%)`
+                  }}
+                />
+                <div className="flex justify-between mt-1 px-0.5 text-[8px] font-bold text-slate-600 uppercase">
+                  <span>Froid</span>
+                  <span>Empathique</span>
+                  <span>Fusionnel</span>
+                </div>
+              </div>
             </div>
 
             {/* Activity Pulse */}
