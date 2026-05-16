@@ -8,7 +8,20 @@ const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
 const { GoogleGenAI } = require('@google/genai');
 const { assertMainOrigin } = require('./security.cjs');
-require('dotenv').config();
+const envPath = path.join(__dirname, '..', '.env');
+const result = require('dotenv').config({ path: envPath });
+
+if (result.error) {
+  console.warn(`[main] ⚠️ Could not load .env from ${envPath}. Checking CWD...`);
+  require('dotenv').config(); // Fallback to CWD
+}
+
+if (!process.env.GEMINI_API_KEY && !process.env.VITE_GEMINI_API_KEY) {
+  console.error('[main] ❌ CRITICAL: No Gemini API Key found in process.env!');
+  console.log('[main] Environment variables available:', Object.keys(process.env).filter(k => k.includes('GEMINI') || k.includes('VITE')));
+} else {
+  console.log('[main] ✅ Gemini API Key detected.');
+}
 
 
 const OPENROUTER_MODELS = ['deepseek/deepseek-v4-flash:free'];
