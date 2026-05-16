@@ -17,13 +17,70 @@ interface SessionOptions {
   userState?: string;
 }
 
+type ConversationStatus = "idle" | "connecting" | "listening";
+
+function selectFrenchVoice(): SpeechSynthesisVoice | undefined {
+  const voices = window.speechSynthesis.getVoices();
+  return voices.find((voice) => voice.name.includes("Google") || voice.name.includes("French"));
+}
+
 export function useOpenRouterSession() {
-  const [status, setStatus] = useState<"idle" | "connecting" | "listening">("idle");
+  const [status, setStatusState] = useState<ConversationStatus>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const recognitionRef = useRef<any>(null);
   const conversationHistory = useRef<OpenRouterMessage[]>([]);
+  const optionsRef = useRef<SessionOptions | null>(null);
+  const statusRef = useRef<ConversationStatus>("idle");
+  const manualStopRef = useRef(false);
+  const isProcessingRef = useRef(false);
+
+  const setStatus = useCallback((nextStatus: ConversationStatus) => {
+    statusRef.current = nextStatus;
+    setStatusState(nextStatus);
+  }, []);
+
+  const submitTextToOpenRouter = useCallback(async (text: string, shouldPublishTranscript: boolean) => {
+    const options = optionsRef.current;
+    const finalText = text.trim();
+    if (!options || !finalText || isProcessingRef.current) return;
+
+    if (shouldPublishTranscript) {
+      options.onTranscription(finalText, true);
+    }
+
+    console.log("🗣️ [OpenRouter Fallback] User said:", finalText);
+    conversationHistory.current.push({ role: "user", content: finalText });
+    isProcessingRef.current = true;
+
+    try {
+      setStatus("connecting");
+      const aiResponse = await chatWithOpenRouter(conversationHistory.current);
+      conversationHistory.current.push({ role: "assistant", content: aiResponse });
+
+      if (!manualStopRef.current) {
+        setStatus("listening");
+      }
+
+      options.onAudioResponse("", aiResponse);
+
+      const utterance = new SpeechSynthesisUtterance(aiResponse);
+      utterance.lang = "fr-FR";
+      const voice = selectFrenchVoice();
+      if (voice) utterance.voice = voice;
+      window.speechSynthesis.speak(utterance);
+
+      options.onTurnComplete();
+    } catch (err: unknown) {
+      console.error("OpenRouter fallback error:", err);
+      setErrorMsg("Désolé, le service de secours a aussi échoué.");
+      setStatus("idle");
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [setStatus]);
 
   const stopSession = useCallback((onStopRecording?: () => void) => {
+    manualStopRef.current = true;
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
@@ -31,11 +88,13 @@ export function useOpenRouterSession() {
     window.speechSynthesis.cancel();
     if (onStopRecording) onStopRecording();
     setStatus("idle");
-  }, []);
+  }, [setStatus]);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onRecordingStart, browserControlEnabled, enableVideo, userState } = options;
+    const { avatarId, userName, onTranscription, onRecordingStart, browserControlEnabled, enableVideo, userState } = options;
 
+    manualStopRef.current = false;
+    optionsRef.current = options;
     setStatus("listening");
     setErrorMsg("");
 
@@ -77,36 +136,7 @@ export function useOpenRouterSession() {
       onTranscription(currentText, !!finalTranscript);
 
       if (finalTranscript) {
-        console.log("🗣️ [OpenRouter Fallback] User said:", finalTranscript);
-        conversationHistory.current.push({ role: "user", content: finalTranscript });
-        
-        try {
-          setStatus("connecting"); // Show as processing
-          const aiResponse = await chatWithOpenRouter(conversationHistory.current);
-          conversationHistory.current.push({ role: "assistant", content: aiResponse });
-          
-          setStatus("listening");
-          
-          // Provide text response for transcription display
-          onAudioResponse("", aiResponse);
-          
-          // Fallback TTS using browser API
-          const utterance = new SpeechSynthesisUtterance(aiResponse);
-          utterance.lang = 'fr-FR';
-          
-          // Try to find a nice voice
-          const voices = window.speechSynthesis.getVoices();
-          const puckVoice = voices.find(v => v.name.includes("Google") || v.name.includes("French"));
-          if (puckVoice) utterance.voice = puckVoice;
-
-          window.speechSynthesis.speak(utterance);
-          
-          onTurnComplete();
-        } catch (err: any) {
-          console.error("OpenRouter fallback error:", err);
-          setErrorMsg("Désolé, le service de secours a aussi échoué.");
-          setStatus("idle");
-        }
+        void submitTextToOpenRouter(finalTranscript, false);
       }
     };
 
@@ -118,8 +148,12 @@ export function useOpenRouterSession() {
     };
 
     recognition.onend = () => {
-      if (status === "listening") {
-        recognition.start(); // Keep listening
+      if (!manualStopRef.current && statusRef.current !== "idle") {
+        try {
+          recognition.start(); // Keep listening
+        } catch (error) {
+          console.warn("[OpenRouter Fallback] Failed to restart speech recognition:", error);
+        }
       }
     };
 
@@ -127,14 +161,19 @@ export function useOpenRouterSession() {
     recognitionRef.current = recognition;
 
     // Trigger recording start in App to show UI activity, even if we use browser STT
-    onRecordingStart(() => {}); 
-  }, [status]);
+    onRecordingStart(() => {});
+  }, [setStatus, submitTextToOpenRouter]);
+
+  const sendTextMessage = useCallback((text: string) => {
+    void submitTextToOpenRouter(text, false);
+  }, [submitTextToOpenRouter]);
 
   return {
     status,
     errorMsg,
     setErrorMsg,
     startSession,
-    stopSession
+    stopSession,
+    sendTextMessage
   };
 }

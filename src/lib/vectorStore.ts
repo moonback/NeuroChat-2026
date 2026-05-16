@@ -247,9 +247,25 @@ export function cosineSimilarity(a: number[], b: number[]): number {
  * Add a new entry to the vector store.
  * Skips if an entry with the same id already exists.
  */
-export async function addVectorEntry(entry: VectorEntry): Promise<void> {
-  const store = await loadVectorStore();
+export async function addVectorEntry(entry: VectorEntry, existingStore?: VectorEntry[]): Promise<void> {
+  const store = existingStore ?? await loadVectorStore();
   if (store.some((e) => e.id === entry.id)) return; // deduplicate
+
+  const dbEntry = {
+    id: entry.id,
+    text: entry.text,
+    vector: entry.vector,
+    sessionId: entry.metadata.sessionId,
+    userName: entry.metadata.userName,
+    speaker: entry.metadata.speaker,
+    timestamp: entry.metadata.timestamp,
+  };
+
+  if (store.length < MAX_VECTOR_ENTRIES) {
+    await getStorageBackend().addVector(dbEntry);
+    return;
+  }
+
   store.push(entry);
   await saveVectorStore(store);
 }
@@ -265,7 +281,7 @@ export async function embedAndStore(
   const id = `${metadata.timestamp}_${metadata.speaker}`;
   console.log(`[VectorStore] 🔄 Tentative d'embedding pour: ${id}`);
 
-  // Skip if already embedded
+  // Skip before doing expensive embedding work if the turn is already indexed.
   const store = await loadVectorStore();
   if (store.some((e) => e.id === id)) {
     console.log(`[VectorStore] ⏭️ Vecteur déjà existant, ignoré: ${id}`);
@@ -279,7 +295,7 @@ export async function embedAndStore(
   }
 
   console.log(`[VectorStore] ➕ Ajout du vecteur: ${id}`);
-  await addVectorEntry({ id, text, vector, metadata });
+  await addVectorEntry({ id, text, vector, metadata }, store);
 }
 
 /**

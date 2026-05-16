@@ -89,8 +89,10 @@ export function useAIConversation() {
   const sendTextMessage = useCallback((text: string) => {
     if (activeProvider === "gemini") {
       gemini.sendTextMessage(text);
+    } else {
+      openRouter.sendTextMessage(text);
     }
-  }, [activeProvider, gemini]);
+  }, [activeProvider, gemini, openRouter]);
 
   return {
     ...current,
