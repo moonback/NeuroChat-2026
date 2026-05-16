@@ -31,6 +31,8 @@ export class AgentOrchestrator {
   async run(input: string, sessionId: string, userId: string, options: AgentRunOptions = {}): Promise<AgentRunResult> {
     await this.ensureSkillsIndexed();
     const relevantSkills = await this.retriever.retrieve(input);
+    const candidateSkills = relevantSkills.length > 0 ? relevantSkills : this.registry.list().slice(0, 6);
+    const allowedToolNames = new Set(candidateSkills.map((skill) => skill.name));
     
     const runId = options.runId ?? options.resumeFromRunId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const deadlineAt = options.deadlineMs ? Date.now() + options.deadlineMs : undefined;
@@ -93,12 +95,12 @@ export class AgentOrchestrator {
       
       try {
         // 1. PLANNING
-        const prompt = buildPlannerPrompt(state, relevantSkills);
+        const prompt = buildPlannerPrompt(state, candidateSkills);
         const nativeGateway = this.model as AgentModelGateway & Partial<NativeToolCallingGateway>;
         const step = typeof nativeGateway.completeStepWithTools === "function"
           ? await nativeGateway.completeStepWithTools(
               prompt,
-              this.registry.list().map((skill) => ({ name: skill.name, description: skill.description, parameters: skill.parameters })),
+              candidateSkills.map((skill) => ({ name: skill.name, description: skill.description, parameters: skill.parameters })),
               options.signal,
             )
           : parseAgentStep(await this.model.complete(prompt, options.signal));
@@ -130,6 +132,10 @@ export class AgentOrchestrator {
 
         if (!step.toolCall) {
           throw new Error("L'agent n'a produit ni action ni réponse finale.");
+        }
+
+        if (!allowedToolNames.has(step.toolCall.name)) {
+          throw new Error(`Tool ${step.toolCall.name} is outside the scoped allowlist for this run.`);
         }
 
         // 3. EXECUTING

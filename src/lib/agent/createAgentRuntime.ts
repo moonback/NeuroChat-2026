@@ -8,7 +8,9 @@ export function createDefaultAgentRuntime(): AgentSupervisor {
   if (import.meta.env.VITE_OLLAMA_BASE_URL || import.meta.env.VITE_OLLAMA_MODEL) {
     gateways.push(new OllamaAgentGateway());
   }
-  gateways.push(new GeminiAgentGateway());
+  if (import.meta.env.VITE_GEMINI_API_KEY) {
+    gateways.push(new GeminiAgentGateway());
+  }
   const gateway = new FallbackAgentGateway(gateways);
   const registry = createDefaultSkillRegistry();
   return new AgentSupervisor(gateway, registry);
