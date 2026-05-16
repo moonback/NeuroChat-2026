@@ -29,10 +29,10 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 | P1-001 | Découper `App.tsx` en contrôleurs runtime | Architecture | Fait | `RuntimeProvider`, `VisionController` et `SessionController` isolent état runtime, vision et orchestration de session. |
 | P1-002 | Worker embeddings Transformers | Fait | Le backend `@xenova/transformers` est chargé dynamiquement dans un Web Worker dédié au premier embedding. |
 | P1-003 | Code splitting des panels lourds | Performance | Fait | Panels lourds en `React.lazy` et découpage Vite manuel des vendors React/Motion/Lucide/GenAI/Transformers/ONNX pour réduire le chunk principal. |
-| P1-004 | Permission center utilisateur | Sécurité / UX | À faire | Permissions temporelles et scoped. |
+| P1-004 | Permission center utilisateur | Sécurité / UX | Fait | Onglet Permissions avec scopes par ressource/niveau, expiration temporelle et denylist de skills. |
 | P1-005 | Remplacer `window.confirm` par confirmation auditée | Sécurité / UX | Fait | Les confirmations de skills sensibles utilisent une modale dédiée avec badge de risque, focus par défaut sur le refus, contexte tronqué et journalisation acceptation/refus sans persister le contexte brut. |
 | P1-006 | Journal d'audit local | Sécurité | Fait | Journal JSONL local `security-audit.jsonl` pour autorisations workspace, opérations FS sensibles et appels OpenRouter, sans contenu ni chemins bruts. |
-| P1-007 | Memory timeline éditable | UX / IA | À faire | Voir, modifier, oublier les souvenirs. |
+| P1-007 | Memory timeline éditable | UX / IA | Fait | Les sessions et messages du coffre peuvent être modifiés ou oubliés avec resynchronisation vectorielle. |
 
 ## Corrections P2
 
@@ -63,3 +63,5 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - P1-006 terminé : ajout d’un audit local JSONL (`security-audit.jsonl`) pour les autorisations de workspace, opérations FS sensibles et appels OpenRouter, avec hash de chemin au lieu de chemins bruts.
 - Optimisation bundle : ajout de `manualChunks` Vite pour séparer React, Motion, Lucide, GenAI, Transformers et ONNX du chunk applicatif principal.
 - P1-005 terminé : remplacement de `window.confirm` dans le handler de confirmation des skills par une modale contrôlée avec badge de risque, focus par défaut sur le refus, contexte tronqué, focus restauré et journalisation acceptation/refus sans persister le contexte brut.
+- P1-004 terminé : ajout d’un centre de permissions dans le coffre avec durée d’expiration, droits scoped par ressource/niveau et denylist de skills.
+- P1-007 terminé : timeline mémoire éditable avec modification/suppression de messages, oubli de sessions et resynchronisation des vecteurs utilisateur.

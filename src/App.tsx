@@ -91,6 +91,9 @@ function AppContent() {
     memoryData,
     selectedSession,
     setSelectedSessionId,
+    updateTurn,
+    deleteTurn,
+    deleteSession,
     addTurn
   } = useConversationMemory();
 
@@ -245,6 +248,9 @@ function AppContent() {
             selectedSession={selectedSession}
             onSelectSession={setSelectedSessionId}
             onClearMemory={handleClearMemory}
+            onUpdateTurn={updateTurn}
+            onDeleteTurn={deleteTurn}
+            onDeleteSession={deleteSession}
             accentColor={avatar.colors[0]}
           />
         </Suspense>

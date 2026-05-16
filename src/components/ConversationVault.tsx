@@ -13,6 +13,10 @@ import {
   Tag,
   Loader2,
   BrainCircuit,
+  Pencil,
+  Save,
+  ShieldCheck,
+  Clock,
 } from "lucide-react";
 import { ConversationSession, loadAllSessions } from "../lib/conversationMemory";
 import type { ConversationStats } from "../lib/conversationMemory";
@@ -24,6 +28,8 @@ import {
 } from "../lib/conversationSummary";
 import { PromptVersionDisplay } from "./learning/PromptVersionDisplay";
 import { PromptControlPanel } from "./learning/PromptControlPanel";
+import { loadSkillPolicyConfig, saveSkillPolicyConfig, type SkillPolicyConfig } from "../lib/skills/policyStore";
+import type { SkillPermission } from "../lib/skills/types";
 
 interface ConversationVaultProps {
   isOpen: boolean;
@@ -33,10 +39,16 @@ interface ConversationVaultProps {
   selectedSession: ConversationSession | null;
   onSelectSession: (id: string | null) => void;
   onClearMemory: () => void;
+  onUpdateTurn: (sessionId: string, timestamp: number, message: string) => Promise<void>;
+  onDeleteTurn: (sessionId: string, timestamp: number) => Promise<void>;
+  onDeleteSession: (sessionId: string) => Promise<void>;
   accentColor: string;
 }
 
-type Tab = "sessions" | "weekly" | "learning";
+type Tab = "sessions" | "weekly" | "learning" | "permissions";
+
+const PERMISSION_RESOURCES = ["filesystem", "browser", "memory", "desktop", "ai", "system"] as const;
+const PERMISSION_LEVELS: SkillPermission["level"][] = ["read", "write", "execute"];
 
 export function ConversationVault({
   isOpen,
@@ -46,6 +58,9 @@ export function ConversationVault({
   selectedSession,
   onSelectSession,
   onClearMemory,
+  onUpdateTurn,
+  onDeleteTurn,
+  onDeleteSession,
   accentColor,
 }: ConversationVaultProps) {
   const [activeTab, setActiveTab] = useState<Tab>("sessions");
@@ -54,6 +69,12 @@ export function ConversationVault({
   );
   const [generatingWeek, setGeneratingWeek] = useState<string | null>(null);
   const [learningRefreshKey, setLearningRefreshKey] = useState(0);
+  const [editingTurn, setEditingTurn] = useState<{ sessionId: string; timestamp: number } | null>(null);
+  const [editedMessage, setEditedMessage] = useState("");
+  const [memoryActionStatus, setMemoryActionStatus] = useState<string | null>(null);
+  const [permissionPolicy, setPermissionPolicy] = useState<SkillPolicyConfig | null>(null);
+  const [permissionDuration, setPermissionDuration] = useState("3600000");
+  const [permissionStatus, setPermissionStatus] = useState<string | null>(null);
 
 
   // ── Weekly summary helpers ──────────────────────────────────────────────────
@@ -105,9 +126,74 @@ export function ConversationVault({
 
   useEffect(() => {
     if (isOpen) {
-      console.log(`[ConversationVault] 📅 ${weekIds.length} semaine(s) avec des sessions`);
+      void loadSkillPolicyConfig().then((policy) => {
+        setPermissionPolicy(policy);
+        setPermissionDuration(policy.expiresAt ? "3600000" : "0");
+      });
     }
-  }, [isOpen, weekIds.length]);
+  }, [isOpen]);
+
+  const handleStartEditTurn = (turn: ConversationSession["turns"][number]) => {
+    if (!selectedSession) return;
+    setEditingTurn({ sessionId: selectedSession.id, timestamp: turn.timestamp });
+    setEditedMessage(turn.message);
+  };
+
+  const handleSaveTurn = async () => {
+    if (!editingTurn) return;
+    setMemoryActionStatus("Sauvegarde du message...");
+    await onUpdateTurn(editingTurn.sessionId, editingTurn.timestamp, editedMessage);
+    setEditingTurn(null);
+    setEditedMessage("");
+    setMemoryActionStatus("Message mis à jour et mémoire vectorielle resynchronisée.");
+  };
+
+  const handleDeleteTurn = async (timestamp: number) => {
+    if (!selectedSession || !window.confirm("Oublier ce message de la timeline ?")) return;
+    setMemoryActionStatus("Suppression du message...");
+    await onDeleteTurn(selectedSession.id, timestamp);
+    setMemoryActionStatus("Message oublié et mémoire vectorielle resynchronisée.");
+  };
+
+  const handleDeleteSession = async () => {
+    if (!selectedSession || !window.confirm("Oublier toute cette session ?")) return;
+    setMemoryActionStatus("Suppression de la session...");
+    await onDeleteSession(selectedSession.id);
+    setMemoryActionStatus("Session oubliée et mémoire vectorielle resynchronisée.");
+  };
+
+  const toggleScopedPermission = (resource: string, level: SkillPermission["level"]) => {
+    setPermissionPolicy((current) => {
+      const policy = current ?? { roles: ["user"], allow: {}, deny: [] };
+      const currentLevels = policy.allow[resource] ?? [];
+      const nextLevels = currentLevels.includes(level)
+        ? currentLevels.filter((item) => item !== level)
+        : [...currentLevels, level];
+      return { ...policy, allow: { ...policy.allow, [resource]: nextLevels } };
+    });
+  };
+
+  const toggleDeniedSkill = (skillName: string) => {
+    setPermissionPolicy((current) => {
+      const policy = current ?? { roles: ["user"], allow: {}, deny: [] };
+      return {
+        ...policy,
+        deny: policy.deny.includes(skillName)
+          ? policy.deny.filter((item) => item !== skillName)
+          : [...policy.deny, skillName],
+      };
+    });
+  };
+
+  const handleSavePermissions = async () => {
+    if (!permissionPolicy) return;
+    const durationMs = Number(permissionDuration);
+    const expiresAt = durationMs > 0 ? Date.now() + durationMs : undefined;
+    const nextPolicy = { ...permissionPolicy, expiresAt };
+    await saveSkillPolicyConfig(nextPolicy);
+    setPermissionPolicy(nextPolicy);
+    setPermissionStatus(expiresAt ? `Permissions valables jusqu’à ${new Date(expiresAt).toLocaleTimeString("fr-FR")}.` : "Permissions persistantes enregistrées.");
+  };
 
   // Early return APRÈS tous les hooks
   if (!isOpen) {
@@ -208,6 +294,22 @@ export function ConversationVault({
             >
               <BrainCircuit className="w-4 h-4" />
               Apprentissage
+            </button>
+            <button
+              onClick={() => {
+                console.log("[ConversationVault] 🔄 Changement d'onglet vers: permissions");
+                setActiveTab("permissions");
+                onSelectSession(null);
+              }}
+              className={`flex items-center gap-2 px-6 py-3.5 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === "permissions"
+                  ? "border-current text-white"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              }`}
+              style={activeTab === "permissions" ? { color: accentColor, borderColor: accentColor } : {}}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Permissions
             </button>
           </div>
 
@@ -315,6 +417,13 @@ export function ConversationVault({
                               "fr-FR"
                             )}
                           </p>
+                          <button
+                            onClick={handleDeleteSession}
+                            className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-red-300 hover:text-red-200"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Oublier cette session
+                          </button>
                           {/* AI Summary badge */}
                           {selectedSession.summary && (
                             <div className="mt-3 p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl">
@@ -334,6 +443,11 @@ export function ConversationVault({
 
                       {/* Transcript */}
                       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {memoryActionStatus && (
+                          <div className="text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2">
+                            {memoryActionStatus}
+                          </div>
+                        )}
                         {selectedSession.turns.map((turn, idx) => (
                           <div
                             key={idx}
@@ -361,15 +475,41 @@ export function ConversationVault({
                                 </>
                               )}
                             </div>
-                            <div
-                              className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
-                                turn.speaker === "user"
-                                  ? "bg-slate-800 text-slate-100 rounded-tr-none"
-                                  : "bg-slate-900 border border-slate-800 text-slate-300 rounded-tl-none"
-                              }`}
-                            >
-                              {turn.message}
-                            </div>
+                            {editingTurn?.sessionId === selectedSession.id && editingTurn.timestamp === turn.timestamp ? (
+                              <div className="w-full max-w-[85%] space-y-2">
+                                <textarea
+                                  value={editedMessage}
+                                  onChange={(event) => setEditedMessage(event.target.value)}
+                                  className="w-full min-h-28 p-3 rounded-2xl bg-slate-950 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:border-slate-500"
+                                />
+                                <div className="flex gap-2 justify-end">
+                                  <button onClick={() => setEditingTurn(null)} className="px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-slate-300">Annuler</button>
+                                  <button onClick={handleSaveTurn} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: accentColor, color: "#020617" }}>
+                                    <Save className="w-3 h-3 inline mr-1" /> Sauver
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="group max-w-[85%]">
+                                <div
+                                  className={`p-4 rounded-2xl text-sm leading-relaxed ${
+                                    turn.speaker === "user"
+                                      ? "bg-slate-800 text-slate-100 rounded-tr-none"
+                                      : "bg-slate-900 border border-slate-800 text-slate-300 rounded-tl-none"
+                                  }`}
+                                >
+                                  {turn.message}
+                                </div>
+                                <div className="mt-1 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => handleStartEditTurn(turn)} className="text-[10px] text-slate-500 hover:text-slate-200 flex items-center gap-1">
+                                    <Pencil className="w-3 h-3" /> Modifier
+                                  </button>
+                                  <button onClick={() => handleDeleteTurn(turn.timestamp)} className="text-[10px] text-red-400/70 hover:text-red-300 flex items-center gap-1">
+                                    <Trash2 className="w-3 h-3" /> Oublier
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -559,6 +699,82 @@ export function ConversationVault({
               </div>
             )}
 
+
+            {/* ════ PERMISSIONS TAB ════ */}
+            {activeTab === "permissions" && (
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5" style={{ color: accentColor }} />
+                        Centre de permissions
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Accorde des droits temporaires et limités par ressource aux skills.
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-slate-400">
+                      <Clock className="w-4 h-4" /> Durée
+                      <select
+                        value={permissionDuration}
+                        onChange={(event) => setPermissionDuration(event.target.value)}
+                        className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200"
+                      >
+                        <option value="900000">15 min</option>
+                        <option value="3600000">1 heure</option>
+                        <option value="28800000">Session longue (8h)</option>
+                        <option value="0">Persistant</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="grid gap-3">
+                    {PERMISSION_RESOURCES.map((resource) => (
+                      <div key={resource} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                        <div>
+                          <div className="text-sm font-semibold text-slate-200">{resource}</div>
+                          <div className="text-xs text-slate-500">Scope de ressource</div>
+                        </div>
+                        <div className="flex gap-2">
+                          {PERMISSION_LEVELS.map((level) => {
+                            const enabled = permissionPolicy?.allow[resource]?.includes(level) ?? false;
+                            return (
+                              <button
+                                key={level}
+                                onClick={() => toggleScopedPermission(resource, level)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${enabled ? "text-slate-950" : "text-slate-500 border-slate-700"}`}
+                                style={enabled ? { background: accentColor, borderColor: accentColor } : {}}
+                              >
+                                {level}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <label className="flex items-center justify-between gap-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-sm text-slate-300">
+                    Bloquer le skill sensible <code className="text-xs text-slate-500">open_website</code>
+                    <input
+                      type="checkbox"
+                      checked={permissionPolicy?.deny.includes("open_website") ?? true}
+                      onChange={() => toggleDeniedSkill("open_website")}
+                    />
+                  </label>
+
+                  <button
+                    onClick={handleSavePermissions}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold"
+                    style={{ background: accentColor, color: "#020617" }}
+                  >
+                    <Save className="w-4 h-4" /> Enregistrer les permissions
+                  </button>
+                  {permissionStatus && <p className="text-xs text-slate-400">{permissionStatus}</p>}
+                </div>
+              </div>
+            )}
 
             {/* ════ LEARNING TAB ════ */}
             {activeTab === "learning" && (
