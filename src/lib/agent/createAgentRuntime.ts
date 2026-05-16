@@ -3,13 +3,15 @@ import { AgentSupervisor } from "./supervisor";
 import { FallbackAgentGateway, GeminiAgentGateway, OllamaAgentGateway, OpenRouterAgentGateway } from "./modelGateway";
 import type { AgentModelGateway } from "./types";
 
-export function createDefaultAgentRuntime(): AgentSupervisor {
+export function createDefaultAgentRuntime(options: { confirmAction?: (name: string, args: any) => Promise<boolean> } = {}): AgentSupervisor {
   const gateways: AgentModelGateway[] = [new OpenRouterAgentGateway()];
   if (import.meta.env.VITE_OLLAMA_BASE_URL || import.meta.env.VITE_OLLAMA_MODEL) {
     gateways.push(new OllamaAgentGateway());
   }
-  gateways.push(new GeminiAgentGateway());
+  if (import.meta.env.VITE_GEMINI_API_KEY) {
+    gateways.push(new GeminiAgentGateway());
+  }
   const gateway = new FallbackAgentGateway(gateways);
   const registry = createDefaultSkillRegistry();
-  return new AgentSupervisor(gateway, registry);
+  return new AgentSupervisor(gateway, registry, options);
 }

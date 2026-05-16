@@ -60,8 +60,11 @@ export class AgentService {
 
 let singleton: AgentService | null = null;
 
-export function getAgentService(): AgentService {
-  if (!singleton) singleton = new AgentService();
+export function getAgentService(options: { confirmAction?: (name: string, args: any) => Promise<boolean> } = {}): AgentService {
+  if (!singleton) {
+    const runtime = createDefaultAgentRuntime(options);
+    singleton = new AgentService(runtime);
+  }
   return singleton;
 }
 

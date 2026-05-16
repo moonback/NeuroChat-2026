@@ -29,7 +29,17 @@ export class OpenRouterAgentGateway implements AgentModelGateway, NativeToolCall
   async completeStepWithTools(prompt: string, tools: Array<{ name: string; description: string; parameters: object }>): Promise<AgentStep> {
     const result = await completeOpenRouterStepWithTools(prompt, tools);
     if (result.name) {
-      return { thought: "Tool selected by provider", toolCall: { name: result.name, arguments: JSON.parse(result.arguments ?? "{}") } };
+      let parsedArguments: Record<string, unknown>;
+      try {
+        const rawArguments = JSON.parse(result.arguments ?? "{}");
+        if (!rawArguments || typeof rawArguments !== "object" || Array.isArray(rawArguments)) {
+          throw new Error("OpenRouter tool arguments must be a JSON object");
+        }
+        parsedArguments = rawArguments as Record<string, unknown>;
+      } catch (error) {
+        throw new Error(`OpenRouter returned invalid tool arguments for ${result.name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return { thought: "Tool selected by provider", toolCall: { name: result.name, arguments: parsedArguments } };
     }
     return { thought: "Final answer by provider", finalAnswer: result.finalAnswer ?? "" };
   }

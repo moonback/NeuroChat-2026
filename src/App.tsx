@@ -13,6 +13,8 @@ import { BrowserWindow } from "./components/BrowserWindow";
 import { RuntimeProvider, useRuntime } from "./runtime/RuntimeProvider";
 import { useVisionController } from "./runtime/VisionController";
 import { useSessionController } from "./runtime/SessionController";
+import { PrivacyHUD } from "./components/PrivacyHUD";
+import { ToolConfirmationModal } from "./components/ToolConfirmationModal";
 
 const ConversationVault = lazy(() =>
   import("./components/ConversationVault").then((module) => ({ default: module.ConversationVault }))
@@ -46,6 +48,8 @@ function AppContent() {
     pipExpanded,
     setPipExpanded,
     emotionEngineRef,
+    proactivityLevel,
+    emotionalIntensity,
   } = useRuntime();
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
 
@@ -132,6 +136,7 @@ function AppContent() {
     setErrorMsg,
     sendInputRef,
     emotionEngineRef,
+    proactivityLevel,
   });
 
   const { handleStartSession, handleStopSession } = useSessionController({
@@ -155,12 +160,18 @@ function AppContent() {
     executeAction,
     runAgentTask,
     stopVisionServices,
+    proactivityLevel,
+    emotionalIntensity,
   });
 
   return (
     <div className="min-h-screen bg-[#020408] text-white flex flex-col font-sans relative overflow-hidden">
       {/* Premium Background Noise Texture */}
       <div className="absolute inset-0 bg-noise pointer-events-none z-0" />
+
+      {/* Modals & HUDs */}
+      <PrivacyHUD />
+      <ToolConfirmationModal />
 
       {/* Welcome Modal */}
       <AnimatePresence>

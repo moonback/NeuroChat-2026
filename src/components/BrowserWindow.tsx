@@ -14,6 +14,19 @@ interface BrowserWindowProps {
   accentColor: string;
 }
 
+function toSafeBrowserUrl(rawUrl: string): string | null {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(normalized);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function BrowserWindow({
   isOpen,
   onClose,
@@ -33,9 +46,10 @@ export function BrowserWindow({
   }, [isOpen]);
 
   const handleNavigate = () => {
-    let url = inputUrl.trim();
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      url = "https://" + url;
+    const url = toSafeBrowserUrl(inputUrl);
+    if (!url) {
+      console.warn("🛡️ [BrowserWindow] URL bloquée:", inputUrl);
+      return;
     }
     console.log("🧭 [BrowserWindow] Navigation manuelle vers:", url);
     onNavigate(url);
@@ -48,8 +62,11 @@ export function BrowserWindow({
   };
 
   const handleOpenExternal = () => {
-    window.open(currentUrl, "_blank");
+    const url = toSafeBrowserUrl(currentUrl);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
   };
+
+  const safeCurrentUrl = toSafeBrowserUrl(currentUrl);
 
   if (!isOpen) return null;
 
@@ -157,13 +174,13 @@ export function BrowserWindow({
 
           {/* Browser Content */}
           <div className="flex-1 bg-white relative overflow-hidden">
-            {currentUrl ? (
+            {safeCurrentUrl ? (
               <webview
                 ref={iframeRef as any}
-                src={currentUrl}
+                src={safeCurrentUrl}
                 className="w-full h-full border-0"
                 title="Browser Window"
-                allowpopups={"true" as any}
+                partition="persist:agent"
               />
             ) : (
               <div className="flex items-center justify-center h-full bg-slate-900">
@@ -186,7 +203,7 @@ export function BrowserWindow({
             )}
 
             {/* Loading Overlay */}
-            {currentUrl && (
+            {safeCurrentUrl && (
               <div className="absolute top-0 left-0 right-0 h-1 bg-slate-800">
                 <motion.div
                   initial={{ width: "0%" }}
@@ -203,7 +220,7 @@ export function BrowserWindow({
           <div className="bg-slate-800/90 border-t border-slate-700/50 px-4 py-2 flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-4">
               <span>🤖 Contrôlé par NeuroChat</span>
-              {currentUrl && (
+              {safeCurrentUrl && (
                 <span className="text-green-400">● Connecté</span>
               )}
             </div>

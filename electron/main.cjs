@@ -32,8 +32,8 @@ const MAX_OPENROUTER_CONTENT_CHARS = 24000;
 const MAX_OPENROUTER_TOOLS = 64;
 
 function getOpenRouterApiKey() {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('OpenRouter API key missing in main process environment');
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY missing in main process environment');
   return apiKey;
 }
 
@@ -82,8 +82,8 @@ async function callOpenRouter(payload) {
 let activeGeminiSession = null;
 
 function getGeminiApiKey() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('Gemini API key missing in main process environment');
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY missing in main process environment');
   return apiKey;
 }
 
@@ -168,6 +168,9 @@ function assertMutationAllowed(inputPath, operation) {
   const resolved = assertAuthorizedPath(inputPath, operation);
   if (EXACT_BLOCKED_MUTATION_PATHS.has(resolved) || RECURSIVE_BLOCKED_MUTATION_PATHS.some((root) => isPathInside(resolved, root))) {
     throw new Error(`${operation}: mutation refusée sur un dossier système ou racine`);
+  }
+  if (operation === 'deleteItem' && Array.from(authorizedWorkdirs).some((root) => resolved === root)) {
+    throw new Error(`${operation}: suppression refusée sur la racine du dossier autorisé`);
   }
   return resolved;
 }
@@ -267,8 +270,9 @@ function registerIpcHandlers() {
     assertMainOrigin(event);
     try {
       const safeItemPath = assertMutationAllowed(itemPath, 'deleteItem');
-      await fs.rm(safeItemPath, { recursive: true, force: true });
-      auditSecurityEvent({ type: 'fs.deleteItem', ...pathAuditMetadata(safeItemPath) });
+      await fs.stat(safeItemPath);
+      await shell.trashItem(safeItemPath);
+      auditSecurityEvent({ type: 'fs.trashItem', ...pathAuditMetadata(safeItemPath) });
       return true;
     } catch (error) {
       console.error('[electron] deleteItem failed', error);
@@ -429,6 +433,16 @@ const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 
 const MAX_DISPLAY_SOURCES = 12;
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
+const ALLOWED_WEBVIEW_PROTOCOLS = new Set(['http:', 'https:']);
+
+function isSafeWebviewUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    return ALLOWED_WEBVIEW_PROTOCOLS.has(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
 
 function openExternalUrlSafely(rawUrl) {
   try {
@@ -524,6 +538,29 @@ function createWindow() {
     }
   });
 
+  win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    if (!isSafeWebviewUrl(params.src)) {
+      event.preventDefault();
+      auditSecurityEvent({ type: 'webview.blocked_url' });
+      return;
+    }
+
+    delete webPreferences.preload;
+    delete webPreferences.preloadURL;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    webPreferences.javascript = true;
+    params.allowpopups = 'false';
+    
+    if (params.partition === 'persist:agent') {
+      console.log('🛡️ [security] Attaching isolated agent webview');
+      webPreferences.partition = 'persist:agent';
+    }
+
+    auditSecurityEvent({ type: 'webview.attach', urlHash: hashAuditValue(params.src) });
+  });
+
   if (devServerUrl) {
     win.loadURL(devServerUrl);
     win.webContents.openDevTools({ mode: 'detach' });
@@ -549,7 +586,24 @@ app.whenReady().then(() => {
     });
   }
 
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const senderUrl = webContents.getURL();
+    const isMainApp = devServerUrl ? senderUrl.startsWith(devServerUrl) : senderUrl.startsWith('file://');
+    const allowedMainPermissions = new Set(['media', 'display-capture']);
+    const allow = isMainApp && allowedMainPermissions.has(permission);
+    if (!allow) auditSecurityEvent({ type: 'permission.denied', permission, senderHash: hashAuditValue(senderUrl) });
+    callback(allow);
+  });
+
   registerDisplayMediaHandler();
+
+  // Configure Isolated Agent Session
+  const agentSession = session.fromPartition('persist:agent');
+  agentSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    console.warn(`🛡️ [security] Permission '${permission}' denied for isolated agent session.`);
+    callback(false); // Deny all permissions (camera, mic, etc.) for agent webview
+  });
+
   ensureDb(app);
   registerIpcHandlers();
   registerDbIpcHandlers();

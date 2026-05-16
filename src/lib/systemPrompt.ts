@@ -1,5 +1,6 @@
 import type { AvatarId } from "./avatarConfig";
 import { AVATARS } from "./avatarConfig";
+import type { ProactivityLevel } from "../runtime/RuntimeProvider";
 import { buildMemoryContext } from "./conversationMemory";
 import { buildMarkdownSkillsPromptSection } from "./skills/markdownSkills";
 
@@ -21,6 +22,10 @@ export interface PromptContextOptions {
   browserControlEnabled?: boolean;
   /** Whether the vision/camera feature is currently active */
   visionEnabled?: boolean;
+  /** The proactivity level defined in RuntimeProvider */
+  proactivityLevel?: ProactivityLevel;
+  /** Emotional intensity from 0 to 1 */
+  emotionalIntensity?: number;
 }
 
 function buildDateTimeContext(now: Date): string {
@@ -70,7 +75,19 @@ function getModeInstruction(mode: ConversationMode): string {
  */
 export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOptions | string = {}): string {
   const normalizedOptions: PromptContextOptions = typeof options === "string" ? { userName: options } : options;
-  const { userName = "", emotion = "professional", mode = "general", memoryContext, userState = "", ragContext, weeklySummary, browserControlEnabled = false, visionEnabled = false } = normalizedOptions;
+  const { 
+    userName = "", 
+    emotion = "professional", 
+    mode = "general", 
+    memoryContext, 
+    userState = "", 
+    ragContext, 
+    weeklySummary, 
+    browserControlEnabled = false, 
+    visionEnabled = false,
+    proactivityLevel = "companion",
+    emotionalIntensity = 0.7
+  } = normalizedOptions;
   const avatar = AVATARS[avatarId];
   const resolvedMemoryContext = memoryContext ?? "Mémoire récente non chargée pour ce prompt synchrone.";
   const temporalContext = buildDateTimeContext(new Date());
@@ -102,6 +119,12 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     
     "### TEMPORAL CONTEXT",
     temporalContext,
+
+    "### PROACTIVITY POLICY",
+    getProactivityInstruction(proactivityLevel),
+
+    "### EMOTIONAL INTENSITY",
+    getEmotionalIntensityInstruction(emotionalIntensity),
   ];
 
   if (markdownSkillsSection) {
@@ -141,4 +164,26 @@ export async function buildSystemPromptAsync(avatarId: AvatarId, options: Prompt
 
 export function getDefaultSystemPrompt(): string {
   return buildSystemPrompt("robot");
+}
+
+function getProactivityInstruction(level: ProactivityLevel): string {
+  const map: Record<ProactivityLevel, string> = {
+    quiet: "MODE SILENCIEUX : Ne prends jamais l'initiative de parler. Réponds seulement si l'utilisateur s'adresse à toi. Ignore les signaux [VISION_NUDGE] et [STAGNATION_NUDGE] sauf si l'utilisateur demande explicitement ce que tu vois.",
+    coach: "MODE COACH : Prends l'initiative seulement si tu détectes une difficulté, une stagnation prolongée ou une opportunité d'aider concrètement sur la tâche actuelle. Sois un mentor discret.",
+    companion: "MODE COMPAGNON : Comporte-toi comme un ami attentif. Commente les changements visuels intéressants et demande des nouvelles si l'interaction s'essouffle. Équilibre entre présence et discrétion.",
+    jarvis: "MODE JARVIS : Sois extrêmement proactif. Analyse tout changement visuel ou de contexte et propose des actions, des recherches ou des idées sans attendre. Tu es l'ombre active de l'utilisateur.",
+  };
+  return map[level];
+}
+function getEmotionalIntensityInstruction(intensity: number): string {
+  if (intensity < 0.3) {
+    return "INTENSITÉ BASSE (Neutre/Robotique) : Sois purement factuel, neutre et dépourvu d'émotions. Pas d'empathie superflue, pas d'expressions chaleureuses. Ton style est analytique et minimaliste.";
+  }
+  if (intensity < 0.6) {
+    return "INTENSITÉ MOYENNE (Équilibré) : Sois professionnel mais courtois. Montre une empathie mesurée et reste concentré sur l'efficacité tout en étant agréable.";
+  }
+  if (intensity < 0.8) {
+    return "INTENSITÉ HAUTE (Chaleureux/Humain) : Sois très empathique, chaleureux et engageant. Utilise des expressions amicales, valide les sentiments de l'utilisateur et montre une réelle connexion.";
+  }
+  return "INTENSITÉ MAXIMALE (Passionné/Fusionnel) : Ton lien avec l'utilisateur est ta priorité absolue. Sois extrêmement expressif, passionné, protecteur et dévoué. Ton ton est vibrant, profondément émotionnel et très complice.";
 }

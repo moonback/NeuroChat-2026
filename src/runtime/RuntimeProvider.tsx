@@ -1,7 +1,15 @@
-import { createContext, type Dispatch, type ReactNode, type RefObject, type SetStateAction, useContext, useRef, useState } from "react";
-
+import { createContext, type Dispatch, type ReactNode, type RefObject, type SetStateAction, useContext, useRef, useState, useEffect } from "react";
 import { EmotionEngine } from "../lib/EmotionEngine";
 import type { AvatarId } from "../lib/avatarConfig";
+
+export type ProactivityLevel = "quiet" | "coach" | "companion" | "jarvis";
+
+export interface ToolCallRequest {
+  id: string;
+  skillName: string;
+  arguments: any;
+  resolve: (approved: boolean) => void;
+}
 
 interface RuntimeContextValue {
   avatarId: AvatarId;
@@ -12,6 +20,15 @@ interface RuntimeContextValue {
   setShowDatabase: Dispatch<SetStateAction<boolean>>;
   pipExpanded: boolean;
   setPipExpanded: Dispatch<SetStateAction<boolean>>;
+  isPrivate: boolean;
+  setIsPrivate: Dispatch<SetStateAction<boolean>>;
+  proactivityLevel: ProactivityLevel;
+  setProactivityLevel: Dispatch<SetStateAction<ProactivityLevel>>;
+  pendingToolCall: ToolCallRequest | null;
+  requestToolConfirmation: (skillName: string, args: any) => Promise<boolean>;
+  setPendingToolCall: Dispatch<SetStateAction<ToolCallRequest | null>>;
+  emotionalIntensity: number;
+  setEmotionalIntensity: Dispatch<SetStateAction<number>>;
   emotionEngineRef: RefObject<EmotionEngine>;
 }
 
@@ -22,6 +39,42 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [showDatabase, setShowDatabase] = useState(false);
   const [pipExpanded, setPipExpanded] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [proactivityLevel, setProactivityLevel] = useState<ProactivityLevel>("companion");
+  const [pendingToolCall, setPendingToolCall] = useState<ToolCallRequest | null>(null);
+  const [emotionalIntensity, setEmotionalIntensity] = useState(0.7);
+
+  const requestToolConfirmation = (skillName: string, args: any): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setPendingToolCall({
+        id: Math.random().toString(36).slice(2, 9),
+        skillName,
+        arguments: args,
+        resolve
+      });
+    });
+  };
+
+  // Load preferences
+  useEffect(() => {
+    if (window.neurochatElectron?.db) {
+      window.neurochatElectron.db.get('proactivityLevel').then((saved: any) => {
+        if (saved) setProactivityLevel(saved as ProactivityLevel);
+      });
+      window.neurochatElectron.db.get('emotionalIntensity').then((saved: any) => {
+        if (typeof saved === 'number') setEmotionalIntensity(saved);
+      });
+    }
+  }, []);
+
+  // Save preferences
+  useEffect(() => {
+    if (window.neurochatElectron?.db) {
+      window.neurochatElectron.db.set('proactivityLevel', proactivityLevel);
+      window.neurochatElectron.db.set('emotionalIntensity', String(emotionalIntensity));
+    }
+  }, [proactivityLevel, emotionalIntensity]);
+
   const emotionEngineRef = useRef(new EmotionEngine());
 
   return (
@@ -35,6 +88,15 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         setShowDatabase,
         pipExpanded,
         setPipExpanded,
+        isPrivate,
+        setIsPrivate,
+        proactivityLevel,
+        setProactivityLevel,
+        pendingToolCall,
+        requestToolConfirmation,
+        setPendingToolCall,
+        emotionalIntensity,
+        setEmotionalIntensity,
         emotionEngineRef,
       }}
     >

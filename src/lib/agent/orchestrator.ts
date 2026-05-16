@@ -5,6 +5,7 @@ import { ExecutionCritic } from "./critic";
 import type { SkillRegistry } from "../skills/registry";
 import type { NativeToolCallingGateway } from "./modelGateway";
 import type { AgentModelGateway, AgentRunOptions, AgentRunResult, AgentExecutionState } from "./types";
+import { ToolBroker } from "./toolBroker";
 
 import { SkillRetriever } from "../skills/retriever";
 import { AgentReflector } from "./reflector";
@@ -14,12 +15,17 @@ export class AgentOrchestrator {
   private critic = new ExecutionCritic();
   private retriever = new SkillRetriever();
   private reflector: AgentReflector;
+  private broker: ToolBroker;
 
   constructor(
     private readonly model: AgentModelGateway,
     private readonly registry: SkillRegistry,
+    private readonly options: { confirmAction?: (name: string, args: any) => Promise<boolean> } = {}
   ) {
     this.reflector = new AgentReflector(model);
+    this.broker = new ToolBroker(registry, {
+      sensitiveTools: ['pick_workdir', 'write_file', 'delete_file', 'run_command', 'shell_execute', 'send_email']
+    }, options.confirmAction);
   }
 
   private async ensureSkillsIndexed() {
@@ -31,6 +37,11 @@ export class AgentOrchestrator {
   async run(input: string, sessionId: string, userId: string, options: AgentRunOptions = {}): Promise<AgentRunResult> {
     await this.ensureSkillsIndexed();
     const relevantSkills = await this.retriever.retrieve(input);
+    const candidateSkills = relevantSkills.length > 0 ? relevantSkills : this.registry.list().slice(0, 6);
+    
+    // Use broker to get actually available tools based on candidates
+    const toolsForRun = this.broker.getAvailableTools(candidateSkills.map(s => s.name));
+    const allowedToolNames = new Set(toolsForRun.map((skill) => skill.name));
     
     const runId = options.runId ?? options.resumeFromRunId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const deadlineAt = options.deadlineMs ? Date.now() + options.deadlineMs : undefined;
@@ -93,12 +104,12 @@ export class AgentOrchestrator {
       
       try {
         // 1. PLANNING
-        const prompt = buildPlannerPrompt(state, relevantSkills);
+        const prompt = buildPlannerPrompt(state, candidateSkills);
         const nativeGateway = this.model as AgentModelGateway & Partial<NativeToolCallingGateway>;
         const step = typeof nativeGateway.completeStepWithTools === "function"
           ? await nativeGateway.completeStepWithTools(
               prompt,
-              this.registry.list().map((skill) => ({ name: skill.name, description: skill.description, parameters: skill.parameters })),
+              candidateSkills.map((skill) => ({ name: skill.name, description: skill.description, parameters: skill.parameters })),
               options.signal,
             )
           : parseAgentStep(await this.model.complete(prompt, options.signal));
@@ -132,9 +143,53 @@ export class AgentOrchestrator {
           throw new Error("L'agent n'a produit ni action ni réponse finale.");
         }
 
+        if (!allowedToolNames.has(step.toolCall.name)) {
+          throw new Error(`Tool ${step.toolCall.name} is outside the scoped allowlist for this run.`);
+        }
+
         // 3. EXECUTING
         state.status = "EXECUTING";
-        await executeToolCall(this.registry, state, step.toolCall, options.signal, options.dryRun);
+        
+        const context = {
+          sessionId: state.sessionId,
+          userId: state.userId,
+          signal: options.signal,
+          metadata: { reason: step.toolCall.reason, iteration: state.iteration },
+        };
+
+        const result = await this.broker.execute(
+          step.toolCall.name, 
+          step.toolCall.arguments, 
+          context,
+          { allowedTools: Array.from(allowedToolNames) }
+        );
+
+        state.toolResults.push(result);
+        const observation = result.ok 
+          ? `TOOL_OK ${step.toolCall.name}: ${JSON.stringify(result.data)}` 
+          : `TOOL_ERR ${step.toolCall.name}: ${result.error}`;
+        
+        state.transcript.push(observation);
+        state.workingMemory.attemptedActions.push(`${step.toolCall.name} at iteration ${state.iteration}`);
+        
+        if (!result.ok) {
+          state.workingMemory.failedActions.push(`${step.toolCall.name}: ${result.error}`);
+        } else {
+          // Handle rollback stack manually for now or move it to broker
+          if (this.registry.get(step.toolCall.name)?.rollback) {
+            const stack = state.workingMemory.temporaryVariables["rollbackStack"] || [];
+            if (Array.isArray(stack)) {
+              stack.push({
+                skill: step.toolCall.name,
+                arguments: step.toolCall.arguments,
+                data: result.data,
+                iteration: state.iteration,
+                timestamp: result.timestamp,
+              });
+              state.workingMemory.temporaryVariables["rollbackStack"] = stack;
+            }
+          }
+        }
         
         const lastResult = state.toolResults[state.toolResults.length - 1];
         if (lastResult) options.onEvent?.({ type: "tool_result", iteration: state.iteration, result: lastResult });

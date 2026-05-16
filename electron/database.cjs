@@ -82,7 +82,52 @@ function ensureDb(app) {
     );
   `);
 
+  runMigrations(db);
+
   return db;
+}
+
+function runMigrations(db) {
+  const migrations = [
+    {
+      version: 1,
+      name: 'initial_schema',
+      run: (db) => {
+        // Schema is already created by ensureDb exec for v0/v1 base.
+        // This is just to seed the migration table.
+        console.log('[db] Migration v1: Initial schema verified.');
+      }
+    },
+    {
+      version: 2,
+      name: 'add_vector_metadata_json',
+      run: (db) => {
+        // Add a column if needed in future, for now just an example of a real migration
+        try {
+          db.exec('ALTER TABLE vectors ADD COLUMN metadata_json TEXT;');
+          console.log('[db] Migration v2: Added metadata_json to vectors.');
+        } catch (e) {
+          // Might already exist if interrupted
+          console.warn('[db] Migration v2 warning:', e.message);
+        }
+      }
+    }
+  ];
+
+  const currentVersionRow = db.prepare('SELECT MAX(version) as version FROM _migrations').get();
+  const currentVersion = currentVersionRow?.version || 0;
+
+  for (const migration of migrations) {
+    if (migration.version > currentVersion) {
+      console.log(`[db] Applying migration v${migration.version}: ${migration.name}...`);
+      const tx = db.transaction(() => {
+        migration.run(db);
+        db.prepare('INSERT INTO _migrations (version, applied_at) VALUES (?, ?)').run(migration.version, Date.now());
+      });
+      tx();
+      console.log(`[db] Migration v${migration.version} applied successfully.`);
+    }
+  }
 }
 
 function getDb() {

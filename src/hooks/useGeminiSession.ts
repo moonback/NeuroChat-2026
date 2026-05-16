@@ -5,11 +5,8 @@ import { retrieveRelevantContext } from "../lib/ragSearch";
 import {
   loadAllSessions,
 } from "../lib/conversationMemory";
-import {
-  getOrGenerateCurrentWeekSummary,
-  generateSessionSummary,
-  formatWeeklySummaryForPrompt,
-} from "../lib/conversationSummary";
+import { formatWeeklySummaryForPrompt, generateSessionSummary, getOrGenerateCurrentWeekSummary } from "../lib/conversationSummary";
+import type { ProactivityLevel } from "../runtime/RuntimeProvider";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -23,6 +20,8 @@ interface SessionOptions {
   enableVideo?: boolean;
   browserControlEnabled?: boolean;
   userState?: string;
+  proactivityLevel?: ProactivityLevel;
+  emotionalIntensity?: number;
 }
 
 export function useGeminiSession() {
@@ -64,7 +63,21 @@ export function useGeminiSession() {
   }, []);
 
   const startSession = useCallback(async (options: SessionOptions) => {
-    const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo, browserControlEnabled, userState } = options;
+    const { 
+      avatarId, 
+      userName, 
+      onAudioResponse, 
+      onTranscription, 
+      onTurnComplete, 
+      onInterrupted, 
+      onRecordingStart, 
+      onStopRecording, 
+      enableVideo, 
+      browserControlEnabled, 
+      userState, 
+      proactivityLevel, 
+      emotionalIntensity 
+    } = options;
 
     if (!window.neurochatElectron?.ai?.gemini) {
       setErrorMsg("Environnement Electron non détecté ou bridge absent.");
@@ -126,6 +139,8 @@ export function useGeminiSession() {
             browserControlEnabled,
             visionEnabled: enableVideo,
             userState,
+            proactivityLevel,
+            emotionalIntensity,
           });
 
           // Configuration du bridge
