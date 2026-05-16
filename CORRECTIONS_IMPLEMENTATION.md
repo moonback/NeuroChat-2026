@@ -26,7 +26,7 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 
 | ID | Correction | Domaine | Statut | Notes |
 |---|---|---|---|---|
-| P1-001 | Découper `App.tsx` en contrôleurs runtime | Architecture | À faire | `RuntimeProvider`, `VisionController`, `SessionController`. |
+| P1-001 | Découper `App.tsx` en contrôleurs runtime | Architecture | Fait | `RuntimeProvider`, `VisionController` et `SessionController` isolent état runtime, vision et orchestration de session. |
 | P1-002 | Worker embeddings Transformers | Fait | Le backend `@xenova/transformers` est chargé dynamiquement dans un Web Worker dédié au premier embedding. |
 | P1-003 | Code splitting des panels lourds | Performance | Fait | Panels lourds en `React.lazy` et découpage Vite manuel des vendors React/Motion/Lucide/GenAI/Transformers/ONNX pour réduire le chunk principal. |
 | P1-004 | Permission center utilisateur | Sécurité / UX | À faire | Permissions temporelles et scoped. |
@@ -57,6 +57,7 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - P0-008 terminé : sauvegarde vectorielle SQLite convertie en upsert + prune ciblé, et suppression utilisateur déléguée à `clearVectors(userName)`.
 - Correction complémentaire : résolution cross-platform des chemins relatifs dans le BrowserController pour éviter les chemins Windows-only (`\\`) sur Linux/macOS.
 - P0-006 partiel : appels OpenRouter Desktop déplacés derrière IPC Electron (`ai:openrouter:*`) avec clé lue côté main process; fallback web `VITE_OPENROUTER_API_KEY` conservé uniquement pour usage navigateur.
+- P1-001 terminé : extraction de l’état runtime partagé dans `RuntimeProvider`, du cycle caméra/écran dans `VisionController` et de l’orchestration conversation/audio/actions dans `SessionController`.
 - P1-003 terminé : code-splitting des panels lourds (`ConversationVault`, `DatabaseInspector`, `DebugPanel`, `AgentChat`) via `React.lazy` et rendu conditionnel pour les panels à la demande.
 - P1-002 terminé : `@xenova/transformers` est retiré du thread principal et chargé dynamiquement dans `embeddingWorker.ts`; le vector store communique avec le worker par messages corrélés.
 - P1-006 terminé : ajout d’un audit local JSONL (`security-audit.jsonl`) pour les autorisations de workspace, opérations FS sensibles et appels OpenRouter, avec hash de chemin au lieu de chemins bruts.
