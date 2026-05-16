@@ -3,6 +3,7 @@ const path = require('path');
 const { shell } = require('electron');
 const fs = require('fs/promises');
 const { existsSync } = require('fs');
+const crypto = require('crypto');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
 require('dotenv').config();
@@ -63,6 +64,39 @@ async function callOpenRouter(payload) {
   return data;
 }
 
+
+function hashAuditValue(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex').slice(0, 16);
+}
+
+function pathAuditMetadata(filePath) {
+  if (!filePath) return {};
+  const resolved = path.resolve(String(filePath));
+  return {
+    pathHash: hashAuditValue(resolved),
+  };
+}
+
+async function writeSecurityAudit(event) {
+  try {
+    const entry = {
+      timestamp: Date.now(),
+      ...event,
+    };
+    await fs.appendFile(
+      path.join(app.getPath('userData'), 'security-audit.jsonl'),
+      `${JSON.stringify(entry)}\n`,
+      'utf-8',
+    );
+  } catch (error) {
+    console.warn('[audit] failed to write security audit event', error);
+  }
+}
+
+function auditSecurityEvent(event) {
+  void writeSecurityAudit(event);
+}
+
 const MAX_READ_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_WRITE_FILE_BYTES = 1 * 1024 * 1024;
 const EXACT_BLOCKED_MUTATION_PATHS = new Set([
@@ -120,6 +154,7 @@ function authorizeSelectedDirectories(result, options) {
     for (const filePath of result.filePaths) {
       const resolved = assertSafePath(filePath, 'dialog:showOpenDialog');
       authorizedWorkdirs.add(resolved);
+      auditSecurityEvent({ type: 'fs.workspace_authorized', ...pathAuditMetadata(resolved) });
       console.log(`[fs] Authorized workspace: ${resolved}`);
     }
   }
@@ -160,6 +195,7 @@ function registerIpcHandlers() {
         size: entry.isFile() ? 0 : undefined,
       }));
       console.log(`[fs] Found ${result.length} entries`);
+      auditSecurityEvent({ type: 'fs.listDir', ...pathAuditMetadata(safeDirPath), count: result.length });
       return result;
     } catch (error) {
       console.error('[electron] listDir failed', error);
@@ -177,6 +213,7 @@ function registerIpcHandlers() {
       console.log(`[fs] Reading file: ${safeFilePath}`);
       const content = await fs.readFile(safeFilePath, 'utf-8');
       console.log(`[fs] Read ${content.length} characters`);
+      auditSecurityEvent({ type: 'fs.readFile', ...pathAuditMetadata(safeFilePath), bytes: stats.size });
       return content;
     } catch (error) {
       console.error('[electron] readFile failed', error);
@@ -190,6 +227,7 @@ function registerIpcHandlers() {
       const safeFilePath = assertMutationAllowed(filePath, 'writeFile');
       assertContentSize(content);
       await fs.writeFile(safeFilePath, content, 'utf-8');
+      auditSecurityEvent({ type: 'fs.writeFile', ...pathAuditMetadata(safeFilePath), bytes: Buffer.byteLength(content, 'utf-8') });
       return true;
     } catch (error) {
       console.error('[electron] writeFile failed', error);
@@ -202,6 +240,7 @@ function registerIpcHandlers() {
     try {
       const safeItemPath = assertMutationAllowed(itemPath, 'deleteItem');
       await fs.rm(safeItemPath, { recursive: true, force: true });
+      auditSecurityEvent({ type: 'fs.deleteItem', ...pathAuditMetadata(safeItemPath) });
       return true;
     } catch (error) {
       console.error('[electron] deleteItem failed', error);
@@ -214,6 +253,7 @@ function registerIpcHandlers() {
     try {
       const safeDirPath = assertMutationAllowed(dirPath, 'mkdir');
       await fs.mkdir(safeDirPath, { recursive: true });
+      auditSecurityEvent({ type: 'fs.mkdir', ...pathAuditMetadata(safeDirPath) });
       return true;
     } catch (error) {
       console.error('[electron] mkdir failed', error);
@@ -253,6 +293,7 @@ function registerIpcHandlers() {
           temperature: 0.7,
           max_tokens: 500,
         });
+        auditSecurityEvent({ type: 'ai.openrouter.chat', model, messageCount: Array.isArray(messages) ? messages.length : 0 });
         return data.choices[0].message.content;
       } catch (error) {
         lastError = error;
@@ -273,8 +314,10 @@ function registerIpcHandlers() {
     const message = data.choices?.[0]?.message;
     const call = message?.tool_calls?.[0];
     if (call?.function?.name) {
+      auditSecurityEvent({ type: 'ai.openrouter.tool_call', model: 'openai/gpt-4o-mini', toolName: call.function.name });
       return { name: call.function.name, arguments: call.function.arguments ?? '{}' };
     }
+    auditSecurityEvent({ type: 'ai.openrouter.final_answer', model: 'openai/gpt-4o-mini' });
     return { finalAnswer: message?.content ?? '' };
   });
 }

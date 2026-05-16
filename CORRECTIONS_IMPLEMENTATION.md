@@ -31,7 +31,7 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 | P1-003 | Code splitting des panels lourds | Performance | Fait | `ConversationVault`, `DatabaseInspector`, `DebugPanel` et `AgentChat` sont chargés via `React.lazy`; coffre/DB/agent ne chargent plus tant qu’ils ne sont pas affichés. |
 | P1-004 | Permission center utilisateur | Sécurité / UX | À faire | Permissions temporelles et scoped. |
 | P1-005 | Remplacer `window.confirm` par confirmation auditée | Sécurité / UX | À faire | Dialog interne avec risk badge. |
-| P1-006 | Journal d'audit local | Sécurité | À faire | Append-only pour tools sensibles. |
+| P1-006 | Journal d'audit local | Sécurité | Fait | Journal JSONL local `security-audit.jsonl` pour autorisations workspace, opérations FS sensibles et appels OpenRouter, sans contenu ni chemins bruts. |
 | P1-007 | Memory timeline éditable | UX / IA | À faire | Voir, modifier, oublier les souvenirs. |
 
 ## Corrections P2
@@ -59,3 +59,4 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - P0-006 partiel : appels OpenRouter Desktop déplacés derrière IPC Electron (`ai:openrouter:*`) avec clé lue côté main process; fallback web `VITE_OPENROUTER_API_KEY` conservé uniquement pour usage navigateur.
 - P1-003 terminé : code-splitting des panels lourds (`ConversationVault`, `DatabaseInspector`, `DebugPanel`, `AgentChat`) via `React.lazy` et rendu conditionnel pour les panels à la demande.
 - P1-002 partiel : `@xenova/transformers` est retiré des imports statiques du vector store et chargé dynamiquement au premier embedding; la workerisation complète reste à planifier.
+- P1-006 terminé : ajout d’un audit local JSONL (`security-audit.jsonl`) pour les autorisations de workspace, opérations FS sensibles et appels OpenRouter, avec hash de chemin au lieu de chemins bruts.
