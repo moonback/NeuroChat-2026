@@ -8,8 +8,12 @@
  * (already available through @google/genai).
  */
 
-import { GoogleGenAI } from "@google/genai";
+import { pipeline, env } from "@xenova/transformers";
 import { getStorageBackend } from "./storage";
+
+// Configuration de Transformers.js pour l'environnement Electron/Vite
+env.allowLocalModels = false; // On télécharge depuis Hugging Face par défaut
+env.useBrowserCache = true;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,13 +37,29 @@ export interface VectorEntry {
 
 /** Maximum entries kept in the vector store (older ones are pruned) */
 const MAX_VECTOR_ENTRIES = 500;
-/** Gemini embedding model — gemini-embedding-001 remplace text-embedding-004 (déprécié jan 2026) */
-const EMBEDDING_MODEL = "gemini-embedding-001";
+/** Modèle de Transformers.js — Multilingue pour un meilleur support du Français */
+const EMBEDDING_MODEL = "Xenova/paraphrase-multilingual-MiniLM-L12-v2";
+/** Clé localStorage pour suivre le modèle utilisé et détecter les incompatibilités */
+const MODEL_STORE_KEY = "neurochat_vector_model";
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
 export async function loadVectorStore(): Promise<VectorEntry[]> {
   try {
+    const currentModel = localStorage.getItem(MODEL_STORE_KEY);
+    
+    // Si le modèle a changé (ex: passage de Gemini à Transformers), on vide le store car les vecteurs sont incompatibles
+    if (currentModel && currentModel !== EMBEDDING_MODEL) {
+      console.warn(`[VectorStore] ⚠️ Changement de modèle détecté (${currentModel} -> ${EMBEDDING_MODEL}). Nettoyage des vecteurs incompatibles.`);
+      await clearAllVectors();
+      localStorage.setItem(MODEL_STORE_KEY, EMBEDDING_MODEL);
+      return [];
+    }
+
+    if (!currentModel) {
+      localStorage.setItem(MODEL_STORE_KEY, EMBEDDING_MODEL);
+    }
+
     console.log("[VectorStore] 📂 Chargement du store de vecteurs...");
     const rows = await getStorageBackend().loadVectors();
     const entries = rows.map((r) => ({
@@ -80,35 +100,42 @@ async function saveVectorStore(entries: VectorEntry[]): Promise<void> {
   }
 }
 
-// ─── Embedding generation ─────────────────────────────────────────────────────
+// Singleton pour le pipeline d'embedding
+let embeddingPipeline: any = null;
+
+async function getEmbeddingPipeline() {
+  if (!embeddingPipeline) {
+    console.log(`[VectorStore] 🧠 Initialisation du modèle local: ${EMBEDDING_MODEL}...`);
+    embeddingPipeline = await pipeline("feature-extraction", EMBEDDING_MODEL);
+    console.log("[VectorStore] ✅ Modèle local prêt");
+  }
+  return embeddingPipeline;
+}
 
 /**
- * Generate an embedding vector for the given text using Gemini.
- * Returns null if the API key is missing or the call fails.
+ * Generate an embedding vector for the given text using local Transformers.
+ * Returns null if the call fails.
  */
 export async function generateEmbedding(text: string): Promise<number[] | null> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("[VectorStore] ⚠️ VITE_GEMINI_API_KEY not set — skipping embedding.");
-    return null;
-  }
-
   try {
-    console.log(`[VectorStore] 🔄 Génération d'embedding pour: "${text.slice(0, 50)}..."`);
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: text,
-    });
-    const embedding = response.embeddings?.[0]?.values ?? null;
-    if (embedding) {
+    console.log(`[VectorStore] 🔄 Génération d'embedding (local) pour: "${text.slice(0, 50)}..."`);
+    const pipe = await getEmbeddingPipeline();
+    
+    // Génération de l'embedding
+    const output = await pipe(text, { pooling: 'mean', normalize: true });
+    
+    // Conversion en tableau de nombres simple
+    const embedding = Array.from(output.data as Float32Array);
+    
+    if (embedding && embedding.length > 0) {
       console.log(`[VectorStore] ✅ Embedding généré (${embedding.length} dimensions)`);
+      return embedding;
     } else {
-      console.warn("[VectorStore] ⚠️ Aucun embedding retourné par l'API");
+      console.warn("[VectorStore] ⚠️ Aucun embedding retourné par le modèle");
+      return null;
     }
-    return embedding;
   } catch (error) {
-    console.error("[VectorStore] ❌ Échec de la génération d'embedding:", error);
+    console.error("[VectorStore] ❌ Échec de la génération d'embedding local:", error);
     return null;
   }
 }
