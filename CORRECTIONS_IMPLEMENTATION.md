@@ -27,7 +27,7 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 | ID | Correction | Domaine | Statut | Notes |
 |---|---|---|---|---|
 | P1-001 | Découper `App.tsx` en contrôleurs runtime | Architecture | À faire | `RuntimeProvider`, `VisionController`, `SessionController`. |
-| P1-002 | Worker embeddings Transformers | Partiel | Le backend `@xenova/transformers` est chargé dynamiquement uniquement au premier embedding; le déplacement complet en Worker reste à faire. |
+| P1-002 | Worker embeddings Transformers | Fait | Le backend `@xenova/transformers` est chargé dynamiquement dans un Web Worker dédié au premier embedding. |
 | P1-003 | Code splitting des panels lourds | Performance | Fait | Panels lourds en `React.lazy` et découpage Vite manuel des vendors React/Motion/Lucide/GenAI/Transformers/ONNX pour réduire le chunk principal. |
 | P1-004 | Permission center utilisateur | Sécurité / UX | À faire | Permissions temporelles et scoped. |
 | P1-005 | Remplacer `window.confirm` par confirmation auditée | Sécurité / UX | Fait | Les confirmations de skills sensibles utilisent une modale dédiée avec badge de risque, focus par défaut sur le refus, contexte tronqué et journalisation acceptation/refus sans persister le contexte brut. |
@@ -58,7 +58,7 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - Correction complémentaire : résolution cross-platform des chemins relatifs dans le BrowserController pour éviter les chemins Windows-only (`\\`) sur Linux/macOS.
 - P0-006 partiel : appels OpenRouter Desktop déplacés derrière IPC Electron (`ai:openrouter:*`) avec clé lue côté main process; fallback web `VITE_OPENROUTER_API_KEY` conservé uniquement pour usage navigateur.
 - P1-003 terminé : code-splitting des panels lourds (`ConversationVault`, `DatabaseInspector`, `DebugPanel`, `AgentChat`) via `React.lazy` et rendu conditionnel pour les panels à la demande.
-- P1-002 partiel : `@xenova/transformers` est retiré des imports statiques du vector store et chargé dynamiquement au premier embedding; la workerisation complète reste à planifier.
+- P1-002 terminé : `@xenova/transformers` est retiré du thread principal et chargé dynamiquement dans `embeddingWorker.ts`; le vector store communique avec le worker par messages corrélés.
 - P1-006 terminé : ajout d’un audit local JSONL (`security-audit.jsonl`) pour les autorisations de workspace, opérations FS sensibles et appels OpenRouter, avec hash de chemin au lieu de chemins bruts.
 - Optimisation bundle : ajout de `manualChunks` Vite pour séparer React, Motion, Lucide, GenAI, Transformers et ONNX du chunk applicatif principal.
 - P1-005 terminé : remplacement de `window.confirm` dans le handler de confirmation des skills par une modale contrôlée avec badge de risque, focus par défaut sur le refus, contexte tronqué, focus restauré et journalisation acceptation/refus sans persister le contexte brut.

@@ -4,8 +4,8 @@
  * Stores text embeddings in localStorage and provides cosine-similarity
  * search over the full conversation history.
  *
- * Embeddings are generated via the Gemini embedding-001 model
- * (already available through @google/genai).
+ * Embeddings are generated with Transformers.js inside a dedicated Web Worker
+ * so model loading and inference do not block the renderer UI thread.
  */
 
 import { getStorageBackend } from "./storage";
@@ -95,50 +95,126 @@ async function saveVectorStore(entries: VectorEntry[]): Promise<void> {
   }
 }
 
-// Singleton pour le pipeline d'embedding
-let embeddingPipeline: unknown = null;
+// Worker singleton for embedding generation. The Transformers.js backend and model
+// stay off the UI thread and are loaded inside the worker on first use.
+type EmbeddingWorkerResponse = {
+  id: number;
+  type: "embedding";
+  vector: number[] | null;
+  error?: string;
+};
 
-type FeatureExtractionPipeline = (
-  text: string,
-  options: { pooling: "mean"; normalize: boolean }
-) => Promise<{ data: Float32Array }>;
+const EMBEDDING_WORKER_TIMEOUT_MS = 120_000;
 
-async function getEmbeddingPipeline(): Promise<FeatureExtractionPipeline> {
-  if (!embeddingPipeline) {
-    console.log(`[VectorStore] 🧠 Chargement dynamique du backend Transformers: ${EMBEDDING_MODEL}...`);
-    const { pipeline, env } = await import("@xenova/transformers");
-    env.allowLocalModels = false; // On télécharge depuis Hugging Face par défaut
-    env.useBrowserCache = true;
-    embeddingPipeline = await pipeline("feature-extraction", EMBEDDING_MODEL);
-    console.log("[VectorStore] ✅ Modèle local prêt");
+let embeddingWorker: Worker | null = null;
+let embeddingRequestId = 0;
+const pendingEmbeddingRequests = new Map<
+  number,
+  { resolve: (vector: number[] | null) => void; reject: (error: Error) => void; timeoutId: ReturnType<typeof setTimeout> }
+>();
+
+function rejectPendingEmbeddingRequests(error: Error): void {
+  for (const [id, pending] of pendingEmbeddingRequests) {
+    clearTimeout(pending.timeoutId);
+    pending.reject(error);
+    pendingEmbeddingRequests.delete(id);
   }
-  return embeddingPipeline as FeatureExtractionPipeline;
+}
+
+function resetEmbeddingWorker(error?: Error): void {
+  if (embeddingWorker) {
+    embeddingWorker.terminate();
+    embeddingWorker = null;
+  }
+
+  if (error) {
+    rejectPendingEmbeddingRequests(error);
+  }
+}
+
+function getEmbeddingWorker(): Worker {
+  if (typeof Worker === "undefined") {
+    throw new Error("Embedding Worker unavailable in this environment");
+  }
+
+  if (!embeddingWorker) {
+    console.log(`[VectorStore] 🧠 Démarrage du worker Transformers: ${EMBEDDING_MODEL}...`);
+    embeddingWorker = new Worker(new URL("./embeddingWorker.ts", import.meta.url), {
+      type: "module",
+      name: "neurochat-embedding-worker",
+    });
+
+    embeddingWorker.onmessage = (event: MessageEvent<EmbeddingWorkerResponse>) => {
+      const response = event.data;
+      if (!response || response.type !== "embedding") return;
+
+      const pending = pendingEmbeddingRequests.get(response.id);
+      if (!pending) return;
+
+      clearTimeout(pending.timeoutId);
+      pendingEmbeddingRequests.delete(response.id);
+
+      if (response.error) {
+        pending.reject(new Error(response.error));
+        return;
+      }
+
+      pending.resolve(response.vector);
+    };
+
+    embeddingWorker.onerror = (event) => {
+      const message = event.message || "Embedding worker failed";
+      resetEmbeddingWorker(new Error(message));
+    };
+
+    embeddingWorker.onmessageerror = () => {
+      resetEmbeddingWorker(new Error("Embedding worker sent an unreadable message"));
+    };
+  }
+
+  return embeddingWorker;
+}
+
+function requestWorkerEmbedding(text: string): Promise<number[] | null> {
+  const worker = getEmbeddingWorker();
+  const id = ++embeddingRequestId;
+
+  return new Promise<number[] | null>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      pendingEmbeddingRequests.delete(id);
+      reject(new Error("Embedding worker timed out"));
+    }, EMBEDDING_WORKER_TIMEOUT_MS);
+
+    pendingEmbeddingRequests.set(id, { resolve, reject, timeoutId });
+
+    try {
+      worker.postMessage({ id, type: "embed", text });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      pendingEmbeddingRequests.delete(id);
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
 }
 
 /**
- * Generate an embedding vector for the given text using local Transformers.
+ * Generate an embedding vector for the given text using the embedding Worker.
  * Returns null if the call fails.
  */
 export async function generateEmbedding(text: string): Promise<number[] | null> {
   try {
-    console.log(`[VectorStore] 🔄 Génération d'embedding (local) pour: "${text.slice(0, 50)}..."`);
-    const pipe = await getEmbeddingPipeline();
-    
-    // Génération de l'embedding
-    const output = await pipe(text, { pooling: 'mean', normalize: true });
-    
-    // Conversion en tableau de nombres simple
-    const embedding = Array.from(output.data as Float32Array);
-    
+    console.log(`[VectorStore] 🔄 Génération d'embedding (worker) pour: "${text.slice(0, 50)}..."`);
+    const embedding = await requestWorkerEmbedding(text);
+
     if (embedding && embedding.length > 0) {
       console.log(`[VectorStore] ✅ Embedding généré (${embedding.length} dimensions)`);
       return embedding;
-    } else {
-      console.warn("[VectorStore] ⚠️ Aucun embedding retourné par le modèle");
-      return null;
     }
+
+    console.warn("[VectorStore] ⚠️ Aucun embedding retourné par le worker");
+    return null;
   } catch (error) {
-    console.error("[VectorStore] ❌ Échec de la génération d'embedding local:", error);
+    console.error("[VectorStore] ❌ Échec de la génération d'embedding via worker:", error);
     return null;
   }
 }
