@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_GEMINI_API_KEY: string;
+  readonly VITE_OPENROUTER_API_KEY?: string;
 }
 
 interface ImportMeta {
@@ -23,6 +24,10 @@ declare global {
       };
       dialog: {
         showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
+      };
+      ai?: {
+        chatWithOpenRouter: (messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>) => Promise<string>;
+        completeOpenRouterStepWithTools: (prompt: string, tools: Array<{ name: string; description: string; parameters: object }>) => Promise<{ name?: string; arguments?: string; finalAnswer?: string }>;
       };
       db?: {
         get: (key: string) => Promise<string | null>;

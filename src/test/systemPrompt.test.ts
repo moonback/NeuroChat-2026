@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSystemPrompt } from '../lib/systemPrompt';
+import { buildSystemPrompt, buildSystemPromptAsync } from '../lib/systemPrompt';
 
 describe('systemPrompt', () => {
   describe('buildSystemPrompt', () => {
@@ -37,6 +37,15 @@ describe('systemPrompt', () => {
       expect(prompt).toContain('Proactivité');
     });
 
+    it('should resolve memory context with async builder', async () => {
+      const prompt = await buildSystemPromptAsync('robot', {
+        userName: 'Marie',
+        memoryContext: 'Historique récent : Marie aime les synthèses courtes.',
+      });
+
+      expect(prompt).toContain('Historique récent : Marie aime les synthèses courtes.');
+      expect(prompt).not.toContain('[object Promise]');
+    });
 
     it('should include date and time context', () => {
       const prompt = buildSystemPrompt('robot', 'Marie');

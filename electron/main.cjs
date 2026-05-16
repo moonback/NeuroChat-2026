@@ -3,8 +3,173 @@ const path = require('path');
 const { shell } = require('electron');
 const fs = require('fs/promises');
 const { existsSync } = require('fs');
+const crypto = require('crypto');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
+require('dotenv').config();
+
+
+const OPENROUTER_MODELS = ['deepseek/deepseek-v4-flash:free'];
+const OPENROUTER_REFERER = 'https://neurochatia.vercel.app';
+const OPENROUTER_TITLE = 'NeuroChat';
+const MAX_OPENROUTER_MESSAGES = 40;
+const MAX_OPENROUTER_CONTENT_CHARS = 24000;
+const MAX_OPENROUTER_TOOLS = 64;
+
+function getOpenRouterApiKey() {
+  const apiKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OpenRouter API key missing in main process environment');
+  return apiKey;
+}
+
+function sanitizeOpenRouterMessages(messages) {
+  if (!Array.isArray(messages)) throw new Error('OpenRouter messages must be an array');
+  return messages.slice(-MAX_OPENROUTER_MESSAGES).map((message) => {
+    const role = ['user', 'assistant', 'system'].includes(message?.role) ? message.role : null;
+    if (!role || typeof message?.content !== 'string') throw new Error('Invalid OpenRouter message');
+    return { role, content: message.content.slice(-MAX_OPENROUTER_CONTENT_CHARS) };
+  });
+}
+
+function sanitizeOpenRouterTools(tools) {
+  if (!Array.isArray(tools)) throw new Error('OpenRouter tools must be an array');
+  return tools.slice(0, MAX_OPENROUTER_TOOLS).map((tool) => {
+    if (typeof tool?.name !== 'string' || typeof tool?.description !== 'string' || !tool?.parameters || typeof tool.parameters !== 'object') {
+      throw new Error('Invalid OpenRouter tool declaration');
+    }
+    return { name: tool.name, description: tool.description, parameters: tool.parameters };
+  });
+}
+
+async function callOpenRouter(payload) {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getOpenRouterApiKey()}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': OPENROUTER_REFERER,
+      'X-Title': OPENROUTER_TITLE,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const msg = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(`OpenRouter call failed: ${msg}`);
+  }
+
+  const data = await response.json();
+  if (!data.choices || data.choices.length === 0) throw new Error('OpenRouter returned empty choices');
+  return data;
+}
+
+
+function hashAuditValue(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex').slice(0, 16);
+}
+
+function pathAuditMetadata(filePath) {
+  if (!filePath) return {};
+  const resolved = path.resolve(String(filePath));
+  return {
+    pathHash: hashAuditValue(resolved),
+  };
+}
+
+async function writeSecurityAudit(event) {
+  try {
+    const entry = {
+      timestamp: Date.now(),
+      ...event,
+    };
+    await fs.appendFile(
+      path.join(app.getPath('userData'), 'security-audit.jsonl'),
+      `${JSON.stringify(entry)}\n`,
+      'utf-8',
+    );
+  } catch (error) {
+    console.warn('[audit] failed to write security audit event', error);
+  }
+}
+
+function auditSecurityEvent(event) {
+  void writeSecurityAudit(event);
+}
+
+const MAX_READ_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_WRITE_FILE_BYTES = 1 * 1024 * 1024;
+const EXACT_BLOCKED_MUTATION_PATHS = new Set([
+  path.parse(process.cwd()).root,
+  process.env.HOME,
+  process.env.USERPROFILE,
+].filter(Boolean).map((p) => path.resolve(p)));
+
+const RECURSIVE_BLOCKED_MUTATION_PATHS = [
+  '/etc',
+  '/bin',
+  '/usr',
+  '/System',
+  'C:\\Windows',
+].filter(Boolean).map((p) => path.resolve(p));
+
+const authorizedWorkdirs = new Set();
+
+function assertSafePath(inputPath, operation) {
+  if (typeof inputPath !== 'string' || !inputPath.trim()) {
+    throw new Error(`${operation}: chemin invalide`);
+  }
+  if (inputPath.includes('\0')) {
+    throw new Error(`${operation}: chemin contenant un caractère interdit`);
+  }
+  if (inputPath.length > 4096) {
+    throw new Error(`${operation}: chemin trop long`);
+  }
+  return path.resolve(inputPath);
+}
+
+function isPathInside(candidate, root) {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function assertAuthorizedPath(inputPath, operation) {
+  const resolved = assertSafePath(inputPath, operation);
+  if (!Array.from(authorizedWorkdirs).some((root) => isPathInside(resolved, root))) {
+    throw new Error(`${operation}: accès refusé hors dossier de travail autorisé`);
+  }
+  return resolved;
+}
+
+function assertMutationAllowed(inputPath, operation) {
+  const resolved = assertAuthorizedPath(inputPath, operation);
+  if (EXACT_BLOCKED_MUTATION_PATHS.has(resolved) || RECURSIVE_BLOCKED_MUTATION_PATHS.some((root) => isPathInside(resolved, root))) {
+    throw new Error(`${operation}: mutation refusée sur un dossier système ou racine`);
+  }
+  return resolved;
+}
+
+function authorizeSelectedDirectories(result, options) {
+  if (!result?.canceled && Array.isArray(result?.filePaths) && options?.properties?.includes('openDirectory')) {
+    for (const filePath of result.filePaths) {
+      const resolved = assertSafePath(filePath, 'dialog:showOpenDialog');
+      authorizedWorkdirs.add(resolved);
+      auditSecurityEvent({ type: 'fs.workspace_authorized', ...pathAuditMetadata(resolved) });
+      console.log(`[fs] Authorized workspace: ${resolved}`);
+    }
+  }
+  return result;
+}
+
+function assertContentSize(content) {
+  if (typeof content !== 'string') {
+    throw new Error('writeFile: contenu invalide');
+  }
+  if (Buffer.byteLength(content, 'utf-8') > MAX_WRITE_FILE_BYTES) {
+    throw new Error(`writeFile: contenu trop volumineux (max ${MAX_WRITE_FILE_BYTES} octets)`);
+  }
+}
+
 
 /**
  * Register FS and Dialog handlers
@@ -14,20 +179,23 @@ function registerIpcHandlers() {
   ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
     console.log('[ipc] dialog:showOpenDialog requested', options);
     const win = BrowserWindow.fromWebContents(event.sender);
-    return dialog.showOpenDialog(win || undefined, options);
+    const result = await dialog.showOpenDialog(win || undefined, options);
+    return authorizeSelectedDirectories(result, options);
   });
 
   // FS: List directory
   ipcMain.handle('fs:listDir', async (event, dirPath) => {
     try {
-      console.log(`[fs] Listing directory: ${dirPath}`);
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      const safeDirPath = assertAuthorizedPath(dirPath, 'listDir');
+      console.log(`[fs] Listing directory: ${safeDirPath}`);
+      const entries = await fs.readdir(safeDirPath, { withFileTypes: true });
       const result = entries.map(entry => ({
         name: entry.name,
         isDirectory: entry.isDirectory(),
         size: entry.isFile() ? 0 : undefined,
       }));
       console.log(`[fs] Found ${result.length} entries`);
+      auditSecurityEvent({ type: 'fs.listDir', ...pathAuditMetadata(safeDirPath), count: result.length });
       return result;
     } catch (error) {
       console.error('[electron] listDir failed', error);
@@ -38,9 +206,14 @@ function registerIpcHandlers() {
   // FS: Read file
   ipcMain.handle('fs:readFile', async (event, filePath) => {
     try {
-      console.log(`[fs] Reading file: ${filePath}`);
-      const content = await fs.readFile(filePath, 'utf-8');
+      const safeFilePath = assertAuthorizedPath(filePath, 'readFile');
+      const stats = await fs.stat(safeFilePath);
+      if (!stats.isFile()) throw new Error('readFile: le chemin ne pointe pas vers un fichier');
+      if (stats.size > MAX_READ_FILE_BYTES) throw new Error(`readFile: fichier trop volumineux (max ${MAX_READ_FILE_BYTES} octets)`);
+      console.log(`[fs] Reading file: ${safeFilePath}`);
+      const content = await fs.readFile(safeFilePath, 'utf-8');
       console.log(`[fs] Read ${content.length} characters`);
+      auditSecurityEvent({ type: 'fs.readFile', ...pathAuditMetadata(safeFilePath), bytes: stats.size });
       return content;
     } catch (error) {
       console.error('[electron] readFile failed', error);
@@ -51,7 +224,10 @@ function registerIpcHandlers() {
   // FS: Write file
   ipcMain.handle('fs:writeFile', async (event, filePath, content) => {
     try {
-      await fs.writeFile(filePath, content, 'utf-8');
+      const safeFilePath = assertMutationAllowed(filePath, 'writeFile');
+      assertContentSize(content);
+      await fs.writeFile(safeFilePath, content, 'utf-8');
+      auditSecurityEvent({ type: 'fs.writeFile', ...pathAuditMetadata(safeFilePath), bytes: Buffer.byteLength(content, 'utf-8') });
       return true;
     } catch (error) {
       console.error('[electron] writeFile failed', error);
@@ -62,7 +238,9 @@ function registerIpcHandlers() {
   // FS: Delete item
   ipcMain.handle('fs:deleteItem', async (event, itemPath) => {
     try {
-      await fs.rm(itemPath, { recursive: true, force: true });
+      const safeItemPath = assertMutationAllowed(itemPath, 'deleteItem');
+      await fs.rm(safeItemPath, { recursive: true, force: true });
+      auditSecurityEvent({ type: 'fs.deleteItem', ...pathAuditMetadata(safeItemPath) });
       return true;
     } catch (error) {
       console.error('[electron] deleteItem failed', error);
@@ -73,7 +251,9 @@ function registerIpcHandlers() {
   // FS: Mkdir
   ipcMain.handle('fs:mkdir', async (event, dirPath) => {
     try {
-      await fs.mkdir(dirPath, { recursive: true });
+      const safeDirPath = assertMutationAllowed(dirPath, 'mkdir');
+      await fs.mkdir(safeDirPath, { recursive: true });
+      auditSecurityEvent({ type: 'fs.mkdir', ...pathAuditMetadata(safeDirPath) });
       return true;
     } catch (error) {
       console.error('[electron] mkdir failed', error);
@@ -83,13 +263,15 @@ function registerIpcHandlers() {
 
   // FS: Exists
   ipcMain.handle('fs:exists', async (event, itemPath) => {
-    return existsSync(itemPath);
+    const safeItemPath = assertAuthorizedPath(itemPath, 'exists');
+    return existsSync(safeItemPath);
   });
 
   // FS: Stats
   ipcMain.handle('fs:getStats', async (event, itemPath) => {
     try {
-      const stats = await fs.stat(itemPath);
+      const safeItemPath = assertAuthorizedPath(itemPath, 'getStats');
+      const stats = await fs.stat(safeItemPath);
       return {
         size: stats.size,
         mtime: stats.mtime,
@@ -99,6 +281,44 @@ function registerIpcHandlers() {
       console.error('[electron] getStats failed', error);
       throw error;
     }
+  });
+
+  ipcMain.handle('ai:openrouter:chat', async (_event, messages) => {
+    let lastError;
+    for (const model of OPENROUTER_MODELS) {
+      try {
+        const data = await callOpenRouter({
+          model,
+          messages: sanitizeOpenRouterMessages(messages),
+          temperature: 0.7,
+          max_tokens: 500,
+        });
+        auditSecurityEvent({ type: 'ai.openrouter.chat', model, messageCount: Array.isArray(messages) ? messages.length : 0 });
+        return data.choices[0].message.content;
+      } catch (error) {
+        lastError = error;
+        console.warn(`[OpenRouter main] ${model} failed`, error);
+      }
+    }
+    throw lastError || new Error('All OpenRouter models failed');
+  });
+
+  ipcMain.handle('ai:openrouter:completeStepWithTools', async (_event, prompt, tools) => {
+    if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('OpenRouter prompt must be a non-empty string');
+    const data = await callOpenRouter({
+      model: 'openai/gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt.slice(-MAX_OPENROUTER_CONTENT_CHARS) }],
+      tools: sanitizeOpenRouterTools(tools).map((tool) => ({ type: 'function', function: tool })),
+      tool_choice: 'auto',
+    });
+    const message = data.choices?.[0]?.message;
+    const call = message?.tool_calls?.[0];
+    if (call?.function?.name) {
+      auditSecurityEvent({ type: 'ai.openrouter.tool_call', model: 'openai/gpt-4o-mini', toolName: call.function.name });
+      return { name: call.function.name, arguments: call.function.arguments ?? '{}' };
+    }
+    auditSecurityEvent({ type: 'ai.openrouter.final_answer', model: 'openai/gpt-4o-mini' });
+    return { finalAnswer: message?.content ?? '' };
   });
 }
 
@@ -211,19 +431,21 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Allow framing of external websites in the browser control panel
-  session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
-    const responseHeaders = { ...details.responseHeaders };
-    
-    Object.keys(responseHeaders).forEach(key => {
-      const lower = key.toLowerCase();
-      if (lower === 'x-frame-options' || lower === 'content-security-policy') {
-        delete responseHeaders[key];
-      }
-    });
+  if (process.env.NEUROCHAT_ALLOW_UNSAFE_FRAME_HEADER_STRIPPING === 'true') {
+    console.warn('[electron] UNSAFE: stripping frame/CSP headers is enabled by environment flag');
+    session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
 
-    callback({ cancel: false, responseHeaders });
-  });
+      Object.keys(responseHeaders).forEach(key => {
+        const lower = key.toLowerCase();
+        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
+          delete responseHeaders[key];
+        }
+      });
+
+      callback({ cancel: false, responseHeaders });
+    });
+  }
 
   registerDisplayMediaHandler();
   ensureDb(app);

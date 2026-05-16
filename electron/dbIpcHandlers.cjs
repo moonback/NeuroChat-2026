@@ -31,13 +31,21 @@ function registerDbIpcHandlers() {
     return true;
   });
   ipcMain.handle('db:vectors:save', (_event, entries) => {
+    if (!Array.isArray(entries)) throw new Error('db:vectors:save expects an array');
     const db = getDb();
     const stmt = db.prepare('INSERT OR REPLACE INTO vectors(id, text, vector, session_id, user_name, speaker, timestamp) VALUES(?, ?, ?, ?, ?, ?, ?)');
     const tx = db.transaction((data) => {
-      db.prepare('DELETE FROM vectors').run(); // Clear existing as per saveVectorStore behavior
+      const idsByUser = new Map();
       for (const e of data) {
         const vectorBuffer = Buffer.from(Float64Array.from(e.vector).buffer);
         stmt.run(e.id, e.text, vectorBuffer, e.sessionId, e.userName, e.speaker, e.timestamp);
+        if (!idsByUser.has(e.userName)) idsByUser.set(e.userName, []);
+        idsByUser.get(e.userName).push(e.id);
+      }
+      for (const [userName, ids] of idsByUser.entries()) {
+        if (ids.length === 0) continue;
+        const placeholders = ids.map(() => '?').join(',');
+        db.prepare(`DELETE FROM vectors WHERE user_name = ? AND id NOT IN (${placeholders})`).run(userName, ...ids);
       }
     });
     tx(entries);

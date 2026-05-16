@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { chatWithOpenRouter, OpenRouterMessage } from "../lib/OpenRouterService";
-import { buildSystemPrompt } from "../lib/systemPrompt";
+import { buildSystemPromptAsync } from "../lib/systemPrompt";
 import { AvatarId } from "../lib/avatarConfig";
 
 interface SessionOptions {
@@ -40,7 +40,7 @@ export function useOpenRouterSession() {
     setErrorMsg("");
 
     // Initialize system prompt
-    const systemPrompt = buildSystemPrompt(avatarId, { 
+    const systemPrompt = await buildSystemPromptAsync(avatarId, {
       userName: userName ?? undefined,
       browserControlEnabled,
       visionEnabled: enableVideo,

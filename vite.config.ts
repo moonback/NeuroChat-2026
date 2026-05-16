@@ -18,6 +18,25 @@ export default defineConfig(({mode}) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      // The lazily imported onnxruntime backend is a single minified module and remains
+      // just over Vite's default 500 kB advisory threshold after being split out.
+      chunkSizeWarningLimit: 600,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react-vendor';
+            if (id.includes('/motion/')) return 'motion-vendor';
+            if (id.includes('/lucide-react/') || id.includes('/lucide/')) return 'icons-vendor';
+            if (id.includes('/@google/genai/')) return 'ai-vendor';
+            if (id.includes('/onnxruntime-web/')) return 'onnx-vendor';
+            if (id.includes('/@xenova/transformers/')) return 'transformers-vendor';
+            return undefined;
+          },
+        },
+      },
+    },
     server: {
       port: 3000,
       strictPort: true,
