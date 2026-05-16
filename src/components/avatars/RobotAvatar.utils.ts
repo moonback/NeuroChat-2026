@@ -27,26 +27,23 @@ export function noise(x: number, y: number = 0): number {
   return n - Math.floor(n);
 }
 
-/**
- * Get theme configuration for each robot status
- */
 export function getStatusTheme(status: RobotStatus): StatusTheme {
   switch (status) {
     case "listening":
       return {
-        accentColor: "#22d3ee",
+        accentColor: "#22d3ee", // Cyan for listening mode
         accentGlow: "#06b6d4",
-        eyeColor: "#22d3ee",
-        mouthColor: "#22d3ee",
+        eyeColor: "#1d9bf0", // Deep blue eyes
+        mouthColor: "#f472b6", // Soft pink lips
         glowIntensity: 1.2,
         pulseSpeed: 1.5,
       };
     case "speaking":
       return {
-        accentColor: "#a78bfa",
-        accentGlow: "#8b5cf6",
-        eyeColor: "#a78bfa",
-        mouthColor: "#f472b6",
+        accentColor: "#f472b6", // Pink/warm
+        accentGlow: "#db2777",
+        eyeColor: "#10b981", // Emerald green eyes
+        mouthColor: "#f43f5e", // Red lips
         glowIntensity: 1.4,
         pulseSpeed: 2.0,
       };
@@ -54,8 +51,8 @@ export function getStatusTheme(status: RobotStatus): StatusTheme {
       return {
         accentColor: "#60a5fa",
         accentGlow: "#3b82f6",
-        eyeColor: "#60a5fa",
-        mouthColor: "#60a5fa",
+        eyeColor: "#fcd34d", // Hazel/golden eyes
+        mouthColor: "#f472b6", // Soft pink lips
         glowIntensity: 0.9,
         pulseSpeed: 0.8,
       };
@@ -63,8 +60,8 @@ export function getStatusTheme(status: RobotStatus): StatusTheme {
       return {
         accentColor: "#ef4444",
         accentGlow: "#dc2626",
-        eyeColor: "#ef4444",
-        mouthColor: "#ef4444",
+        eyeColor: "#f97316", // Amber eyes
+        mouthColor: "#f472b6", // Soft pink lips
         glowIntensity: 1.0,
         pulseSpeed: 2.5,
       };
@@ -72,8 +69,8 @@ export function getStatusTheme(status: RobotStatus): StatusTheme {
       return {
         accentColor: "#f59e0b",
         accentGlow: "#d97706",
-        eyeColor: "#f59e0b",
-        mouthColor: "#78716c",
+        eyeColor: "#78716c", // Grey/dull eyes
+        mouthColor: "#a8a29e", // Pale lips
         glowIntensity: 0.4,
         pulseSpeed: 0.3,
       };
@@ -81,7 +78,7 @@ export function getStatusTheme(status: RobotStatus): StatusTheme {
       return {
         accentColor: "#dc2626",
         accentGlow: "#991b1b",
-        eyeColor: "#dc2626",
+        eyeColor: "#b91c1c", // Blood red eyes
         mouthColor: "#dc2626",
         glowIntensity: 1.5,
         pulseSpeed: 3.0,
@@ -89,10 +86,10 @@ export function getStatusTheme(status: RobotStatus): StatusTheme {
     case "idle":
     default:
       return {
-        accentColor: "#818cf8",
-        accentGlow: "#6366f1",
-        eyeColor: "#818cf8",
-        mouthColor: "#64748b",
+        accentColor: "#fbbf24", // Warm ambient
+        accentGlow: "#f59e0b",
+        eyeColor: "#8b5a2b", // Natural brown eyes
+        mouthColor: "#fb7185", // Natural lip color
         glowIntensity: 0.7,
         pulseSpeed: 0.6,
       };

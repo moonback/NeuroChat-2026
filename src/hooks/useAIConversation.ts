@@ -20,8 +20,9 @@ interface SessionOptions {
 }
 
 function shouldAutoRunAgent(text: string): boolean {
-  const t = text.toLowerCase();
-  return t.startsWith("tool:") || t.includes("utilise un outil") || t.includes("ouvre le navigateur") || t.includes("cherche dans ma mémoire");
+  // Now deprecated in favor of native function calling during the live session.
+  // Kept as a simple fallback for manual triggers if needed.
+  return text.toLowerCase().includes("utilise un outil");
 }
 
 export function useAIConversation() {

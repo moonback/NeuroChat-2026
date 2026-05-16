@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { buildSystemPrompt } from "../lib/systemPrompt";
 import { AvatarId } from "../lib/avatarConfig";
 import { retrieveRelevantContext } from "../lib/ragSearch";
@@ -13,6 +13,8 @@ import {
   formatWeeklySummaryForPrompt,
   loadWeeklySummaries,
 } from "../lib/conversationSummary";
+import { createDefaultSkillRegistry } from "../lib/skills";
+import { SkillContext } from "../lib/skills/types";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -201,6 +203,50 @@ export function useGeminiSession() {
                   onTurnComplete();
                 }
 
+                // --- GESTION DES APPELS DE FONCTIONS (TOOLS) ---
+                const functionCalls = parts?.filter((p: any) => p.functionCall).map((p: any) => p.functionCall);
+                if (functionCalls && functionCalls.length > 0) {
+                  console.log(`🛠️ Gemini appelle ${functionCalls.length} fonction(s):`, functionCalls);
+                  
+                  const registry = createDefaultSkillRegistry();
+                  const skillContext: SkillContext = {
+                    sessionId: "live-session", // Ideally pass real session ID
+                    userId: userName || "anonymous",
+                  };
+
+                  Promise.all(functionCalls.map(async (call: any) => {
+                    try {
+                      const skill = registry.get(call.name);
+                      if (!skill) throw new Error(`Skill ${call.name} non trouvé`);
+                      
+                      console.log(`🏃 Exécution du skill: ${call.name}...`);
+                      const result = await skill.execute(call.args, skillContext);
+                      
+                      return {
+                        name: call.name,
+                        response: { result }
+                      };
+                    } catch (err: any) {
+                      console.error(`❌ Échec du skill ${call.name}:`, err);
+                      return {
+                        name: call.name,
+                        response: { error: err.message }
+                      };
+                    }
+                  })).then((responses) => {
+                    if (sessionRef.current) {
+                      console.log("📤 Envoi des réponses de fonctions à Gemini...");
+                      sessionRef.current.sendClientContent({
+                        turns: [{
+                          role: "user",
+                          parts: responses.map(r => ({ functionResponse: r }))
+                        }],
+                        turnComplete: true
+                      });
+                    }
+                  });
+                }
+
                 if (serverContent?.interrupted) {
                   console.log("⚡ Interruption détectée");
                   onInterrupted();
@@ -246,6 +292,41 @@ export function useGeminiSession() {
               speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
               },
+              // Intégration des outils via Function Calling
+              tools: [{
+                functionDeclarations: createDefaultSkillRegistry().list().map(skill => {
+                  const mapType = (t: string): Type => {
+                    switch(t) {
+                      case "string": return Type.STRING;
+                      case "number": return Type.NUMBER;
+                      case "boolean": return Type.BOOLEAN;
+                      case "array": return Type.ARRAY;
+                      case "object": return Type.OBJECT;
+                      default: return Type.STRING;
+                    }
+                  };
+                  
+                  const mappedProperties: Record<string, any> = {};
+                  if (skill.parameters?.properties) {
+                    for (const [key, prop] of Object.entries(skill.parameters.properties)) {
+                      mappedProperties[key] = {
+                        type: mapType(prop.type),
+                        description: prop.description
+                      };
+                    }
+                  }
+
+                  return {
+                    name: skill.name,
+                    description: skill.description,
+                    parameters: {
+                      type: Type.OBJECT,
+                      properties: mappedProperties,
+                      required: skill.parameters?.required || [],
+                    },
+                  };
+                })
+              }],
               // Active la transcription de la réponse IA pour la sauvegarder en mémoire
               outputAudioTranscription: {},
             },
