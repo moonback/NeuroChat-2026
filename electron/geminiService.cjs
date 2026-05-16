@@ -88,7 +88,7 @@ function registerGeminiHandlers(mainWindow) {
           },
           responseModalities: [Modality.AUDIO],
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Leda" } },
           },
           outputAudioTranscription: {},
           tools: [{
