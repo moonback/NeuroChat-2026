@@ -28,6 +28,17 @@ declare global {
       ai?: {
         chatWithOpenRouter: (messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>) => Promise<string>;
         completeOpenRouterStepWithTools: (prompt: string, tools: Array<{ name: string; description: string; parameters: object }>) => Promise<{ name?: string; arguments?: string; finalAnswer?: string }>;
+        gemini?: {
+          connect: (config: any) => Promise<{ success: boolean; error?: string }>;
+          sendRealtimeInput: (input: any) => void;
+          sendClientContent: (content: any) => void;
+          close: () => void;
+          onopen: (callback: () => void) => void;
+          onmessage: (callback: (message: any) => void) => void;
+          onerror: (callback: (error: string) => void) => void;
+          onclose: (callback: (event: any) => void) => void;
+          removeAllListeners: () => void;
+        };
       };
       db?: {
         get: (key: string) => Promise<string | null>;

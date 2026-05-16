@@ -41,5 +41,23 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
     loadTraces: () => ipcRenderer.invoke('db:traces:load'),
     clearTraces: () => ipcRenderer.invoke('db:traces:clear'),
     migrate: (payload) => ipcRenderer.invoke('db:migrate', payload),
+  },
+  ai: {
+    gemini: {
+      connect: (config) => ipcRenderer.invoke('ai:gemini:connect', config),
+      sendRealtimeInput: (input) => ipcRenderer.send('ai:gemini:sendRealtimeInput', input),
+      sendClientContent: (content) => ipcRenderer.send('ai:gemini:sendClientContent', content),
+      close: () => ipcRenderer.send('ai:gemini:close'),
+      onopen: (callback) => ipcRenderer.on('ai:gemini:onopen', () => callback()),
+      onmessage: (callback) => ipcRenderer.on('ai:gemini:onmessage', (_event, message) => callback(message)),
+      onerror: (callback) => ipcRenderer.on('ai:gemini:onerror', (_event, error) => callback(error)),
+      onclose: (callback) => ipcRenderer.on('ai:gemini:onclose', (_event, event) => callback(event)),
+      removeAllListeners: () => {
+        ipcRenderer.removeAllListeners('ai:gemini:onopen');
+        ipcRenderer.removeAllListeners('ai:gemini:onmessage');
+        ipcRenderer.removeAllListeners('ai:gemini:onerror');
+        ipcRenderer.removeAllListeners('ai:gemini:onclose');
+      }
+    }
   }
 });

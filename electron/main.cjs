@@ -6,6 +6,7 @@ const { existsSync } = require('fs');
 const crypto = require('crypto');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
+const { GoogleGenAI } = require('@google/genai');
 require('dotenv').config();
 
 
@@ -62,6 +63,14 @@ async function callOpenRouter(payload) {
   const data = await response.json();
   if (!data.choices || data.choices.length === 0) throw new Error('OpenRouter returned empty choices');
   return data;
+}
+
+let activeGeminiSession = null;
+
+function getGeminiApiKey() {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) throw new Error('Gemini API key missing in main process environment');
+  return apiKey;
 }
 
 
@@ -320,6 +329,71 @@ function registerIpcHandlers() {
     auditSecurityEvent({ type: 'ai.openrouter.final_answer', model: 'openai/gpt-4o-mini' });
     return { finalAnswer: message?.content ?? '' };
   });
+
+  // GEMINI LIVE BRIDGE
+  ipcMain.handle('ai:gemini:connect', async (event, config) => {
+    try {
+      if (activeGeminiSession) {
+        try { activeGeminiSession.close(); } catch (e) {}
+        activeGeminiSession = null;
+      }
+
+      const apiKey = getGeminiApiKey();
+      const genAI = new GoogleGenAI(apiKey);
+      const webContents = event.sender;
+
+      console.log('[gemini-bridge] Connecting to Gemini Live...');
+      
+      activeGeminiSession = await genAI.live.connect({
+        model: config.model || 'gemini-3.1-flash-live-preview',
+        callbacks: {
+          onopen: () => {
+            console.log('[gemini-bridge] Session opened');
+            webContents.send('ai:gemini:onopen');
+          },
+          onmessage: (message) => {
+            // Forward message to renderer. We might want to prune large audio data if performance is an issue,
+            // but for now we send it as is (Electron IPC handles Buffers/Objects well).
+            webContents.send('ai:gemini:onmessage', message);
+          },
+          onerror: (error) => {
+            console.error('[gemini-bridge] Session error:', error);
+            webContents.send('ai:gemini:onerror', error.message || 'Unknown error');
+          },
+          onclose: (event) => {
+            console.log('[gemini-bridge] Session closed');
+            webContents.send('ai:gemini:onclose', event);
+            activeGeminiSession = null;
+          }
+        },
+        config: config.config
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('[gemini-bridge] Connect failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.on('ai:gemini:sendRealtimeInput', (event, input) => {
+    if (activeGeminiSession) {
+      activeGeminiSession.sendRealtimeInput(input);
+    }
+  });
+
+  ipcMain.on('ai:gemini:sendClientContent', (event, content) => {
+    if (activeGeminiSession) {
+      activeGeminiSession.sendClientContent(content);
+    }
+  });
+
+  ipcMain.on('ai:gemini:close', (event) => {
+    if (activeGeminiSession) {
+      try { activeGeminiSession.close(); } catch (e) {}
+      activeGeminiSession = null;
+    }
+  });
 }
 
 /** Set by npm script `electron:dev` so the window loads the Vite dev server. */
@@ -462,5 +536,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  if (activeGeminiSession) {
+    try { activeGeminiSession.close(); } catch (e) {}
+  }
   closeDb();
 });
