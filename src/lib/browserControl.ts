@@ -1020,7 +1020,15 @@ export function parseNaturalLanguageCommand(command: string): BrowserAction | nu
   }
 
   // Dossiers / Système
-  if (lowerCommand.includes("sélecteur de dossier") || lowerCommand.includes("choisir un dossier") || lowerCommand.includes("changer de dossier")) {
+  if (
+    lowerCommand.includes("sélecteur de dossier") ||
+    lowerCommand.includes("selecteur de dossier") ||
+    lowerCommand.includes("folder selector") ||
+    lowerCommand.includes("choisir un dossier") ||
+    lowerCommand.includes("changer de dossier") ||
+    lowerCommand.includes("pick_workdir") ||
+    lowerCommand.includes("pickworkdir")
+  ) {
     return { type: "pickWorkdir" };
   }
 
