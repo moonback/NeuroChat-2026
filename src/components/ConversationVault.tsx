@@ -13,6 +13,7 @@ import {
   Tag,
   Loader2,
   BrainCircuit,
+  Search,
 } from "lucide-react";
 import { ConversationSession, loadAllSessions } from "../lib/conversationMemory";
 import type { ConversationStats } from "../lib/conversationMemory";
@@ -54,6 +55,7 @@ export function ConversationVault({
   );
   const [generatingWeek, setGeneratingWeek] = useState<string | null>(null);
   const [learningRefreshKey, setLearningRefreshKey] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
 
   // ── Weekly summary helpers ──────────────────────────────────────────────────
@@ -88,9 +90,22 @@ export function ConversationVault({
     }
   }, [isOpen, userName, memoryData]);
 
-  // Group sessions by ISO week for the weekly tab
+  // Filter sessions based on search query
+  const filteredSessions = useMemo(() => {
+    const sessions = memoryData?.sessions ?? [];
+    if (!searchQuery.trim()) return sessions;
+    const query = searchQuery.toLowerCase();
+    return sessions.filter(
+      (s) =>
+        s.topic?.toLowerCase().includes(query) ||
+        s.summary?.toLowerCase().includes(query) ||
+        s.turns.some((t) => t.message.toLowerCase().includes(query))
+    );
+  }, [memoryData?.sessions, searchQuery]);
+
+  // Group filtered sessions by ISO week for the weekly tab
   const { sessionsByWeek, weekIds } = useMemo(() => {
-    const grouped = (memoryData?.sessions ?? []).reduce(
+    const grouped = filteredSessions.reduce(
       (acc: Record<string, ConversationSession[]>, s: ConversationSession) => {
         const wk = getWeekId(new Date(s.startTime));
         if (!acc[wk]) acc[wk] = [];
@@ -101,7 +116,7 @@ export function ConversationVault({
     );
     const ids = Object.keys(grouped).sort().reverse();
     return { sessionsByWeek: grouped, weekIds: ids };
-  }, [memoryData?.sessions]);
+  }, [filteredSessions]);
 
   useEffect(() => {
     if (isOpen) {
@@ -130,33 +145,62 @@ export function ConversationVault({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 20 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-[#0F172A] border border-slate-800 rounded-[32px] shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden"
-          style={{ boxShadow: `0 0 80px ${accentColor}15` }}
+          className="bg-[#0F172A] border border-slate-800/50 rounded-[40px] shadow-2xl w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden relative"
+          style={{ 
+            boxShadow: `0 0 80px ${accentColor}15`,
+          }}
         >
+          {/* Background effects */}
+          <div className="absolute inset-0 bg-noise pointer-events-none opacity-[0.03]" />
+          <div 
+            className="absolute -top-24 -left-24 w-96 h-96 rounded-full blur-[120px] pointer-events-none"
+            style={{ background: `${accentColor}10` }}
+          />
+          <div 
+            className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full blur-[120px] pointer-events-none"
+            style={{ background: `${accentColor}05` }}
+          />
+
           {/* ── Header ── */}
-          <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-2xl shadow-inner">
+          <div className="p-8 border-b border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between bg-slate-900/40 backdrop-blur-xl relative z-10 gap-6">
+            <div className="flex items-center gap-5">
+              <div 
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-2xl border border-white/5"
+                style={{ background: `linear-gradient(135deg, ${accentColor}20, ${accentColor}05)`, boxShadow: `0 8px 24px -8px ${accentColor}40` }}
+              >
                 🧠
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3 tracking-tight">
                   Coffre des Conversations
-                  <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
-                    BÊTA PRO
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 uppercase tracking-widest">
+                    Système Neuronal
                   </span>
                 </h2>
-                <p className="text-sm text-slate-500">
-                  Exploration de la mémoire de NeuroChat
+                <p className="text-sm text-slate-400 font-medium">
+                  Exploration et analyse de la mémoire de NeuroChat
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-800 rounded-xl transition-colors text-slate-400 hover:text-white"
-            >
-              <X className="w-6 h-6" />
-            </button>
+
+            <div className="flex items-center gap-4 flex-1 max-w-md">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-white transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Rechercher une conversation..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-950/50 border border-slate-800 hover:border-slate-700 focus:border-white/20 rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder-slate-500 outline-none transition-all focus:ring-4 focus:ring-white/5"
+                />
+              </div>
+              <button
+                onClick={onClose}
+                className="p-3 hover:bg-white/5 rounded-2xl transition-all text-slate-400 hover:text-white border border-transparent hover:border-white/10"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
 
           {/* ── Tabs ── */}
@@ -237,54 +281,64 @@ export function ConversationVault({
                       </button>
                     </div>
 
-                    {!memoryData?.sessions?.length ? (
-                      <div className="text-center py-12 px-4">
-                        <History className="w-8 h-8 text-slate-700 mx-auto mb-2 opacity-20" />
-                        <p className="text-slate-600 text-sm italic">
-                          Aucune mémoire disponible
+                    {!filteredSessions?.length ? (
+                      <div className="text-center py-20 px-4">
+                        <div className="w-16 h-16 rounded-full bg-slate-900/50 flex items-center justify-center mx-auto mb-4 border border-slate-800">
+                          <History className="w-8 h-8 text-slate-700" />
+                        </div>
+                        <p className="text-slate-500 text-sm font-medium">
+                          {searchQuery ? "Aucun résultat trouvé" : "Aucune mémoire disponible"}
                         </p>
                       </div>
                     ) : (
-                      memoryData.sessions.map((session: ConversationSession) => (
-                        <button
+                      filteredSessions.map((session: ConversationSession, idx: number) => (
+                        <motion.button
                           key={session.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.03 }}
                           onClick={() => {
                             console.log(`[ConversationVault] 🎯 Sélection de la session: ${session.id}`);
                             onSelectSession(session.id);
                           }}
-                          className={`w-full text-left p-4 rounded-2xl transition-all border ${
+                          className={`w-full text-left p-4 rounded-[24px] transition-all border group relative overflow-hidden ${
                             selectedSession?.id === session.id
-                              ? "bg-slate-800/50 border-slate-700 shadow-lg"
-                              : "bg-transparent border-transparent hover:bg-slate-800/30"
+                              ? "bg-white/5 border-white/10 shadow-xl"
+                              : "bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5"
                           }`}
                         >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs text-slate-500 font-mono">
+                          {selectedSession?.id === session.id && (
+                            <div 
+                              className="absolute inset-y-0 left-0 w-1 rounded-full my-4"
+                              style={{ background: accentColor }}
+                            />
+                          )}
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                               {new Date(session.startTime).toLocaleDateString(
                                 "fr-FR",
                                 { day: "2-digit", month: "2-digit" }
                               )}
                             </span>
-                            <span className="text-[10px] bg-slate-900 px-1.5 py-0.5 rounded text-slate-500">
-                              {session.turns.length} msg
+                            <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded-full text-slate-400 border border-white/5">
+                              {session.turns.length} messages
                             </span>
                           </div>
                           <p
-                            className={`text-sm font-medium truncate ${
+                            className={`text-sm font-bold truncate mb-1.5 transition-colors ${
                               selectedSession?.id === session.id
                                 ? "text-white"
-                                : "text-slate-300"
+                                : "text-slate-300 group-hover:text-white"
                             }`}
                           >
                             {session.topic || "Discussion sans titre"}
                           </p>
-                          {/* Session summary preview */}
                           {session.summary && (
-                            <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                            <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed font-medium">
                               {session.summary}
                             </p>
                           )}
-                        </button>
+                        </motion.button>
                       ))
                     )}
                   </div>
@@ -333,75 +387,104 @@ export function ConversationVault({
                       </div>
 
                       {/* Transcript */}
-                      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                      <div className="flex-1 overflow-y-auto p-8 space-y-8">
                         {selectedSession.turns.map((turn, idx) => (
-                          <div
+                          <motion.div
                             key={idx}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05 }}
                             className={`flex flex-col ${
                               turn.speaker === "user" ? "items-end" : "items-start"
                             }`}
                           >
-                            <div className="flex items-center gap-2 mb-1 px-1">
+                            <div className="flex items-center gap-2 mb-2 px-1">
                               {turn.speaker === "user" ? (
                                 <>
-                                  <span className="text-[10px] text-slate-500">
+                                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                                     {userName}
                                   </span>
-                                  <User className="w-3 h-3 text-slate-600" />
+                                  <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center border border-white/5">
+                                    <User className="w-3 h-3 text-slate-400" />
+                                  </div>
                                 </>
                               ) : (
                                 <>
-                                  <Sparkles
-                                    className="w-3 h-3"
-                                    style={{ color: accentColor }}
-                                  />
-                                  <span className="text-[10px] text-slate-500">
+                                  <div 
+                                    className="w-5 h-5 rounded-full flex items-center justify-center border border-white/5"
+                                    style={{ background: `${accentColor}20` }}
+                                  >
+                                    <Sparkles
+                                      className="w-3 h-3"
+                                      style={{ color: accentColor }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                                     NeuroChat
                                   </span>
                                 </>
                               )}
+                              <span className="text-[9px] text-slate-600 font-mono ml-2">
+                                {turn.timestamp ? new Date(turn.timestamp).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}
+                              </span>
                             </div>
                             <div
-                              className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
+                              className={`max-w-[85%] p-5 rounded-[28px] text-sm leading-relaxed shadow-lg relative ${
                                 turn.speaker === "user"
-                                  ? "bg-slate-800 text-slate-100 rounded-tr-none"
-                                  : "bg-slate-900 border border-slate-800 text-slate-300 rounded-tl-none"
+                                  ? "bg-slate-800 text-slate-100 rounded-tr-none border border-white/5"
+                                  : "bg-slate-900/50 backdrop-blur-sm border border-slate-800 text-slate-300 rounded-tl-none"
                               }`}
                             >
-                              {turn.message}
+                              {turn.speaker !== "user" && (
+                                <div 
+                                  className="absolute inset-0 rounded-[28px] rounded-tl-none pointer-events-none opacity-10"
+                                  style={{ background: `linear-gradient(135deg, ${accentColor}, transparent)` }}
+                                />
+                              )}
+                              <div className="relative z-10">
+                                {turn.message}
+                              </div>
                             </div>
-                          </div>
+                          </motion.div>
                         ))}
                       </div>
                     </>
                   ) : (
                     /* Empty state */
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12">
-                      <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center mb-6 border border-slate-800 shadow-inner">
-                        <History className="w-10 h-10 text-slate-700" />
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 relative overflow-hidden">
+                      <div 
+                        className="absolute w-[500px] h-[500px] rounded-full blur-[100px] opacity-[0.03] pointer-events-none"
+                        style={{ background: accentColor }}
+                      />
+                      <div className="w-32 h-32 rounded-[40px] bg-white/5 flex items-center justify-center mb-8 border border-white/10 shadow-2xl relative z-10">
+                        <History className="w-12 h-12 text-slate-400" />
+                        <div 
+                          className="absolute inset-0 rounded-[40px] blur-xl opacity-20"
+                          style={{ background: accentColor }}
+                        />
                       </div>
-                      <h3 className="text-xl font-bold text-slate-300 mb-2">
+                      <h3 className="text-2xl font-bold text-white mb-3 relative z-10">
                         Sélectionnez une session
                       </h3>
-                      <p className="text-slate-500 max-w-xs mx-auto text-sm leading-relaxed">
-                        Parcourez vos anciennes conversations pour retrouver des
-                        informations ou voir votre progression.
+                      <p className="text-slate-400 max-w-xs mx-auto text-sm leading-relaxed font-medium relative z-10">
+                        Parcourez l'historique de vos interactions pour retrouver des
+                        connaissances ou analyser votre évolution.
                       </p>
-                      <div className="grid grid-cols-2 gap-4 mt-12 w-full max-w-sm">
-                        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl">
-                          <div className="text-2xl font-bold text-white">
+                      <div className="grid grid-cols-2 gap-6 mt-16 w-full max-w-md relative z-10">
+                        <div className="p-6 bg-white/5 border border-white/10 rounded-[24px] backdrop-blur-md">
+                          <div className="text-3xl font-bold text-white mb-1">
                             {memoryData?.totalSessions || 0}
                           </div>
-                          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                            Sessions
+                          <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                            Sessions totales
                           </div>
                         </div>
-                        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl">
-                          <div className="text-2xl font-bold text-white">
+                        <div className="p-6 bg-white/5 border border-white/10 rounded-[24px] backdrop-blur-md">
+                          <div className="text-3xl font-bold text-white mb-1">
                             {memoryData?.totalTurns || 0}
                           </div>
-                          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                            Messages
+                          <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                            Messages échangés
                           </div>
                         </div>
                       </div>
@@ -437,35 +520,36 @@ export function ConversationVault({
                         key={weekId}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden"
+                        className="bg-white/[0.03] border border-white/10 rounded-[32px] overflow-hidden backdrop-blur-md shadow-xl"
                       >
                         {/* Week header */}
-                        <div className="p-4 border-b border-slate-800/60 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
+                        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                          <div className="flex items-center gap-4">
                             <div
-                              className="w-8 h-8 rounded-xl flex items-center justify-center text-sm"
-                              style={{ background: `${accentColor}20`, color: accentColor }}
+                              className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner border border-white/5"
+                              style={{ background: `${accentColor}15`, color: accentColor }}
                             >
                               {isCurrentWeek ? "📅" : "🗓️"}
                             </div>
                             <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-white">
+                              <div className="flex items-center gap-3">
+                                <span className="text-base font-bold text-white tracking-tight">
                                   {summary?.dateRange ?? weekId}
                                 </span>
                                 {isCurrentWeek && (
                                   <span
-                                    className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                    className="text-[9px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border"
                                     style={{
-                                      background: `${accentColor}20`,
+                                      background: `${accentColor}15`,
                                       color: accentColor,
+                                      borderColor: `${accentColor}30`,
                                     }}
                                   >
-                                    CETTE SEMAINE
+                                    En cours
                                   </span>
                                 )}
                               </div>
-                              <span className="text-xs text-slate-500">
+                              <span className="text-xs text-slate-500 font-medium">
                                 {sessions.length} session{sessions.length > 1 ? "s" : ""} ·{" "}
                                 {sessions.reduce((n, s) => n + s.turns.length, 0)} échanges
                               </span>
@@ -581,15 +665,21 @@ export function ConversationVault({
           </div>
 
           {/* ── Footer ── */}
-          <div className="p-4 bg-slate-900/80 border-t border-slate-800 flex items-center justify-center gap-4 text-[10px] text-slate-600">
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
-              STOCKAGE LOCAL SÉCURISÉ
+          <div className="p-5 bg-slate-900/60 backdrop-blur-xl border-t border-slate-800/50 flex flex-col sm:flex-row items-center justify-between gap-4 px-8 relative z-10">
+            <div className="flex items-center gap-6 text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></div>
+                SÉCURISÉ
+              </div>
+              <div className="w-1 h-1 rounded-full bg-slate-800"></div>
+              <div>SYNTHÈSES IA</div>
+              <div className="w-1 h-1 rounded-full bg-slate-800"></div>
+              <div>AUTO-NETTOYAGE</div>
             </div>
-            <div className="w-1 h-1 rounded-full bg-slate-700"></div>
-            <div>SYNTHÈSES IA AUTOMATIQUES</div>
-            <div className="w-1 h-1 rounded-full bg-slate-700"></div>
-            <div>AUTO-NETTOYAGE APRÈS 50 SESSIONS</div>
+            
+            <div className="text-[10px] text-slate-600 font-medium">
+              NeuroChat Architecture © 2026 · Conversation Vault v2.4.0
+            </div>
           </div>
         </motion.div>
       </motion.div>
