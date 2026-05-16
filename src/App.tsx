@@ -1,25 +1,33 @@
 import { Square, Sparkles, Camera, CameraOff, RefreshCcw, Monitor, Maximize2, Minimize2 } from "lucide-react";
-import { useState, FormEvent, useRef, useEffect } from "react";
+import { useState, FormEvent, useRef, useEffect, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
 import { AVATARS, type AvatarId } from "./lib/avatarConfig";
 import { useAudioSession } from "./hooks/useAudioSession";
 import { useConversationMemory } from "./hooks/useConversationMemory";
 import { useAIConversation } from "./hooks/useAIConversation";
-import { ConversationVault } from "./components/ConversationVault";
 import { VideoService } from "./lib/VideoService";
 import { ScreenCaptureService } from "./lib/ScreenCaptureService";
 import { Header } from "./components/layout/Header";
 import { useBrowserControl } from "./hooks/useBrowserControl";
 import { BrowserControlPanel } from "./components/BrowserControlPanel";
 import { BrowserWindow } from "./components/BrowserWindow";
-import { DebugPanel } from "./components/DebugPanel";
-import { AgentChat } from "./components/AgentChat";
-import { DatabaseInspector } from "./components/DatabaseInspector";
 import { parseAssistantResponse } from "./lib/commandParser";
 
 import { EmotionEngine } from "./lib/EmotionEngine";
 
+const ConversationVault = lazy(() =>
+  import("./components/ConversationVault").then((module) => ({ default: module.ConversationVault }))
+);
+const DatabaseInspector = lazy(() =>
+  import("./components/DatabaseInspector").then((module) => ({ default: module.DatabaseInspector }))
+);
+const DebugPanel = lazy(() =>
+  import("./components/DebugPanel").then((module) => ({ default: module.DebugPanel }))
+);
+const AgentChat = lazy(() =>
+  import("./components/AgentChat").then((module) => ({ default: module.AgentChat }))
+);
 
 export default function App() {
   // Les tests du CommandParser sont désormais lancés manuellement depuis le DebugPanel si besoin
@@ -470,16 +478,20 @@ export default function App() {
       </AnimatePresence>
 
       {/* Memory Vault (Advanced) */}
-      <ConversationVault
-        isOpen={showMemoryModal}
-        onClose={() => setShowMemoryModal(false)}
-        userName={userName}
-        memoryData={memoryData}
-        selectedSession={selectedSession}
-        onSelectSession={setSelectedSessionId}
-        onClearMemory={handleClearMemory}
-        accentColor={avatar.colors[0]}
-      />
+      {showMemoryModal && (
+        <Suspense fallback={null}>
+          <ConversationVault
+            isOpen={showMemoryModal}
+            onClose={() => setShowMemoryModal(false)}
+            userName={userName}
+            memoryData={memoryData}
+            selectedSession={selectedSession}
+            onSelectSession={setSelectedSessionId}
+            onClearMemory={handleClearMemory}
+            accentColor={avatar.colors[0]}
+          />
+        </Suspense>
+      )}
 
       {/* Background Atmosphere — colors adapt to avatar */}
       <div className="absolute inset-0 pointer-events-none">
@@ -497,11 +509,15 @@ export default function App() {
         onShowDatabase={() => setShowDatabase(true)}
       />
 
-      <DatabaseInspector 
-        isOpen={showDatabase} 
-        onClose={() => setShowDatabase(false)} 
-        userId={userName}
-      />
+      {showDatabase && (
+        <Suspense fallback={null}>
+          <DatabaseInspector
+            isOpen={showDatabase}
+            onClose={() => setShowDatabase(false)}
+            userId={userName}
+          />
+        </Suspense>
+      )}
 
       {/* Browser Control Panel */}
       <BrowserControlPanel
@@ -524,7 +540,9 @@ export default function App() {
       />
 
       {/* Debug Panel */}
-      <DebugPanel />
+      <Suspense fallback={null}>
+        <DebugPanel />
+      </Suspense>
 
 
       {/* Main Interaction Area */}
@@ -832,7 +850,11 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <AgentChat events={agentEvents} />
+      {agentEvents.length > 0 && (
+        <Suspense fallback={null}>
+          <AgentChat events={agentEvents} />
+        </Suspense>
+      )}
     </div>
   );
 }
