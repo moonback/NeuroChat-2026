@@ -30,7 +30,8 @@ export class VideoService {
   constructor(
     private onFrame: (base64: string) => void,
     private onMotion?: () => void,
-    private onStagnation?: () => void
+    private onStagnation?: () => void,
+    private onPeriodicFrame?: (base64: string) => void
   ) {
     this.canvas = document.createElement('canvas');
     this.canvas.width = 640;
@@ -107,13 +108,25 @@ export class VideoService {
     this.updateSemanticHistory(snapshot);
     
     // 3. Envoi de la frame si nécessaire (mouvement ou intervalle forcé)
+    let base64: string | null = null;
     if (hasMotion || !this.lastImageData || (now - this.lastFrameTime > this.MAX_INTERVAL_MS)) {
-      const base64 = this.canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
+      base64 = this.canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
       this.onFrame(base64);
+    }
+
+    // 4. Background AI posture/wellness check (every 60s)
+    if (this.onPeriodicFrame) {
+      if (!this.lastPeriodicTime || (now - this.lastPeriodicTime >= 60000)) {
+        if (!base64) base64 = this.canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
+        this.onPeriodicFrame(base64);
+        this.lastPeriodicTime = now;
+      }
     }
 
     this.lastImageData = currentImageData;
   }
+  
+  private lastPeriodicTime: number = 0;
 
   /**
    * Génère une signature visuelle basée sur la luminance moyenne ET la variance

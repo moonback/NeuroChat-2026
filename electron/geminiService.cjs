@@ -147,6 +147,94 @@ function registerGeminiHandlers(mainWindow) {
     }
   });
 
+  // Variables d'état pour la vision proactive
+  let lastVisionContext = "";
+  let stagnationCounter = 0;
+
+  async function callOpenRouterVision(base64, prompt) {
+    const apiKey = process.env.VITE_OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("VITE_OPENROUTER_API_KEY manquante");
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://neurochatia.vercel.app",
+        "X-Title": "NeuroChat",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-lite-preview-02-05:free",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64}`
+                }
+              }
+            ]
+          }
+        ],
+        response_format: { type: "json_object" }
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  }
+
+  ipcMain.handle('gemini:analyzeStagnation', async (event, payload) => {
+    try {
+      const { base64, source } = payload;
+      
+      let prompt = "";
+      if (source === "camera") {
+        prompt = `Voici une image de la webcam de l'utilisateur. Analyse son humeur, son énergie et sa posture. 
+Est-ce que l'utilisateur semble s'affaisser, être très fatigué, se frotter les yeux, ou avoir l'air bloqué / frustré ?
+Réponds strictement au format JSON : {"progress": boolean, "newContext": "description de sa posture/humeur"}. "progress": false signifie qu'il est en stagnation physique/fatigue.`;
+      } else {
+        prompt = `Voici une capture de l'écran de l'utilisateur.
+Le contexte précédent était : "${lastVisionContext || "Aucun contexte"}".
+L'utilisateur a-t-il fait des progrès significatifs ou complètement changé d'activité sémantique (pas juste scrollé ou tapé 2 mots) ?
+Réponds strictement au format JSON : {"progress": boolean, "newContext": "description courte de 1 phrase"}`;
+      }
+
+      const aiResponse = await callOpenRouterVision(base64, prompt);
+
+      if (aiResponse) {
+        const result = JSON.parse(aiResponse);
+        lastVisionContext = result.newContext;
+
+        if (!result.progress) {
+          stagnationCounter++;
+          console.log(`[Vision Proactive] 🧠 Stagnation sémantique confirmée (${stagnationCounter}/3) : ${result.newContext}`);
+          if (stagnationCounter >= 3) {
+            stagnationCounter = 0; // Reset
+            return { isStagnant: true, context: result.newContext };
+          }
+        } else {
+          stagnationCounter = 0;
+          console.log(`[Vision Proactive] ✅ Progrès détecté : ${result.newContext}`);
+        }
+      }
+      return { isStagnant: false };
+    } catch (err) {
+      console.error("[Vision Proactive] Erreur d'analyse:", err);
+      return { isStagnant: false };
+    }
+  });
+
+
+
   ipcMain.on('gemini:sendText', (event, text) => {
     if (activeSession) {
       console.log(`[Main] Envoi de texte à Gemini: ${text.slice(0, 50)}...`);

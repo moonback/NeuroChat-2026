@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
     sendVideo: (base64) => ipcRenderer.send('gemini:sendVideo', base64),
     sendText: (text) => ipcRenderer.send('gemini:sendText', text),
     sendFunctionResponse: (name, response) => ipcRenderer.send('gemini:sendFunctionResponse', { name, response }),
+    analyzeStagnation: (payload) => ipcRenderer.invoke('gemini:analyzeStagnation', payload),
     onEvent: (callback) => {
       ipcRenderer.on('gemini:event', (event, data) => callback(data));
     },

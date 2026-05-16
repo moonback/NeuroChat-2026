@@ -55,6 +55,7 @@ declare global {
         sendVideo: (base64: string) => void;
         sendText: (text: string) => void;
         sendFunctionResponse: (name: string, response: any) => void;
+        analyzeStagnation: (payload: { base64: string, source: "camera" | "screen" }) => Promise<{ isStagnant: boolean, context?: string }>;
         onEvent: (callback: (data: any) => void) => void;
         removeListener: () => void;
       };

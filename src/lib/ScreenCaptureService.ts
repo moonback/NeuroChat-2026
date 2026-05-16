@@ -27,7 +27,8 @@ export class ScreenCaptureService {
     private onFrame: (base64: string) => void,
     private onStreamEnded?: () => void,
     private onMotion?: () => void,
-    private onStagnation?: () => void
+    private onStagnation?: () => void,
+    private onPeriodicFrame?: (base64: string) => void
   ) {
     this.canvas = document.createElement("canvas");
     this.canvas.width = 960;
@@ -119,13 +120,25 @@ export class ScreenCaptureService {
     this.updateSemanticHistory(snapshot);
 
     // 3. Conditional Send
+    let base64: string | null = null;
     if (hasMotion || !this.lastImageData || (now - this.lastFrameTime > this.FORCE_SEND_MS)) {
-      const base64 = this.canvas.toDataURL("image/jpeg", 0.55).split(",")[1];
+      base64 = this.canvas.toDataURL("image/jpeg", 0.55).split(",")[1];
       this.onFrame(base64);
+    }
+
+    // 4. Background AI semantic analysis (every 30s)
+    if (this.onPeriodicFrame) {
+      if (!this.lastPeriodicTime || (now - this.lastPeriodicTime >= 30000)) {
+        if (!base64) base64 = this.canvas.toDataURL("image/jpeg", 0.55).split(",")[1];
+        this.onPeriodicFrame(base64);
+        this.lastPeriodicTime = now;
+      }
     }
 
     this.lastImageData = currentImageData;
   }
+  
+  private lastPeriodicTime: number = 0;
 
   private generateScreenSignature(imgData: ImageData): string {
     const data = imgData.data;

@@ -61,16 +61,13 @@ export default function App() {
     }
   };
 
-  const triggerStagnationNudge = (type: "camera" | "screen") => {
+  const triggerStagnationNudge = (source: string) => {
     emotionEngineRef.current.setStagnation(true);
     
     if (status === "listening" && !isSpeaking) {
-      console.log(`👁️ [App] Envoi signal [STAGNATION_NUDGE] (${type})...`);
-      if (type === "screen") {
-        sendTextMessage("[STAGNATION_NUDGE] L'écran est resté statique depuis plus de 3 minutes. Analyse le contenu (code, document, erreur) et demande gentiment à l'utilisateur s'il a besoin d'aide ou s'il est bloqué sur une tâche complexe.");
-      } else {
-        sendTextMessage("[STAGNATION_NUDGE] L'utilisateur semble inactif ou fixe devant la caméra depuis un moment. Interviens avec douceur pour vérifier s'il va bien ou s'il fait une pause contemplative.");
-      }
+      console.log(`👁️ [App] Envoi signal [STAGNATION_NUDGE] (${source})...`);
+      const msg = `[SYSTEM NUDGE] STAGNATION_NUDGE (Source: ${source}). L'utilisateur semble bloqué ou inactif visuellement. Interviens avec empathie pour débloquer la situation.`;
+      sendTextMessage(msg);
     }
   };
 
@@ -297,7 +294,15 @@ export default function App() {
           setVideoStream(videoServiceRef.current?.getStream() ?? null);
         },
         triggerVisualActivity,
-        () => triggerStagnationNudge("screen")
+        () => triggerStagnationNudge("screen"),
+        async (videoBase64) => {
+          if (window.neurochatElectron?.gemini?.analyzeStagnation) {
+            const result = await window.neurochatElectron.gemini.analyzeStagnation({ base64: videoBase64, source: "screen" });
+            if (result.isStagnant) {
+              triggerStagnationNudge(`screen_semantic_${result.context}`);
+            }
+          }
+        }
       );
       await svc.start();
       screenCaptureServiceRef.current = svc;
@@ -332,9 +337,21 @@ export default function App() {
     // Allow camera even when screen share is active (dual-stream)
     if (status === "listening" && cameraActive && !videoServiceRef.current && sendInputRef.current) {
       console.log("🎥 Activation de la caméra...");
-      videoServiceRef.current = new VideoService((videoBase64) => {
-        sendInputRef.current?.(videoBase64, 'video');
-      }, triggerVisualActivity, () => triggerStagnationNudge("camera"));
+      videoServiceRef.current = new VideoService(
+        (videoBase64) => {
+          sendInputRef.current?.(videoBase64, 'video');
+        }, 
+        triggerVisualActivity, 
+        () => triggerStagnationNudge("camera"),
+        async (videoBase64) => {
+          if (window.neurochatElectron?.gemini?.analyzeStagnation) {
+            const result = await window.neurochatElectron.gemini.analyzeStagnation({ base64: videoBase64, source: "camera" });
+            if (result.isStagnant) {
+              triggerStagnationNudge(`camera_semantic_${result.context}`);
+            }
+          }
+        }
+      );
 
       videoServiceRef.current.start(facingMode)
         .then(() => {
