@@ -1,4 +1,4 @@
-import type { ConfirmationHandler, PermissionAuthorizer, SkillContext, SkillPermission } from "./types";
+import type { ConfirmationHandler, PermissionAuthorizer, SkillPermission } from "./types";
 
 import { defaultSecurityLogger } from "../learning/securityLogger";
 import { loadSkillPolicyConfig } from "./policyStore";
@@ -31,14 +31,23 @@ function summarizePermissions(permissions: SkillPermission[]): string {
   return permissions.map((perm) => `${perm.resource}:${perm.level}`).join(", ");
 }
 
-function showSkillConfirmationDialog(skillName: string, reason: string, permissions: string): Promise<boolean> {
+function formatRiskLevel(riskLevel: string | undefined): string {
+  if (riskLevel === "high") return "Risque élevé";
+  if (riskLevel === "medium") return "Risque moyen";
+  if (riskLevel === "low") return "Risque faible";
+  return "Risque non spécifié";
+}
+
+function showSkillConfirmationDialog(skillName: string, reason: string, permissions: string, riskLevel?: string): Promise<boolean> {
   if (typeof document === "undefined" || !document.body) return Promise.resolve(false);
 
   return new Promise<boolean>((resolve) => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    const titleId = `skill-confirmation-title-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const overlay = document.createElement("div");
     overlay.setAttribute("role", "dialog");
     overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-labelledby", "skill-confirmation-title");
+    overlay.setAttribute("aria-labelledby", titleId);
     overlay.style.cssText = [
       "position:fixed",
       "inset:0",
@@ -65,9 +74,13 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
     ].join(";");
 
     const title = document.createElement("h2");
-    title.id = "skill-confirmation-title";
+    title.id = titleId;
     title.textContent = "Autoriser une action sensible ?";
     title.style.cssText = "margin:0 0 12px;font-size:20px;font-weight:800;color:#f8fafc";
+
+    const riskBadge = document.createElement("p");
+    riskBadge.textContent = formatRiskLevel(riskLevel);
+    riskBadge.style.cssText = "display:inline-flex;margin:0 0 14px;padding:4px 10px;border-radius:999px;background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.35);color:#fde68a;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em";
 
     const description = document.createElement("p");
     description.textContent = `NeuroChat demande l'autorisation d'exécuter le skill « ${skillName} ».`;
@@ -100,6 +113,7 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
       settled = true;
       document.removeEventListener("keydown", onKeyDown);
       overlay.remove();
+      previousFocus?.focus();
       resolve(accepted);
     };
 
@@ -112,7 +126,7 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
     document.addEventListener("keydown", onKeyDown);
 
     actions.append(cancel, confirm);
-    panel.append(title, description, permissionText, reasonText, actions);
+    panel.append(title, riskBadge, description, permissionText, reasonText, actions);
     overlay.append(panel);
     document.body.append(overlay);
     confirm.focus();
@@ -123,13 +137,16 @@ export const defaultConfirmationHandler: ConfirmationHandler = async (skill, con
   if (!skill.requiresConfirmation) return true;
   const reason = context.metadata?.reason ? String(context.metadata.reason) : "";
   const permissions = summarizePermissions(skill.permissions);
-  const accepted = await showSkillConfirmationDialog(skill.name, reason, permissions);
+  const accepted = await showSkillConfirmationDialog(skill.name, reason, permissions, skill.riskLevel);
+  const metadataKeys = Object.keys(context.metadata ?? {}).sort();
 
   void defaultSecurityLogger.logModificationAttempt("skill_confirmation", accepted ? "Skill confirmation accepted" : "Skill confirmation rejected", {
     skillName: skill.name,
     permissions,
     accepted,
-    reason,
+    riskLevel: skill.riskLevel ?? "unspecified",
+    reasonPresent: reason.length > 0,
+    metadataKeys,
   });
 
   return accepted;
