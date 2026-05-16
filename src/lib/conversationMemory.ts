@@ -31,6 +31,19 @@ export function setAutomaticLearningRunnerForTesting(runner: AutomaticLearningRu
 export function resetAutomaticLearningRunnerForTesting(): void { automaticLearningRunner = null; }
 export function shouldTriggerLearningCycle(turnCount: number, triggerAfterTurns: number): boolean { return triggerAfterTurns > 0 && turnCount > 0 && turnCount % triggerAfterTurns === 0; }
 
+/**
+ * Detect sensitivity of a message to adjust memory usage rules.
+ */
+function detectSensitivity(message: string): "low" | "medium" | "high" {
+  const highKeywords = ["mot de passe", "password", "bancaire", "cb", "code secret", "compte"];
+  const mediumKeywords = ["adresse", "téléphone", "privé", "secret", "personnel", "médical"];
+  
+  const msgLower = message.toLowerCase();
+  if (highKeywords.some(k => msgLower.includes(k))) return "high";
+  if (mediumKeywords.some(k => msgLower.includes(k))) return "medium";
+  return "low";
+}
+
 async function incrementLearningTurnCount(userName: string): Promise<number> {
   try {
     const stored = await getStorageBackend().getItem(LEARNING_TURN_COUNTS_KEY);
@@ -88,17 +101,34 @@ export async function addConversationTurn(userName: string, speaker: "user" | "a
   const turn: ConversationTurn = { timestamp: Date.now(), speaker, message };
   const sessionIndex = sessions.findIndex((s) => s.id === currentSession.id);
 
-  if (sessionIndex >= 0) {
-    sessions[sessionIndex].turns.push(turn);
-    sessions[sessionIndex].endTime = Date.now();
-    if (!sessions[sessionIndex].topic && (speaker === "user" || speaker === "child")) sessions[sessionIndex].topic = message.slice(0, 40) + (message.length > 40 ? "..." : "");
-    embedAndStore(message, { sessionId: sessions[sessionIndex].id, userName, speaker: speaker === "child" ? "user" : speaker === "companion" ? "assistant" : speaker, timestamp: turn.timestamp });
-  } else {
-    currentSession.turns.push(turn); currentSession.endTime = Date.now(); currentSession.topic = (speaker === "user" || speaker === "child") ? message.slice(0, 40) : "Discussion";
-    sessions.push(currentSession);
-    const profile = await getUserProfile(userName); profile.totalConversations += 1; await updateUserProfile(profile);
-    embedAndStore(message, { sessionId: currentSession.id, userName, speaker: speaker === "child" ? "user" : speaker === "companion" ? "assistant" : speaker, timestamp: turn.timestamp });
-  }
+    const sensitivity = detectSensitivity(message);
+    const confidence = (speaker === "user" || speaker === "child") ? 1.0 : 0.8; // User facts are "truth"
+    
+    if (sessionIndex >= 0) {
+      sessions[sessionIndex].turns.push(turn);
+      sessions[sessionIndex].endTime = Date.now();
+      if (!sessions[sessionIndex].topic && (speaker === "user" || speaker === "child")) sessions[sessionIndex].topic = message.slice(0, 40) + (message.length > 40 ? "..." : "");
+      embedAndStore(message, { 
+        sessionId: sessions[sessionIndex].id, 
+        userName, 
+        speaker: speaker === "child" ? "user" : speaker === "companion" ? "assistant" : speaker, 
+        timestamp: turn.timestamp,
+        sensitivity,
+        confidence
+      });
+    } else {
+      currentSession.turns.push(turn); currentSession.endTime = Date.now(); currentSession.topic = (speaker === "user" || speaker === "child") ? message.slice(0, 40) : "Discussion";
+      sessions.push(currentSession);
+      const profile = await getUserProfile(userName); profile.totalConversations += 1; await updateUserProfile(profile);
+      embedAndStore(message, { 
+        sessionId: currentSession.id, 
+        userName, 
+        speaker: speaker === "child" ? "user" : speaker === "companion" ? "assistant" : speaker, 
+        timestamp: turn.timestamp,
+        sensitivity,
+        confidence
+      });
+    }
 
   const updatedSession = sessions.find((s) => s.id === (sessionIndex >= 0 ? sessions[sessionIndex].id : currentSession.id));
   if (updatedSession && updatedSession.turns.length > LEGACY_MAX_TURNS_IN_MEMORY) updatedSession.turns = updatedSession.turns.slice(-LEGACY_MAX_TURNS_IN_MEMORY);

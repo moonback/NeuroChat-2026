@@ -101,10 +101,33 @@ export class AgentOrchestrator {
 
         // 3. EXECUTING
         state.status = "EXECUTING";
-        await executeToolCall(this.registry, state, step.toolCall, options.signal);
-        
+        const maxToolRetries = state.activeProfile?.maxRetries ?? 1;
+        let toolRetryCount = 0;
+        let toolSuccess = false;
+
+        while (toolRetryCount <= maxToolRetries) {
+          try {
+            await executeToolCall(this.registry, state, step.toolCall, options.signal);
+            const lastResult = state.toolResults[state.toolResults.length - 1];
+            
+            if (lastResult) {
+              options.onEvent?.({ type: "tool_result", iteration: state.iteration, result: lastResult });
+              
+              // If success or we've exhausted retries, we move to analysis
+              if (lastResult.success || !lastResult.message || toolRetryCount === maxToolRetries) {
+                toolSuccess = lastResult.success;
+                break;
+              }
+            }
+          } catch (err) {
+            if (toolRetryCount === maxToolRetries) throw err;
+          }
+          
+          toolRetryCount++;
+          state.transcript.push(`TOOL_RETRY ${state.iteration}.${toolRetryCount}: L'outil '${step.toolCall.name}' a échoué ou a renvoyé un résultat vide. Tentative de récupération...`);
+        }
+
         const lastResult = state.toolResults[state.toolResults.length - 1];
-        if (lastResult) options.onEvent?.({ type: "tool_result", iteration: state.iteration, result: lastResult });
 
         // 4. ANALYZING / CRITIC
         state.status = "ANALYZING";
@@ -116,9 +139,10 @@ export class AgentOrchestrator {
           break;
         }
 
-        if (criticism.action === "retry" || criticism.action === "adjust_plan") {
+        if (criticism.action === "retry" || criticism.action === "adjust_plan" || !toolSuccess) {
            consecutiveFailures += 1;
            state.status = "RECOVERING";
+           state.transcript.push(`SYSTEM: Échec consécutif ${consecutiveFailures}/${maxConsecutiveFailures}. Ajustement de la stratégie requis.`);
         } else {
            consecutiveFailures = 0;
            state.status = "REFLECTING";
@@ -132,9 +156,11 @@ export class AgentOrchestrator {
         state.status = "RECOVERING";
       }
 
-      if (consecutiveFailures > maxConsecutiveFailures) {
+      if (consecutiveFailures >= maxConsecutiveFailures) {
+        // Fallback: If we're not the supervisor, maybe the supervisor can help?
+        // For now, we just fail gracefully with a better message.
         state.status = "FAILED";
-        const answer = "Désolé, je rencontre trop de difficultés techniques pour finaliser cette tâche.";
+        const answer = `Désolé, j'ai rencontré ${consecutiveFailures} erreurs consécutives. Je n'arrive pas à finaliser la tâche : ${state.transcript[state.transcript.length - 1]}`;
         options.onEvent?.({ type: "completed", iteration: state.iteration, completed: false, answer });
         return { answer, toolResults: state.toolResults, iterations: state.iteration, completed: false };
       }
