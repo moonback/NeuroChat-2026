@@ -1,4 +1,5 @@
 import { SemanticSnapshot } from "./VideoService";
+import { analyzeScreenSemantics, formatScreenSemanticSummary } from "./screenSemanticLayer";
 
 /**
  * Capture d'écran pour le live Gemini : même canal que la caméra (frames JPEG).
@@ -110,11 +111,13 @@ export class ScreenCaptureService {
     }
 
     // 2. Semantic Analysis
-    const signature = this.generateScreenSignature(currentImageData);
+    const screenSummary = analyzeScreenSemantics(currentImageData);
+    const signature = `${this.generateScreenSignature(currentImageData)}:${formatScreenSemanticSummary(screenSummary)}`;
     const snapshot: SemanticSnapshot = {
       timestamp: now,
       signature,
-      hasMotion
+      hasMotion,
+      screenSummary
     };
 
     this.updateSemanticHistory(snapshot);

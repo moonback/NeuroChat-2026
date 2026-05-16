@@ -1,9 +1,12 @@
+import type { ScreenSemanticSummary } from "./screenSemanticLayer";
+
 export type SemanticSnapshot = {
   timestamp: number;
   signature: string; // Hash ou identifiant unique de l'état visuel/logique
   userActivity?: "typing" | "reading" | "idle" | "away";
   mood?: string;
   hasMotion: boolean;
+  screenSummary?: ScreenSemanticSummary;
 };
 
 export class VideoService {

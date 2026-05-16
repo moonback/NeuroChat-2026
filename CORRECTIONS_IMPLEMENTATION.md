@@ -40,9 +40,9 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 |---|---|---|---|---|
 | P2-001 | State machine agent durable | Agentique | Fait | Runs persistés avec `runId`, reprise, budgets temps/outils et annulation. |
 | P2-002 | Tool dry-run / rollback | Agentique / sécurité | Partiel | Mode dry-run agentique pour prévisualiser les outils sans les exécuter; rollback applicatif reste à faire. |
-| P2-003 | Intégration MCP sandboxée | Agentique | À faire | Allowlist + policy. |
+| P2-003 | Intégration MCP sandboxée | Agentique | Partiel | Skill MCP HTTP derrière allowlist serveur/outil, policy locale et confirmation sensible. |
 | P2-004 | Provider local Ollama | Souveraineté IA | Fait | Gateway Ollama optionnel via `VITE_OLLAMA_BASE_URL` / `VITE_OLLAMA_MODEL` dans la chaîne de fallback agentique. |
-| P2-005 | OCR / screen semantic layer | Multimodal | À faire | Perception structurée de l'écran. |
+| P2-005 | OCR / screen semantic layer | Multimodal | Partiel | Couche sémantique écran structurée (densité texte, contraste, régions, type probable) intégrée aux signatures de capture. |
 
 ## Journal d'implémentation
 
@@ -69,3 +69,6 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - P2-001 terminé : ajout d’un store de runs agentiques durable (`runStore`) avec `runId`, reprise, annulation, budgets de temps et de nombre d’outils.
 - P2-002 partiel : ajout du mode dry-run pour produire une prévisualisation de tool call sans exécuter le skill; les rollbacks applicatifs restent à formaliser par skill.
 - P2-004 terminé : ajout d’un gateway Ollama local optionnel et documentation des variables `VITE_OLLAMA_BASE_URL` / `VITE_OLLAMA_MODEL`.
+
+- P2-003 partiel : ajout du skill `call_mcp_tool` protégé par policy MCP locale (`mcpPolicyStore`), allowlist serveur/outil, permission `mcp:execute` et confirmation obligatoire.
+- P2-005 partiel : ajout de `screenSemanticLayer` pour enrichir les captures écran avec résumé structuré (contraste, luminosité, densité texte, régions dominantes, contenu probable).
