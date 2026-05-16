@@ -8,8 +8,11 @@ import {
   deleteConversationTurn,
   deleteConversationSession
 } from "../lib/conversationMemory";
+import { useRuntime } from "../runtime/RuntimeProvider";
+import { runtimeEvents } from "../runtime/events";
 
 export function useConversationMemory() {
+  const { isPrivate } = useRuntime();
   const [{ userName, showWelcomeModal }, setUserContext] = useState({ userName: "", showWelcomeModal: true });
 
   useEffect(() => {
@@ -92,10 +95,15 @@ void saveUserName(name);
 
   const addTurn = useCallback(
     (name: string, speaker: "user" | "assistant" | "child" | "companion", message: string) => {
+      if (isPrivate) {
+        console.log("[useConversationMemory] 🔒 Mode privé actif, tour non enregistré.");
+        return;
+      }
       void addConversationTurn(name, speaker, message);
+      runtimeEvents.emit('memory:write', { type: 'episodic', size: message.length });
       setMemoryRevision((revision) => revision + 1);
     },
-    []
+    [isPrivate]
   );
 
   return {

@@ -3,6 +3,9 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { ScreenCaptureService } from "../lib/ScreenCaptureService";
 import { VideoService } from "../lib/VideoService";
 import type { EmotionEngine } from "../lib/EmotionEngine";
+import { runtimeEvents } from "./events";
+import { MediaBackpressureQueue } from "../lib/MediaBackpressure";
+import type { ProactivityLevel } from "./RuntimeProvider";
 
 type ConversationStatus = "idle" | "connecting" | "listening";
 type SendInput = (base64: string, type: "audio" | "video") => void;
@@ -14,6 +17,7 @@ interface VisionControllerArgs {
   setErrorMsg: (message: string | null) => void;
   sendInputRef: RefObject<SendInput | null>;
   emotionEngineRef: RefObject<EmotionEngine>;
+  proactivityLevel: ProactivityLevel;
 }
 
 export function useVisionController({
@@ -23,6 +27,7 @@ export function useVisionController({
   setErrorMsg,
   sendInputRef,
   emotionEngineRef,
+  proactivityLevel,
 }: VisionControllerArgs) {
   const [cameraActive, setCameraActive] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
@@ -34,6 +39,7 @@ export function useVisionController({
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement>(null);
   const lastVisionNudgeTimeRef = useRef(0);
+  const backpressureRef = useRef(new MediaBackpressureQueue(2));
 
   const triggerVisualActivity = useCallback((intensity = 0.5) => {
     setVisualActivity(true);
@@ -44,7 +50,9 @@ export function useVisionController({
     const now = Date.now();
     const cooldownMs = 60_000;
 
-    if (status === "listening" && !isSpeaking && now - lastVisionNudgeTimeRef.current > cooldownMs) {
+    const canNudge = proactivityLevel === 'jarvis' || proactivityLevel === 'companion';
+
+    if (canNudge && status === "listening" && !isSpeaking && now - lastVisionNudgeTimeRef.current > cooldownMs) {
       console.log("👁️ [VisionController] Envoi signal [VISION_NUDGE]...");
       lastVisionNudgeTimeRef.current = now;
       sendTextMessage("[VISION_NUDGE] Un changement majeur a été détecté. Regarde l'image : si l'utilisateur te présente un objet, un document ou semble vouloir te montrer quelque chose, interviens avec curiosité. Sinon, reste discret et n'interviens que si c'est vraiment pertinent.");
@@ -54,7 +62,9 @@ export function useVisionController({
   const triggerStagnationNudge = useCallback((type: "camera" | "screen") => {
     emotionEngineRef.current.setStagnation(true);
 
-    if (status === "listening" && !isSpeaking) {
+    const canNudge = proactivityLevel !== 'quiet';
+
+    if (canNudge && status === "listening" && !isSpeaking) {
       console.log(`👁️ [VisionController] Envoi signal [STAGNATION_NUDGE] (${type})...`);
       if (type === "screen") {
         sendTextMessage("[STAGNATION_NUDGE] L'écran est resté statique depuis plus de 3 minutes. Analyse le contenu (code, document, erreur) et demande gentiment à l'utilisateur s'il a besoin d'aide ou s'il est bloqué sur une tâche complexe.");
@@ -75,6 +85,8 @@ export function useVisionController({
     }
     setScreenShareActive(false);
     setVideoStream(null);
+    runtimeEvents.emit('media:camera:active', { active: false });
+    runtimeEvents.emit('media:screen:active', { active: false });
   }, []);
 
   const handleToggleScreenShare = useCallback(async () => {
@@ -83,6 +95,7 @@ export function useVisionController({
       screenCaptureServiceRef.current = null;
       setScreenShareActive(false);
       setVideoStream(videoServiceRef.current?.getStream() ?? null);
+      runtimeEvents.emit('media:screen:active', { active: false });
       return;
     }
 
@@ -93,7 +106,11 @@ export function useVisionController({
 
     try {
       const svc = new ScreenCaptureService(
-        (videoBase64) => sendInputRef.current?.(videoBase64, "video"),
+        (videoBase64) => {
+          backpressureRef.current.enqueue(videoBase64, "video", async (f, t) => {
+            sendInputRef.current?.(f, t);
+          });
+        },
         () => {
           screenCaptureServiceRef.current = null;
           setScreenShareActive(false);
@@ -106,6 +123,7 @@ export function useVisionController({
       screenCaptureServiceRef.current = svc;
       setScreenShareActive(true);
       setVideoStream(svc.getStream());
+      runtimeEvents.emit('media:screen:active', { active: true });
     } catch (err: unknown) {
       const name = err && typeof err === "object" && "name" in err ? String((err as { name: string }).name) : "";
       if (name !== "NotAllowedError" && name !== "AbortError") {
@@ -134,12 +152,15 @@ export function useVisionController({
     if (status === "listening" && cameraActive && !videoServiceRef.current && sendInputRef.current) {
       console.log("🎥 Activation de la caméra...");
       videoServiceRef.current = new VideoService((videoBase64) => {
-        sendInputRef.current?.(videoBase64, "video");
+        backpressureRef.current.enqueue(videoBase64, "video", async (f, t) => {
+          sendInputRef.current?.(f, t);
+        });
       }, triggerVisualActivity, () => triggerStagnationNudge("camera"));
 
       videoServiceRef.current.start(facingMode)
         .then(() => {
           setVideoStream(videoServiceRef.current?.getStream() || null);
+          runtimeEvents.emit('media:camera:active', { active: true });
         })
         .catch((err) => {
           console.error("Erreur caméra:", err);
@@ -151,6 +172,7 @@ export function useVisionController({
       videoServiceRef.current.stop();
       videoServiceRef.current = null;
       setVideoStream(null);
+      runtimeEvents.emit('media:camera:active', { active: false });
     }
   }, [cameraActive, facingMode, sendInputRef, setErrorMsg, status, triggerStagnationNudge, triggerVisualActivity]);
 

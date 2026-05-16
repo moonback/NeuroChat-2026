@@ -17,8 +17,10 @@ import {
   Save,
   ShieldCheck,
   Clock,
+  Terminal,
 } from "lucide-react";
 import { ConversationSession, loadAllSessions } from "../lib/conversationMemory";
+import { AgentReplay } from "./AgentReplay";
 import type { ConversationStats } from "../lib/conversationMemory";
 import {
   loadWeeklySummaries,
@@ -45,7 +47,7 @@ interface ConversationVaultProps {
   accentColor: string;
 }
 
-type Tab = "sessions" | "weekly" | "learning" | "permissions";
+type Tab = "sessions" | "weekly" | "learning" | "permissions" | "traces";
 
 const PERMISSION_RESOURCES = ["filesystem", "browser", "memory", "desktop", "ai", "system"] as const;
 const PERMISSION_LEVELS: SkillPermission["level"][] = ["read", "write", "execute"];
@@ -310,6 +312,22 @@ export function ConversationVault({
             >
               <ShieldCheck className="w-4 h-4" />
               Permissions
+            </button>
+            <button
+              onClick={() => {
+                console.log("[ConversationVault] 🔄 Changement d'onglet vers: traces");
+                setActiveTab("traces");
+                onSelectSession(null);
+              }}
+              className={`flex items-center gap-2 px-6 py-3.5 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === "traces"
+                  ? "border-current text-white"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              }`}
+              style={activeTab === "traces" ? { color: accentColor, borderColor: accentColor } : {}}
+            >
+              <Terminal className="w-4 h-4" />
+              Traces Agent
             </button>
           </div>
 
@@ -793,6 +811,10 @@ export function ConversationVault({
                   />
                 </div>
               </div>
+            )}
+            {/* ════ TRACES TAB ════ */}
+            {activeTab === "traces" && (
+              <AgentReplay accentColor={accentColor} />
             )}
           </div>
 

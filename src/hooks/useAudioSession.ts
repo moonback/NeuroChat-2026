@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { AudioRecorder } from "../lib/AudioRecorder";
 import { AudioPlayer } from "../lib/AudioPlayer";
 import { IAudioRecorder, IAudioPlayer } from "../lib/AudioService";
+import { runtimeEvents } from "../runtime/events";
 
 const LEVEL_POLL_MS = 64;
 
@@ -61,7 +62,9 @@ export function useAudioSession() {
           levelPollRef.current = setInterval(() => {
             const v = audioLevelRef.current;
             setAudioLevel((prev) => (Math.abs(prev - v) < 0.007 ? prev : v));
+            runtimeEvents.emit('media:audio:level', { level: v });
           }, LEVEL_POLL_MS);
+          runtimeEvents.emit('media:mic:active', { active: true });
         } catch {
           clearLevelPoll();
         }
@@ -75,6 +78,8 @@ export function useAudioSession() {
     audioRecorder.current?.stop();
     audioLevelRef.current = 0;
     setAudioLevel(0);
+    runtimeEvents.emit('media:mic:active', { active: false });
+    runtimeEvents.emit('media:audio:level', { level: 0 });
   }, [clearLevelPoll]);
 
   return {

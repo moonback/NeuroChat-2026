@@ -1,5 +1,6 @@
 import { useCallback, type RefObject } from "react";
 
+import type { ProactivityLevel } from "./RuntimeProvider";
 import { parseAssistantResponse } from "../lib/commandParser";
 import type { AvatarId } from "../lib/avatarConfig";
 import type { EmotionEngine } from "../lib/EmotionEngine";
@@ -14,6 +15,7 @@ type StartSession = (options: {
   enableVideo: boolean;
   browserControlEnabled: boolean;
   userState: string;
+  proactivityLevel: ProactivityLevel;
   onAudioResponse: (base64?: string, aiText?: string) => Promise<void> | void;
   onTranscription: (text: string, finished?: boolean) => void;
   onTurnComplete: () => Promise<void> | void;
@@ -51,6 +53,7 @@ interface SessionControllerArgs {
   executeAction: ExecuteAction;
   runAgentTask: (task: string, sessionId: string, userId: string) => Promise<{ answer: string }>;
   stopVisionServices: () => void;
+  proactivityLevel: ProactivityLevel;
 }
 
 function summarizeFiles(data: Record<string, unknown> | undefined): { count: number; names: string } {
@@ -82,6 +85,7 @@ export function useSessionController({
   executeAction,
   runAgentTask,
   stopVisionServices,
+  proactivityLevel,
 }: SessionControllerArgs) {
   const handleStartSession = useCallback(async () => {
     const aiTextAccumulator: string[] = [];
@@ -93,6 +97,7 @@ export function useSessionController({
       enableVideo: cameraActive,
       browserControlEnabled,
       userState: emotionEngineRef.current.getSystemContext(),
+      proactivityLevel,
       onAudioResponse: async (base64, aiText) => {
         if (base64) playAudio(base64);
         if (aiText) {

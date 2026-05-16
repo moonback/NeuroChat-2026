@@ -9,6 +9,7 @@ export class AgentSupervisor {
   constructor(
     private readonly model: AgentModelGateway,
     private readonly fullRegistry: SkillRegistry,
+    private readonly options: { confirmAction?: (name: string, args: any) => Promise<boolean> } = {}
   ) {}
 
   /**
@@ -89,7 +90,7 @@ export class AgentSupervisor {
     console.log(`[Supervisor] Starting agent '${profile.name}' (${profile.id}) for task: ${input.slice(0, 50)}...`);
 
     // We instantiate a new orchestrator for this specific run
-    const orchestrator = new AgentOrchestrator(this.model, scopedRegistry);
+    const orchestrator = new AgentOrchestrator(this.model, scopedRegistry, { confirmAction: this.options.confirmAction });
     
     // We run it. We need to pass the profile in options if we want to modify state. 
     // Wait, the planner uses state.activeProfile. Let's patch orchestrator to accept activeProfile.

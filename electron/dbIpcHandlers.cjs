@@ -190,8 +190,25 @@ function registerDbIpcHandlers() {
     assertMainOrigin(event);
     const safeEntry = sanitizeVectorEntry(entry);
     const vectorBuffer = Buffer.from(Float64Array.from(safeEntry.vector).buffer);
-    getDb().prepare('INSERT OR REPLACE INTO vectors(id, text, vector, session_id, user_name, speaker, timestamp) VALUES(?, ?, ?, ?, ?, ?, ?)')
+    const db = getDb();
+    
+    db.prepare('INSERT OR REPLACE INTO vectors(id, text, vector, session_id, user_name, speaker, timestamp) VALUES(?, ?, ?, ?, ?, ?, ?)')
       .run(safeEntry.id, safeEntry.text, vectorBuffer, safeEntry.sessionId, safeEntry.userName, safeEntry.speaker, safeEntry.timestamp);
+    
+    // Auto-pruning for this user
+    const count = db.prepare('SELECT COUNT(*) as count FROM vectors WHERE user_name = ?').get(safeEntry.userName).count;
+    if (count > MAX_VECTOR_BATCH) {
+      db.prepare(`
+        DELETE FROM vectors 
+        WHERE user_name = ? 
+        AND id NOT IN (
+          SELECT id FROM vectors 
+          WHERE user_name = ? 
+          ORDER BY timestamp DESC 
+          LIMIT ?
+        )
+      `).run(safeEntry.userName, safeEntry.userName, MAX_VECTOR_BATCH);
+    }
     return true;
   });
   ipcMain.handle('db:vectors:save', (event, entries) => {
@@ -200,17 +217,9 @@ function registerDbIpcHandlers() {
     const db = getDb();
     const stmt = db.prepare('INSERT OR REPLACE INTO vectors(id, text, vector, session_id, user_name, speaker, timestamp) VALUES(?, ?, ?, ?, ?, ?, ?)');
     const tx = db.transaction((data) => {
-      const idsByUser = new Map();
       for (const e of data) {
         const vectorBuffer = Buffer.from(Float64Array.from(e.vector).buffer);
         stmt.run(e.id, e.text, vectorBuffer, e.sessionId, e.userName, e.speaker, e.timestamp);
-        if (!idsByUser.has(e.userName)) idsByUser.set(e.userName, []);
-        idsByUser.get(e.userName).push(e.id);
-      }
-      for (const [userName, ids] of idsByUser.entries()) {
-        if (ids.length === 0) continue;
-        const placeholders = ids.map(() => '?').join(',');
-        db.prepare(`DELETE FROM vectors WHERE user_name = ? AND id NOT IN (${placeholders})`).run(userName, ...ids);
       }
     });
     tx(safeEntries);

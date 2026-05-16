@@ -4,6 +4,8 @@ import { useOpenRouterSession } from "./useOpenRouterSession";
 import { AvatarId } from "../lib/avatarConfig";
 import { getAgentService } from "../lib/agent/service";
 import type { AgentRunOptions, AgentRunResult, AgentEvent } from "../lib/agent/types";
+import { runtimeEvents } from "../runtime/events";
+import { useRuntime } from "../runtime/RuntimeProvider";
 
 interface SessionOptions {
   avatarId: AvatarId;
@@ -25,6 +27,7 @@ function shouldAutoRunAgent(text: string): boolean {
 }
 
 export function useAIConversation() {
+  const { requestToolConfirmation } = useRuntime();
   const gemini = useGeminiSession();
   const openRouter = useOpenRouterSession();
   const [activeProvider, setActiveProvider] = useState<"gemini" | "openrouter">("gemini");
@@ -38,7 +41,7 @@ export function useAIConversation() {
     userId: string,
     options?: AgentRunOptions,
   ): Promise<AgentRunResult> => {
-    const service = getAgentService();
+    const service = getAgentService({ confirmAction: requestToolConfirmation });
     setAgentEvents([]); // reset on new task
     
     const mergedOptions: AgentRunOptions = {
@@ -60,6 +63,8 @@ export function useAIConversation() {
   const startSession = useCallback(async (options: SessionOptions) => {
     optionsRef.current = options;
     setActiveProvider("gemini");
+    runtimeEvents.emit('session:start', { provider: 'gemini', userName: options.userName || 'unknown' });
+    runtimeEvents.emit('session:status', { status: 'gemini' });
 
     const enhancedOptions: SessionOptions = {
       ...options,
@@ -72,6 +77,7 @@ export function useAIConversation() {
     if (!success) {
       console.warn("Gemini failed to start, switching to OpenRouter fallback...");
       setActiveProvider("openrouter");
+      runtimeEvents.emit('session:status', { status: 'openrouter' });
       await openRouter.startSession(enhancedOptions);
     }
   }, [gemini, openRouter, processUserText]);
@@ -82,6 +88,8 @@ export function useAIConversation() {
     } else {
       openRouter.stopSession(onStopRecording);
     }
+    runtimeEvents.emit('session:stop', { reason: 'user_request' });
+    runtimeEvents.emit('session:status', { status: 'idle' });
   }, [activeProvider, gemini, openRouter]);
 
   const current = activeProvider === "gemini" ? gemini : openRouter;

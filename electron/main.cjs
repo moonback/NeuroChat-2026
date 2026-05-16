@@ -19,8 +19,8 @@ const MAX_OPENROUTER_CONTENT_CHARS = 24000;
 const MAX_OPENROUTER_TOOLS = 64;
 
 function getOpenRouterApiKey() {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('OpenRouter API key missing in main process environment');
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY missing in main process environment');
   return apiKey;
 }
 
@@ -69,8 +69,8 @@ async function callOpenRouter(payload) {
 let activeGeminiSession = null;
 
 function getGeminiApiKey() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('Gemini API key missing in main process environment');
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY missing in main process environment');
   return apiKey;
 }
 
