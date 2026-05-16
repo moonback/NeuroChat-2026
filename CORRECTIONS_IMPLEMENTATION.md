@@ -18,7 +18,7 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 | P0-003 | Corriger le timing force-send camera/screen | Performance / vision | Fait | Timestamp d'envoi séparé du timestamp de traitement pour caméra et écran. |
 | P0-004 | Ajouter une première barrière IPC filesystem | Sécurité | Fait | Les opérations FS sont limitées aux dossiers de travail explicitement sélectionnés, avec validation type/longueur/null-byte, limites de taille et blocage mutations racine/système. |
 | P0-005 | Supprimer le stripping global CSP / X-Frame-Options | Sécurité | Fait | Le stripping global est désactivé par défaut et seulement accessible via flag env explicitement dangereux. |
-| P0-006 | Sortir les clés API du renderer | Sécurité | À faire | Proxy main process ou backend local. |
+| P0-006 | Sortir les clés API du renderer | Sécurité | Partiel | OpenRouter Desktop passe par IPC main process avec `OPENROUTER_API_KEY`; Gemini Live reste à sortir du renderer. |
 | P0-007 | Ajouter limites de taille sur lecture fichiers | Sécurité / stabilité | Fait | Lecture limitée à 2 MiB et écriture limitée à 1 MiB côté main process. |
 | P0-008 | Éviter les sauvegardes destructives du vector store SQLite | Mémoire / données | Fait | `saveVectors` upsert puis prune uniquement les IDs absents pour les utilisateurs touchés; clear user passe par `clearVectors(userName)`. |
 
@@ -56,3 +56,4 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - P0-005 terminé : retrait du stripping global CSP/X-Frame-Options par défaut, désormais uniquement derrière `NEUROCHAT_ALLOW_UNSAFE_FRAME_HEADER_STRIPPING=true`.
 - P0-008 terminé : sauvegarde vectorielle SQLite convertie en upsert + prune ciblé, et suppression utilisateur déléguée à `clearVectors(userName)`.
 - Correction complémentaire : résolution cross-platform des chemins relatifs dans le BrowserController pour éviter les chemins Windows-only (`\\`) sur Linux/macOS.
+- P0-006 partiel : appels OpenRouter Desktop déplacés derrière IPC Electron (`ai:openrouter:*`) avec clé lue côté main process; fallback web `VITE_OPENROUTER_API_KEY` conservé uniquement pour usage navigateur.

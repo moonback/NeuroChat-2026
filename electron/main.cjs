@@ -5,6 +5,63 @@ const fs = require('fs/promises');
 const { existsSync } = require('fs');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
+require('dotenv').config();
+
+
+const OPENROUTER_MODELS = ['deepseek/deepseek-v4-flash:free'];
+const OPENROUTER_REFERER = 'https://neurochatia.vercel.app';
+const OPENROUTER_TITLE = 'NeuroChat';
+const MAX_OPENROUTER_MESSAGES = 40;
+const MAX_OPENROUTER_CONTENT_CHARS = 24000;
+const MAX_OPENROUTER_TOOLS = 64;
+
+function getOpenRouterApiKey() {
+  const apiKey = process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OpenRouter API key missing in main process environment');
+  return apiKey;
+}
+
+function sanitizeOpenRouterMessages(messages) {
+  if (!Array.isArray(messages)) throw new Error('OpenRouter messages must be an array');
+  return messages.slice(-MAX_OPENROUTER_MESSAGES).map((message) => {
+    const role = ['user', 'assistant', 'system'].includes(message?.role) ? message.role : null;
+    if (!role || typeof message?.content !== 'string') throw new Error('Invalid OpenRouter message');
+    return { role, content: message.content.slice(-MAX_OPENROUTER_CONTENT_CHARS) };
+  });
+}
+
+function sanitizeOpenRouterTools(tools) {
+  if (!Array.isArray(tools)) throw new Error('OpenRouter tools must be an array');
+  return tools.slice(0, MAX_OPENROUTER_TOOLS).map((tool) => {
+    if (typeof tool?.name !== 'string' || typeof tool?.description !== 'string' || !tool?.parameters || typeof tool.parameters !== 'object') {
+      throw new Error('Invalid OpenRouter tool declaration');
+    }
+    return { name: tool.name, description: tool.description, parameters: tool.parameters };
+  });
+}
+
+async function callOpenRouter(payload) {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getOpenRouterApiKey()}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': OPENROUTER_REFERER,
+      'X-Title': OPENROUTER_TITLE,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const msg = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(`OpenRouter call failed: ${msg}`);
+  }
+
+  const data = await response.json();
+  if (!data.choices || data.choices.length === 0) throw new Error('OpenRouter returned empty choices');
+  return data;
+}
 
 const MAX_READ_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_WRITE_FILE_BYTES = 1 * 1024 * 1024;
@@ -184,6 +241,41 @@ function registerIpcHandlers() {
       console.error('[electron] getStats failed', error);
       throw error;
     }
+  });
+
+  ipcMain.handle('ai:openrouter:chat', async (_event, messages) => {
+    let lastError;
+    for (const model of OPENROUTER_MODELS) {
+      try {
+        const data = await callOpenRouter({
+          model,
+          messages: sanitizeOpenRouterMessages(messages),
+          temperature: 0.7,
+          max_tokens: 500,
+        });
+        return data.choices[0].message.content;
+      } catch (error) {
+        lastError = error;
+        console.warn(`[OpenRouter main] ${model} failed`, error);
+      }
+    }
+    throw lastError || new Error('All OpenRouter models failed');
+  });
+
+  ipcMain.handle('ai:openrouter:completeStepWithTools', async (_event, prompt, tools) => {
+    if (typeof prompt !== 'string' || !prompt.trim()) throw new Error('OpenRouter prompt must be a non-empty string');
+    const data = await callOpenRouter({
+      model: 'openai/gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt.slice(-MAX_OPENROUTER_CONTENT_CHARS) }],
+      tools: sanitizeOpenRouterTools(tools).map((tool) => ({ type: 'function', function: tool })),
+      tool_choice: 'auto',
+    });
+    const message = data.choices?.[0]?.message;
+    const call = message?.tool_calls?.[0];
+    if (call?.function?.name) {
+      return { name: call.function.name, arguments: call.function.arguments ?? '{}' };
+    }
+    return { finalAnswer: message?.content ?? '' };
   });
 }
 
