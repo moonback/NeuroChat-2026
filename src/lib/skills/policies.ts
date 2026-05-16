@@ -51,11 +51,16 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
 
   return new Promise<boolean>((resolve) => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-    const titleId = `skill-confirmation-title-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const idSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const titleId = `skill-confirmation-title-${idSuffix}`;
+    const descriptionId = `skill-confirmation-description-${idSuffix}`;
+    const permissionsId = `skill-confirmation-permissions-${idSuffix}`;
+    const reasonId = `skill-confirmation-reason-${idSuffix}`;
     const overlay = document.createElement("div");
     overlay.setAttribute("role", "dialog");
     overlay.setAttribute("aria-modal", "true");
     overlay.setAttribute("aria-labelledby", titleId);
+    overlay.setAttribute("aria-describedby", `${descriptionId} ${permissionsId} ${reasonId}`);
     overlay.style.cssText = [
       "position:fixed",
       "inset:0",
@@ -91,14 +96,17 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
     riskBadge.style.cssText = "display:inline-flex;margin:0 0 14px;padding:4px 10px;border-radius:999px;background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.35);color:#fde68a;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em";
 
     const description = document.createElement("p");
+    description.id = descriptionId;
     description.textContent = `NeuroChat demande l'autorisation d'exécuter le skill « ${skillName} ».`;
     description.style.cssText = "margin:0 0 16px;line-height:1.5;color:#cbd5e1";
 
     const permissionText = document.createElement("p");
+    permissionText.id = permissionsId;
     permissionText.textContent = `Permissions: ${permissions}`;
     permissionText.style.cssText = "margin:0 0 12px;font-size:13px;color:#fbbf24";
 
     const reasonText = document.createElement("p");
+    reasonText.id = reasonId;
     reasonText.textContent = formatConfirmationReason(reason);
     reasonText.style.cssText = "margin:0 0 20px;font-size:13px;color:#94a3b8;line-height:1.45";
 
@@ -133,11 +141,13 @@ function showSkillConfirmationDialog(skillName: string, reason: string, permissi
 
       if (event.key === "Tab") {
         event.preventDefault();
-        if (document.activeElement === cancel) {
-          confirm.focus();
-        } else {
-          cancel.focus();
-        }
+        const focusableActions = [cancel, confirm];
+        const currentIndex = focusableActions.findIndex((action) => action === document.activeElement);
+        const safeCurrentIndex = currentIndex === -1 ? 0 : currentIndex;
+        const nextIndex = event.shiftKey
+          ? (safeCurrentIndex + focusableActions.length - 1) % focusableActions.length
+          : (safeCurrentIndex + 1) % focusableActions.length;
+        focusableActions[nextIndex].focus();
       }
     };
 

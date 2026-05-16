@@ -38,12 +38,22 @@ describe("defaultConfirmationHandler", () => {
       metadata: { reason: "contains a sensitive path", ticketId: "T-1" },
     }, {});
 
-    expect(await screen.findByRole("dialog", { name: "Autoriser une action sensible ?" })).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Autoriser une action sensible ?" });
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAttribute("aria-describedby", expect.stringContaining("skill-confirmation-description-"));
+    expect(dialog).toHaveAttribute("aria-describedby", expect.stringContaining("skill-confirmation-permissions-"));
+    expect(dialog).toHaveAttribute("aria-describedby", expect.stringContaining("skill-confirmation-reason-"));
     expect(screen.getByText("Risque élevé")).toBeInTheDocument();
     expect(screen.getByText("Permissions: filesystem:write")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refuser" })).toHaveFocus();
 
     fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Autoriser" })).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Refuser" })).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
     expect(screen.getByRole("button", { name: "Autoriser" })).toHaveFocus();
 
     fireEvent.click(screen.getByRole("button", { name: "Autoriser" }));
