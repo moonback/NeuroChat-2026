@@ -8,16 +8,19 @@ const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
 
 const MAX_READ_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_WRITE_FILE_BYTES = 1 * 1024 * 1024;
-const BLOCKED_MUTATION_PATHS = new Set([
+const EXACT_BLOCKED_MUTATION_PATHS = new Set([
   path.parse(process.cwd()).root,
   process.env.HOME,
   process.env.USERPROFILE,
+].filter(Boolean).map((p) => path.resolve(p)));
+
+const RECURSIVE_BLOCKED_MUTATION_PATHS = [
   '/etc',
   '/bin',
   '/usr',
   '/System',
   'C:\\Windows',
-].filter(Boolean).map((p) => path.resolve(p)));
+].filter(Boolean).map((p) => path.resolve(p));
 
 function assertSafePath(inputPath, operation) {
   if (typeof inputPath !== 'string' || !inputPath.trim()) {
@@ -32,9 +35,14 @@ function assertSafePath(inputPath, operation) {
   return path.resolve(inputPath);
 }
 
+function isPathInside(candidate, root) {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 function assertMutationAllowed(inputPath, operation) {
   const resolved = assertSafePath(inputPath, operation);
-  if (BLOCKED_MUTATION_PATHS.has(resolved)) {
+  if (EXACT_BLOCKED_MUTATION_PATHS.has(resolved) || RECURSIVE_BLOCKED_MUTATION_PATHS.some((root) => isPathInside(resolved, root))) {
     throw new Error(`${operation}: mutation refusée sur un dossier système ou racine`);
   }
   return resolved;
@@ -266,19 +274,21 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Allow framing of external websites in the browser control panel
-  session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
-    const responseHeaders = { ...details.responseHeaders };
-    
-    Object.keys(responseHeaders).forEach(key => {
-      const lower = key.toLowerCase();
-      if (lower === 'x-frame-options' || lower === 'content-security-policy') {
-        delete responseHeaders[key];
-      }
-    });
+  if (process.env.NEUROCHAT_ALLOW_UNSAFE_FRAME_HEADER_STRIPPING === 'true') {
+    console.warn('[electron] UNSAFE: stripping frame/CSP headers is enabled by environment flag');
+    session.defaultSession.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
 
-    callback({ cancel: false, responseHeaders });
-  });
+      Object.keys(responseHeaders).forEach(key => {
+        const lower = key.toLowerCase();
+        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
+          delete responseHeaders[key];
+        }
+      });
+
+      callback({ cancel: false, responseHeaders });
+    });
+  }
 
   registerDisplayMediaHandler();
   ensureDb(app);

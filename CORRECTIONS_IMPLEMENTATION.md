@@ -17,10 +17,10 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 | P0-002 | Corriger le typecheck cassé dans les tests learning | Qualité | Fait | Le test utilise désormais le contrat complet `FeedbackSignal` avec `content`. |
 | P0-003 | Corriger le timing force-send camera/screen | Performance / vision | Fait | Timestamp d'envoi séparé du timestamp de traitement pour caméra et écran. |
 | P0-004 | Ajouter une première barrière IPC filesystem | Sécurité | Partiel | Validation type/longueur/null-byte, limite write et blocage mutations racine/système. Scope workspace complet restant. |
-| P0-005 | Supprimer le stripping global CSP / X-Frame-Options | Sécurité | À faire | Nécessite refonte du navigateur intégré. |
+| P0-005 | Supprimer le stripping global CSP / X-Frame-Options | Sécurité | Fait | Le stripping global est désactivé par défaut et seulement accessible via flag env explicitement dangereux. |
 | P0-006 | Sortir les clés API du renderer | Sécurité | À faire | Proxy main process ou backend local. |
 | P0-007 | Ajouter limites de taille sur lecture fichiers | Sécurité / stabilité | Fait | Lecture limitée à 2 MiB et écriture limitée à 1 MiB côté main process. |
-| P0-008 | Éviter les sauvegardes destructives du vector store SQLite | Mémoire / données | À faire | Remplacer `DELETE FROM vectors` global par upsert/prune contrôlé. |
+| P0-008 | Éviter les sauvegardes destructives du vector store SQLite | Mémoire / données | Fait | `saveVectors` upsert puis prune uniquement les IDs absents pour les utilisateurs touchés; clear user passe par `clearVectors(userName)`. |
 
 ## Corrections P1
 
@@ -53,3 +53,5 @@ Ce fichier suit les corrections issues de l'audit CTO. Les priorités sont class
 - P0-002 terminé : correction du contrat `FeedbackSignal` dans le test learning.
 - P0-003 terminé : correction du force-send caméra/écran via `lastFrameSentTime`.
 - P0-004 partiel / P0-007 terminé : premières validations IPC FS et limites de taille côté main process.
+- P0-005 terminé : retrait du stripping global CSP/X-Frame-Options par défaut, désormais uniquement derrière `NEUROCHAT_ALLOW_UNSAFE_FRAME_HEADER_STRIPPING=true`.
+- P0-008 terminé : sauvegarde vectorielle SQLite convertie en upsert + prune ciblé, et suppression utilisateur déléguée à `clearVectors(userName)`.
