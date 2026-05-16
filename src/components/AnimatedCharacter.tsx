@@ -63,7 +63,7 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
       : 0.3;
 
   return (
-    <div className="relative w-64 h-64 flex items-center justify-center">
+    <div className="relative w-[400px] h-[400px] flex items-center justify-center">
       {/* Visual Activity Glow (Motion Detection) */}
       <AnimatePresence>
         {visualActivity && (
@@ -71,7 +71,7 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1.5, opacity: 0.4 }}
             exit={{ scale: 1.8, opacity: 0 }}
-            className="absolute w-60 h-60 rounded-full blur-[40px] border-2 border-blue-400/30 pointer-events-none z-0"
+            className="absolute w-[350px] h-[350px] rounded-full blur-[60px] border-2 border-blue-400/30 pointer-events-none z-0"
             style={{ backgroundColor: "rgba(59, 130, 246, 0.4)" }}
           />
         )}
@@ -84,14 +84,14 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
           opacity: glowOpacity,
         }}
         transition={{ duration: 0.15, ease: "easeOut" }}
-        className="absolute w-56 h-56 rounded-full blur-3xl pointer-events-none"
+        className="absolute w-[300px] h-[300px] rounded-full blur-[70px] pointer-events-none"
         style={{ backgroundColor: avatar.colors[0] }}
       />
 
       <motion.div
         animate={{ y: bodyY }}
         transition={bodyTransition}
-        className="relative w-56 h-56 z-10 pointer-events-none"
+        className="relative w-[340px] h-[340px] z-10 pointer-events-none"
       >
         {renderAvatar()}
       </motion.div>

@@ -23,12 +23,21 @@ const DataViewer = ({ data }: { data: any }) => {
 
   if (Array.isArray(data)) {
     if (data.length === 0) return <div className="text-slate-500 italic">Tableau vide.</div>;
+<<<<<<< HEAD
     
     // Extract columns
     const columns = Array.from(new Set(data.flatMap(item => Object.keys(item))));
     
     // Filter data
     const filteredData = data.filter(item => 
+=======
+
+    // Extract columns
+    const columns = Array.from(new Set(data.flatMap(item => Object.keys(item))));
+
+    // Filter data
+    const filteredData = data.filter(item =>
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
       JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -37,9 +46,15 @@ const DataViewer = ({ data }: { data: any }) => {
         {/* Search Bar */}
         <div className="relative group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+<<<<<<< HEAD
           <input 
             type="text" 
             placeholder="Rechercher dans les données..." 
+=======
+          <input
+            type="text"
+            placeholder="Rechercher dans les données..."
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600"
@@ -65,7 +80,11 @@ const DataViewer = ({ data }: { data: any }) => {
                 const isExpanded = expandedRows[rowId];
                 return (
                   <React.Fragment key={rowId}>
+<<<<<<< HEAD
                     <tr 
+=======
+                    <tr
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
                       onClick={() => toggleRow(rowId)}
                       className="hover:bg-white/[0.02] cursor-pointer transition-colors group"
                     >
@@ -76,7 +95,11 @@ const DataViewer = ({ data }: { data: any }) => {
                         const val = row[col];
                         let displayVal = String(val);
                         let isComplex = false;
+<<<<<<< HEAD
                         
+=======
+
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
                         if (val === null) displayVal = 'null';
                         else if (val === undefined) displayVal = 'undefined';
                         else if (Array.isArray(val)) {
@@ -108,7 +131,11 @@ const DataViewer = ({ data }: { data: any }) => {
                       <tr>
                         <td colSpan={columns.length + 1} className="p-0 border-t-0">
                           <div className="bg-slate-900/50 p-4 border-l-2 border-blue-500 relative">
+<<<<<<< HEAD
                             <button 
+=======
+                            <button
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleCopy(JSON.stringify(row, null, 2), rowId);
@@ -140,7 +167,11 @@ const DataViewer = ({ data }: { data: any }) => {
   // Object view
   return (
     <div className="relative">
+<<<<<<< HEAD
       <button 
+=======
+      <button
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
         onClick={() => handleCopy(JSON.stringify(data, null, 2), 'root')}
         className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors z-10"
       >
@@ -211,10 +242,10 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ isOpen, on
       await db.clearSummaries();
       await db.clearTraces();
       if (userId) await db.clearLearning(userId);
-      
+
       setData([]);
       setShowConfirmClear(false);
-      
+
       // Refresh the entire app to ensure a clean state
       window.location.reload();
     } catch (err) {
@@ -241,12 +272,12 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ isOpen, on
         onClick={onClose}
         className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
       />
-      
+
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-6xl h-[80vh] bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-12xl h-[80vh] bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/5">
@@ -307,35 +338,35 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ isOpen, on
 
         {/* Tabs */}
         <div className="flex items-center gap-1 px-4 py-2 bg-slate-950/50 overflow-x-auto no-scrollbar">
-          <TabButton 
-            active={activeTab === 'sessions'} 
+          <TabButton
+            active={activeTab === 'sessions'}
             onClick={() => setActiveTab('sessions')}
             icon={<FileText className="w-4 h-4" />}
-            label="Sessions" 
+            label="Sessions"
           />
-          <TabButton 
-            active={activeTab === 'vectors'} 
-            onClick={() => setActiveTab('vectors')} 
+          <TabButton
+            active={activeTab === 'vectors'}
+            onClick={() => setActiveTab('vectors')}
             icon={<Share2 className="w-4 h-4" />}
-            label="Vecteurs (RAG)" 
+            label="Vecteurs (RAG)"
           />
-          <TabButton 
-            active={activeTab === 'learning'} 
-            onClick={() => setActiveTab('learning')} 
+          <TabButton
+            active={activeTab === 'learning'}
+            onClick={() => setActiveTab('learning')}
             icon={<Brain className="w-4 h-4" />}
-            label="Apprentissage" 
+            label="Apprentissage"
           />
-          <TabButton 
-            active={activeTab === 'traces'} 
-            onClick={() => setActiveTab('traces')} 
+          <TabButton
+            active={activeTab === 'traces'}
+            onClick={() => setActiveTab('traces')}
             icon={<Activity className="w-4 h-4" />}
-            label="Traces Agent" 
+            label="Traces Agent"
           />
-          <TabButton 
-            active={activeTab === 'summaries'} 
-            onClick={() => setActiveTab('summaries')} 
+          <TabButton
+            active={activeTab === 'summaries'}
+            onClick={() => setActiveTab('summaries')}
             icon={<FileText className="w-4 h-4" />}
-            label="Résumés" 
+            label="Résumés"
           />
         </div>
 
@@ -371,11 +402,10 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ isOpen, on
 const TabButton: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-      active 
-        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${active
+        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
         : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-    }`}
+      }`}
   >
     {icon}
     {label}
