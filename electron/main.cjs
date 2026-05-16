@@ -6,6 +6,50 @@ const { existsSync } = require('fs');
 const { ensureDb, closeDb } = require('./database.cjs');
 const { registerDbIpcHandlers } = require('./dbIpcHandlers.cjs');
 
+const MAX_READ_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_WRITE_FILE_BYTES = 1 * 1024 * 1024;
+const BLOCKED_MUTATION_PATHS = new Set([
+  path.parse(process.cwd()).root,
+  process.env.HOME,
+  process.env.USERPROFILE,
+  '/etc',
+  '/bin',
+  '/usr',
+  '/System',
+  'C:\\Windows',
+].filter(Boolean).map((p) => path.resolve(p)));
+
+function assertSafePath(inputPath, operation) {
+  if (typeof inputPath !== 'string' || !inputPath.trim()) {
+    throw new Error(`${operation}: chemin invalide`);
+  }
+  if (inputPath.includes('\0')) {
+    throw new Error(`${operation}: chemin contenant un caractère interdit`);
+  }
+  if (inputPath.length > 4096) {
+    throw new Error(`${operation}: chemin trop long`);
+  }
+  return path.resolve(inputPath);
+}
+
+function assertMutationAllowed(inputPath, operation) {
+  const resolved = assertSafePath(inputPath, operation);
+  if (BLOCKED_MUTATION_PATHS.has(resolved)) {
+    throw new Error(`${operation}: mutation refusée sur un dossier système ou racine`);
+  }
+  return resolved;
+}
+
+function assertContentSize(content) {
+  if (typeof content !== 'string') {
+    throw new Error('writeFile: contenu invalide');
+  }
+  if (Buffer.byteLength(content, 'utf-8') > MAX_WRITE_FILE_BYTES) {
+    throw new Error(`writeFile: contenu trop volumineux (max ${MAX_WRITE_FILE_BYTES} octets)`);
+  }
+}
+
+
 /**
  * Register FS and Dialog handlers
  */
@@ -20,8 +64,9 @@ function registerIpcHandlers() {
   // FS: List directory
   ipcMain.handle('fs:listDir', async (event, dirPath) => {
     try {
-      console.log(`[fs] Listing directory: ${dirPath}`);
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      const safeDirPath = assertSafePath(dirPath, 'listDir');
+      console.log(`[fs] Listing directory: ${safeDirPath}`);
+      const entries = await fs.readdir(safeDirPath, { withFileTypes: true });
       const result = entries.map(entry => ({
         name: entry.name,
         isDirectory: entry.isDirectory(),
@@ -38,8 +83,12 @@ function registerIpcHandlers() {
   // FS: Read file
   ipcMain.handle('fs:readFile', async (event, filePath) => {
     try {
-      console.log(`[fs] Reading file: ${filePath}`);
-      const content = await fs.readFile(filePath, 'utf-8');
+      const safeFilePath = assertSafePath(filePath, 'readFile');
+      const stats = await fs.stat(safeFilePath);
+      if (!stats.isFile()) throw new Error('readFile: le chemin ne pointe pas vers un fichier');
+      if (stats.size > MAX_READ_FILE_BYTES) throw new Error(`readFile: fichier trop volumineux (max ${MAX_READ_FILE_BYTES} octets)`);
+      console.log(`[fs] Reading file: ${safeFilePath}`);
+      const content = await fs.readFile(safeFilePath, 'utf-8');
       console.log(`[fs] Read ${content.length} characters`);
       return content;
     } catch (error) {
@@ -51,7 +100,9 @@ function registerIpcHandlers() {
   // FS: Write file
   ipcMain.handle('fs:writeFile', async (event, filePath, content) => {
     try {
-      await fs.writeFile(filePath, content, 'utf-8');
+      const safeFilePath = assertMutationAllowed(filePath, 'writeFile');
+      assertContentSize(content);
+      await fs.writeFile(safeFilePath, content, 'utf-8');
       return true;
     } catch (error) {
       console.error('[electron] writeFile failed', error);
@@ -62,7 +113,8 @@ function registerIpcHandlers() {
   // FS: Delete item
   ipcMain.handle('fs:deleteItem', async (event, itemPath) => {
     try {
-      await fs.rm(itemPath, { recursive: true, force: true });
+      const safeItemPath = assertMutationAllowed(itemPath, 'deleteItem');
+      await fs.rm(safeItemPath, { recursive: true, force: true });
       return true;
     } catch (error) {
       console.error('[electron] deleteItem failed', error);
@@ -73,7 +125,8 @@ function registerIpcHandlers() {
   // FS: Mkdir
   ipcMain.handle('fs:mkdir', async (event, dirPath) => {
     try {
-      await fs.mkdir(dirPath, { recursive: true });
+      const safeDirPath = assertMutationAllowed(dirPath, 'mkdir');
+      await fs.mkdir(safeDirPath, { recursive: true });
       return true;
     } catch (error) {
       console.error('[electron] mkdir failed', error);
@@ -83,13 +136,15 @@ function registerIpcHandlers() {
 
   // FS: Exists
   ipcMain.handle('fs:exists', async (event, itemPath) => {
-    return existsSync(itemPath);
+    const safeItemPath = assertSafePath(itemPath, 'exists');
+    return existsSync(safeItemPath);
   });
 
   // FS: Stats
   ipcMain.handle('fs:getStats', async (event, itemPath) => {
     try {
-      const stats = await fs.stat(itemPath);
+      const safeItemPath = assertSafePath(itemPath, 'getStats');
+      const stats = await fs.stat(safeItemPath);
       return {
         size: stats.size,
         mtime: stats.mtime,
