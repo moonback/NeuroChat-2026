@@ -11,10 +11,50 @@ interface Props {
   audioLevel?: number;
   /** True when motion or screen changes are detected */
   visualActivity?: boolean;
+  emotionMetrics?: {
+    energy: string;
+    mood: string;
+    confidence: number;
+    trend: string;
+    isStagnated: boolean;
+  };
 }
 
-export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audioLevel = 0, visualActivity = false }: Props) {
+export function AnimatedCharacter({ 
+  status, 
+  isSpeaking, 
+  avatarId = "robot", 
+  audioLevel = 0, 
+  visualActivity = false,
+  emotionMetrics = { energy: "neutre", mood: "neutre", confidence: 1, trend: "stable", isStagnated: false }
+}: Props) {
   const avatar = AVATARS[avatarId];
+
+  // Map mood to colors
+  const getMoodColor = () => {
+    switch (emotionMetrics.mood) {
+      case "stressé": return "#ef4444"; // Red
+      case "focus": return "#8b5cf6"; // Purple
+      case "joyeux": return "#fbbf24"; // Amber
+      case "calme": return "#10b981"; // Emerald
+      case "triste": return "#3b82f6"; // Blue
+      default: return avatar.colors[0];
+    }
+  };
+
+  const moodColor = getMoodColor();
+
+  // Map energy to animation speed
+  const getPulseDuration = () => {
+    switch (emotionMetrics.energy) {
+      case "agitation": return 0.5;
+      case "élevée": return 1;
+      case "calme": return 4;
+      default: return 2;
+    }
+  };
+
+  const pulseDuration = getPulseDuration();
 
   // Robust audio level handling
   const safeAudioLevel = Number.isFinite(audioLevel) ? Math.max(0, Math.min(1, audioLevel)) : 0;
@@ -77,15 +117,34 @@ export function AnimatedCharacter({ status, isSpeaking, avatarId = "robot", audi
         )}
       </AnimatePresence>
 
-      {/* Background Glow — color-matched to the avatar, reactive to sound */}
+      {/* Background Glow — color-matched to the avatar/mood, reactive to sound and energy */}
       <motion.div
         animate={{
           scale: glowScale,
           opacity: glowOpacity,
+          backgroundColor: moodColor,
         }}
-        transition={{ duration: 0.15, ease: "easeOut" }}
+        transition={{ 
+          backgroundColor: { duration: 1.5 },
+          scale: { duration: 0.15 },
+          opacity: { duration: 0.15 }
+        }}
         className="absolute w-56 h-56 rounded-full blur-3xl pointer-events-none"
-        style={{ backgroundColor: avatar.colors[0] }}
+      />
+
+      {/* Heartbeat pulse based on energy */}
+      <motion.div
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.1, 0.2, 0.1],
+        }}
+        transition={{
+          duration: pulseDuration,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+        className="absolute w-64 h-64 rounded-full border border-white/10 pointer-events-none"
+        style={{ borderColor: moodColor }}
       />
 
       <motion.div

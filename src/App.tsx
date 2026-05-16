@@ -38,24 +38,27 @@ export default function App() {
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement>(null);
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
-  
+
   const [visualActivity, setVisualActivity] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
   const [pipExpanded, setPipExpanded] = useState(false);
+  const [emotionMetrics, setEmotionMetrics] = useState({ energy: "neutre", mood: "neutre", confidence: 1, trend: "stable", isStagnated: false });
   const emotionEngineRef = useRef(new EmotionEngine());
-  
+
+
   const lastVisionNudgeTimeRef = useRef<number>(0);
-  
+  let speechFrames = 0;
+
   const triggerVisualActivity = (intensity = 0.5) => {
     setVisualActivity(true);
     emotionEngineRef.current.addMotionSignal(intensity);
     emotionEngineRef.current.setStagnation(false); // Reset stagnation on activity
     setTimeout(() => setVisualActivity(false), 800);
-    
+
     // Proactive AI reaction logic
     const now = Date.now();
     const COOLDOWN_MS = 60000; // 60 seconds minimum between vision checks
-    
+
     if (status === "listening" && !isSpeaking && (now - lastVisionNudgeTimeRef.current > COOLDOWN_MS)) {
       console.log("👁️ [App] Envoi signal [VISION_NUDGE]...");
       lastVisionNudgeTimeRef.current = now;
@@ -65,7 +68,7 @@ export default function App() {
 
   const triggerStagnationNudge = (source: string) => {
     emotionEngineRef.current.setStagnation(true);
-    
+
     if (status === "listening" && !isSpeaking) {
       console.log(`👁️ [App] Envoi signal [STAGNATION_NUDGE] (${source})...`);
       const msg = `[SYSTEM NUDGE] STAGNATION_NUDGE (Source: ${source}). L'utilisateur semble bloqué ou inactif visuellement. Interviens avec empathie pour débloquer la situation.`;
@@ -103,6 +106,16 @@ export default function App() {
       emotionEngineRef.current.addAudioSignal(audioLevel);
     }
   }, [status, audioLevel]);
+
+  // Update emotion metrics periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const metrics = emotionEngineRef.current.getMetrics();
+      setEmotionMetrics(metrics as any);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
 
   // Phase 3: Background RAG Indexing
   useEffect(() => {
@@ -181,12 +194,12 @@ export default function App() {
             const result = await runAgentTask(args.task, `live-${Date.now()}`, userName);
             // On renvoie le résultat en "functionResponse"
             if (window.neurochatElectron?.gemini) {
-               window.neurochatElectron.gemini.sendFunctionResponse(name, { answer: result.answer, status: "success" });
+              window.neurochatElectron.gemini.sendFunctionResponse(name, { answer: result.answer, status: "success" });
             }
           } catch (err: any) {
             console.error("Erreur agent (Inner Monologue):", err);
             if (window.neurochatElectron?.gemini) {
-               window.neurochatElectron.gemini.sendFunctionResponse(name, { error: err.message || String(err), status: "failed" });
+              window.neurochatElectron.gemini.sendFunctionResponse(name, { error: err.message || String(err), status: "failed" });
             }
           }
         } else if (name === "browser_control" && args?.action) {
@@ -194,12 +207,12 @@ export default function App() {
           try {
             const result = await executeAction({ type: args.action, params: args });
             if (window.neurochatElectron?.gemini) {
-               window.neurochatElectron.gemini.sendFunctionResponse(name, { result, status: "success" });
+              window.neurochatElectron.gemini.sendFunctionResponse(name, { result, status: "success" });
             }
           } catch (err: any) {
             console.error("Erreur navigateur (Inner Monologue):", err);
             if (window.neurochatElectron?.gemini) {
-               window.neurochatElectron.gemini.sendFunctionResponse(name, { error: err.message || String(err), status: "failed" });
+              window.neurochatElectron.gemini.sendFunctionResponse(name, { error: err.message || String(err), status: "failed" });
             }
           }
         }
@@ -210,7 +223,7 @@ export default function App() {
         if (aiText) {
           console.log("🤖 [App] Réponse IA reçue:", aiText);
           aiTextAccumulator.push(aiText);
-          
+
           // NE PAS parser ici - attendre le texte complet dans onTurnComplete
         }
       },
@@ -240,7 +253,7 @@ export default function App() {
           }
           userTranscriptParts.length = 0;
         }
-        
+
         // Sauvegarde le tour IA complet
         if (userName && aiTextAccumulator.length > 0) {
           const fullText = aiTextAccumulator.join("").trim();
@@ -248,19 +261,28 @@ export default function App() {
             console.log(`💾 Sauvegarde tour IA: "${fullText.slice(0, 60)}"`);
             addTurn(userName, "assistant", fullText);
           }
-          
+
           // Ancien parseur obsolète (remplacé par function calls)
           aiTextAccumulator.length = 0;
         }
       },
+
       onInterrupted: () => {
-        // Dynamic threshold: higher when AI is speaking to avoid echo triggering barge-in
         const threshold = isSpeaking ? 0.15 : 0.08;
+
         if (audioLevel > threshold) {
-          console.log(`🗣️ Interruption détectée (${audioLevel.toFixed(2)} > ${threshold})`);
-          stopAudio();
+          speechFrames++;
         } else {
-          console.log(`🔇 Bruit ignoré (${audioLevel.toFixed(2)} <= ${threshold})`);
+          speechFrames = 0;
+        }
+
+        // ~150 ms de parole continue
+        if (speechFrames >= 5) {
+          console.log("🗣️ Interruption valide détectée");
+
+          stopAudio();
+
+          speechFrames = 0;
         }
       },
       onRecordingStart: (sendInput) => {
@@ -350,7 +372,7 @@ export default function App() {
   const toggleCameraFacingMode = async () => {
     const nextMode = facingMode === "user" ? "environment" : "user";
     setFacingMode(nextMode);
-    
+
     if (videoServiceRef.current && cameraActive) {
       videoServiceRef.current.stop();
       try {
@@ -370,8 +392,8 @@ export default function App() {
       videoServiceRef.current = new VideoService(
         (videoBase64) => {
           sendInputRef.current?.(videoBase64, 'video');
-        }, 
-        triggerVisualActivity, 
+        },
+        triggerVisualActivity,
         () => triggerStagnationNudge("camera"),
         async (videoBase64) => {
           if (window.neurochatElectron?.gemini?.analyzeStagnation) {
@@ -436,7 +458,7 @@ export default function App() {
             >
               {/* Decorative gradient inside modal */}
               <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-500/10 blur-[60px] pointer-events-none" />
-              
+
               <div className="text-center mb-8">
                 <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${avatar.accentClass} flex items-center justify-center shadow-lg`}>
                   <Sparkles className="w-8 h-8 text-white" />
@@ -512,7 +534,7 @@ export default function App() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[radial-gradient(circle,rgba(66,133,244,0.05)_0%,transparent_70%)]"></div>
       </div>
 
-      <Header 
+      <Header
         avatar={avatar}
         status={status}
         userName={userName}
@@ -524,9 +546,9 @@ export default function App() {
         onPickWorkdir={handlePickWorkdir}
       />
 
-      <DatabaseInspector 
-        isOpen={showDatabase} 
-        onClose={() => setShowDatabase(false)} 
+      <DatabaseInspector
+        isOpen={showDatabase}
+        onClose={() => setShowDatabase(false)}
         userId={userName}
       />
 
@@ -613,22 +635,31 @@ export default function App() {
                 title="Clique pour parler !"
                 aria-label="Démarrer la conversation vocale"
               >
-                <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} visualActivity={visualActivity} />
+                <AnimatedCharacter
+                  status={status}
+                  isSpeaking={isSpeaking}
+                  avatarId={avatarId}
+                  audioLevel={audioLevel}
+                  visualActivity={visualActivity}
+                  emotionMetrics={emotionMetrics}
+                />
+
               </motion.button>
             ) : (
               <div className="relative">
                 {/* Emotion & Context Badges */}
                 <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-2 whitespace-nowrap z-30">
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold bg-white/10 backdrop-blur-md border border-white/20 text-white/70"
                   >
-                    ⚡ {emotionEngineRef.current.getMetrics().energy}
+                    ⚡ {emotionMetrics.energy}
                   </motion.div>
-                  
-                  {emotionEngineRef.current.getMetrics().mood === "focus" && (
-                    <motion.div 
+
+
+                  {emotionMetrics.mood === "focus" && (
+                    <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       className="px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold bg-purple-500/20 backdrop-blur-md border border-purple-500/50 text-purple-400 animate-pulse"
@@ -636,6 +667,7 @@ export default function App() {
                       🧠 Focus
                     </motion.div>
                   )}
+
                 </div>
 
                 <AnimatedCharacter status={status} isSpeaking={isSpeaking} avatarId={avatarId} audioLevel={audioLevel} visualActivity={visualActivity} />
@@ -661,10 +693,10 @@ export default function App() {
                           : "0 0 0px rgba(96, 165, 250, 0), 0 25px 60px rgba(0,0,0,0.5)"
                       }}
                       exit={{ opacity: 0, scale: 0.5, y: 20 }}
-                      className={`absolute ${pipExpanded 
-                        ? "-bottom-8 -right-8 w-[480px] h-[360px]" 
+                      className={`absolute ${pipExpanded
+                        ? "-bottom-8 -right-8 w-[480px] h-[360px]"
                         : "-bottom-4 -right-4 w-40 h-30 sm:w-56 sm:h-42"
-                      } glass-dark rounded-3xl overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] z-30 group cursor-grab active:cursor-grabbing transition-all duration-300`}
+                        } glass-dark rounded-3xl overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] z-30 group cursor-grab active:cursor-grabbing transition-all duration-300`}
                     >
                       <video
                         ref={videoPreviewRef}
@@ -815,8 +847,8 @@ export default function App() {
                   setCameraActive(!cameraActive);
                 }}
                 className={`w-14 h-14 flex items-center justify-center rounded-full transition-all ${cameraActive
-                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                    : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                  : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
                   }`}
                 title={cameraActive ? "Désactiver la caméra" : "Activer la caméra"}
               >
@@ -828,8 +860,8 @@ export default function App() {
                 onClick={handleToggleScreenShare}
                 disabled={status === "connecting"}
                 className={`w-14 h-14 flex items-center justify-center rounded-full transition-all disabled:opacity-40 disabled:pointer-events-none ${screenShareActive
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                    : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  : "bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500"
                   }`}
                 title={screenShareActive ? "Arrêter le partage d’écran" : "Partager l’écran avec l’assistant"}
               >
