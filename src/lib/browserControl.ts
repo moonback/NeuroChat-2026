@@ -112,6 +112,20 @@ function resolveAgainstWorkdir(filePath: string, workdir: string | null): string
   return isAbsolutePath(filePath) || !workdir ? filePath : joinWorkdirPath(workdir, filePath);
 }
 
+function toSafeBrowserUrl(rawUrl: string): string | null {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(normalized);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+
 function asRecordString(value: unknown): Record<string, string> | undefined {
   if (!value || typeof value !== "object") return undefined;
   const out: Record<string, string> = {};
@@ -280,9 +294,15 @@ export class BrowserController {
       return { success: false, error: "URL manquante" };
     }
 
+    const safeUrl = toSafeBrowserUrl(url);
+    if (!safeUrl) {
+      return { success: false, error: "URL refusée: seuls les protocoles http et https sont autorisés" };
+    }
+
     try {
       // Ouvrir dans un nouvel onglet ou iframe selon le contexte
-      const newWindow = window.open(url, "_blank");
+      const newWindow = window.open(safeUrl, "_blank");
+      if (newWindow) newWindow.opener = null;
       
       if (!newWindow) {
         return {
@@ -293,7 +313,7 @@ export class BrowserController {
 
       return {
         success: true,
-        data: { url, opened: true },
+        data: { url: safeUrl, opened: true },
       };
     } catch (error: unknown) {
       return {
@@ -950,12 +970,12 @@ export class BrowserController {
     if (!path) return { success: false, error: "Chemin manquant" };
 
     const resolvedPath = resolveAgainstWorkdir(path, this.currentWorkdir);
-    console.log(`🗑️ [BrowserController] deleting: ${resolvedPath}`);
+    console.log(`🗑️ [BrowserController] moving to trash: ${resolvedPath}`);
 
     try {
       await window.neurochatElectron.fs.deleteItem(resolvedPath);
-      console.log(`✅ [BrowserController] delete success`);
-      return { success: true, data: { path: resolvedPath } };
+      console.log(`✅ [BrowserController] trash success`);
+      return { success: true, data: { path: resolvedPath, trashed: true } };
     } catch (error: unknown) {
       console.error(`❌ [BrowserController] deleteFile failed:`, error);
       return { success: false, error: getErrorMessage(error) };

@@ -257,8 +257,9 @@ function registerIpcHandlers() {
     assertMainOrigin(event);
     try {
       const safeItemPath = assertMutationAllowed(itemPath, 'deleteItem');
-      await fs.rm(safeItemPath, { recursive: true, force: true });
-      auditSecurityEvent({ type: 'fs.deleteItem', ...pathAuditMetadata(safeItemPath) });
+      await fs.stat(safeItemPath);
+      await shell.trashItem(safeItemPath);
+      auditSecurityEvent({ type: 'fs.trashItem', ...pathAuditMetadata(safeItemPath) });
       return true;
     } catch (error) {
       console.error('[electron] deleteItem failed', error);
