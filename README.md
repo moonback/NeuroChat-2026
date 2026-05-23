@@ -5,12 +5,14 @@
 <div align="center">
   <img src="./public/header2.png" alt="Bannière NeuroChat" width="100%">
 
-  ![build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)
-  ![version](https://img.shields.io/badge/version-2.4.0--companion-blueviolet?style=for-the-badge)
-  ![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-  ![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)
-  ![vitest](https://img.shields.io/badge/vitest-running-yellow?style=for-the-badge)
-  ![tests](https://img.shields.io/badge/tests-142-brightgreen?style=for-the-badge)
+  [![build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)](https://github.com/moonback/NeuroChat/actions)
+  [![version](https://img.shields.io/badge/version-2.4.0--companion-blueviolet?style=for-the-badge)](https://github.com/moonback/NeuroChat/releases)
+  [![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+  [![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=for-the-badge)]()
+  [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?style=for-the-badge&logo=node.js&logoColor=white)](package.json)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](tsconfig.json)
+  [![tests](https://img.shields.io/badge/tests-138%20passed-brightgreen?style=for-the-badge)]()
+  [![vitest](https://img.shields.io/badge/vitest-4.1.6-yellow?style=for-the-badge&logo=vitest)](vitest.config.ts)
   
   **[Fonctionnalités](#-fonctionnalités) · [Démarrage Rapide](#-démarrage-rapide) · [Architecture](#-architecture) · [Runtime Agentique](#-runtime-agentique--skills) · [Contribution](#-contribution)**
 </div>
