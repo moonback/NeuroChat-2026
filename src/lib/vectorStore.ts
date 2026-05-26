@@ -8,12 +8,7 @@
  * (already available through @google/genai).
  */
 
-import { pipeline, env } from "@xenova/transformers";
 import { getStorageBackend } from "./storage";
-
-// Configuration de Transformers.js pour l'environnement Electron/Vite
-env.allowLocalModels = false; // On télécharge depuis Hugging Face par défaut
-env.useBrowserCache = true;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -101,15 +96,23 @@ async function saveVectorStore(entries: VectorEntry[]): Promise<void> {
 }
 
 // Singleton pour le pipeline d'embedding
-let embeddingPipeline: any = null;
+let embeddingPipeline: unknown = null;
 
-async function getEmbeddingPipeline() {
+type FeatureExtractionPipeline = (
+  text: string,
+  options: { pooling: "mean"; normalize: boolean }
+) => Promise<{ data: Float32Array }>;
+
+async function getEmbeddingPipeline(): Promise<FeatureExtractionPipeline> {
   if (!embeddingPipeline) {
-    console.log(`[VectorStore] 🧠 Initialisation du modèle local: ${EMBEDDING_MODEL}...`);
+    console.log(`[VectorStore] 🧠 Chargement dynamique du backend Transformers: ${EMBEDDING_MODEL}...`);
+    const { pipeline, env } = await import("@xenova/transformers");
+    env.allowLocalModels = false; // On télécharge depuis Hugging Face par défaut
+    env.useBrowserCache = true;
     embeddingPipeline = await pipeline("feature-extraction", EMBEDDING_MODEL);
     console.log("[VectorStore] ✅ Modèle local prêt");
   }
-  return embeddingPipeline;
+  return embeddingPipeline as FeatureExtractionPipeline;
 }
 
 /**
@@ -244,10 +247,7 @@ export async function semanticSearch(
  * Delete all vector entries for a given user (called on memory clear).
  */
 export async function clearUserVectors(userName: string): Promise<void> {
-  const store = (await loadVectorStore()).filter(
-    (e) => e.metadata.userName !== userName
-  );
-  await saveVectorStore(store);
+  await getStorageBackend().clearVectors(userName);
 }
 
 /**

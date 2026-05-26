@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { GoogleGenAI, Modality } from "@google/genai";
-import { buildSystemPrompt } from "../lib/systemPrompt";
+import { buildSystemPromptAsync } from "../lib/systemPrompt";
 import { AvatarId } from "../lib/avatarConfig";
 import { retrieveRelevantContext } from "../lib/ragSearch";
 import {
@@ -232,7 +232,7 @@ export function useGeminiSession() {
             config: {
               systemInstruction: {
                 parts: [{
-                  text: buildSystemPrompt(avatarId, {
+                  text: await buildSystemPromptAsync(avatarId, {
                     userName: userName ?? undefined,
                     ragContext,
                     weeklySummary,

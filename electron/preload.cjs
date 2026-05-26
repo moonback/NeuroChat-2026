@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('neurochatElectron', {
   dialog: {
     showOpenDialog: (options) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   },
+  ai: {
+    chatWithOpenRouter: (messages) => ipcRenderer.invoke('ai:openrouter:chat', messages),
+    completeOpenRouterStepWithTools: (prompt, tools) => ipcRenderer.invoke('ai:openrouter:completeStepWithTools', prompt, tools),
+  },
   db: {
     get: (key) => ipcRenderer.invoke('db:kv:get', key),
     set: (key, value) => ipcRenderer.invoke('db:kv:set', key, value),
