@@ -23,12 +23,21 @@ const DataViewer = ({ data }: { data: any }) => {
 
   if (Array.isArray(data)) {
     if (data.length === 0) return <div className="text-slate-500 italic">Tableau vide.</div>;
+<<<<<<< HEAD
+    
+    // Extract columns
+    const columns = Array.from(new Set(data.flatMap(item => Object.keys(item))));
+    
+    // Filter data
+    const filteredData = data.filter(item => 
+=======
 
     // Extract columns
     const columns = Array.from(new Set(data.flatMap(item => Object.keys(item))));
 
     // Filter data
     const filteredData = data.filter(item =>
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
       JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -37,9 +46,15 @@ const DataViewer = ({ data }: { data: any }) => {
         {/* Search Bar */}
         <div className="relative group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+<<<<<<< HEAD
+          <input 
+            type="text" 
+            placeholder="Rechercher dans les données..." 
+=======
           <input
             type="text"
             placeholder="Rechercher dans les données..."
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-slate-600"
@@ -65,7 +80,11 @@ const DataViewer = ({ data }: { data: any }) => {
                 const isExpanded = expandedRows[rowId];
                 return (
                   <React.Fragment key={rowId}>
+<<<<<<< HEAD
+                    <tr 
+=======
                     <tr
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
                       onClick={() => toggleRow(rowId)}
                       className="hover:bg-white/[0.02] cursor-pointer transition-colors group"
                     >
@@ -76,7 +95,11 @@ const DataViewer = ({ data }: { data: any }) => {
                         const val = row[col];
                         let displayVal = String(val);
                         let isComplex = false;
+<<<<<<< HEAD
+                        
+=======
 
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
                         if (val === null) displayVal = 'null';
                         else if (val === undefined) displayVal = 'undefined';
                         else if (Array.isArray(val)) {
@@ -108,7 +131,11 @@ const DataViewer = ({ data }: { data: any }) => {
                       <tr>
                         <td colSpan={columns.length + 1} className="p-0 border-t-0">
                           <div className="bg-slate-900/50 p-4 border-l-2 border-blue-500 relative">
+<<<<<<< HEAD
+                            <button 
+=======
                             <button
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleCopy(JSON.stringify(row, null, 2), rowId);
@@ -140,7 +167,11 @@ const DataViewer = ({ data }: { data: any }) => {
   // Object view
   return (
     <div className="relative">
+<<<<<<< HEAD
+      <button 
+=======
       <button
+>>>>>>> d59640dfc2f029fe0b51be6707f723d5bd9b8cff
         onClick={() => handleCopy(JSON.stringify(data, null, 2), 'root')}
         className="absolute top-4 right-4 p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors z-10"
       >
