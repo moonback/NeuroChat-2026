@@ -1,77 +1,53 @@
 import { Square, Sparkles, Camera, CameraOff, RefreshCcw, Monitor, Maximize2, Minimize2 } from "lucide-react";
-import { useState, FormEvent, useRef, useEffect } from "react";
+import { FormEvent, useRef, useEffect, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AnimatedCharacter } from "./components/AnimatedCharacter";
-import { AVATARS, type AvatarId } from "./lib/avatarConfig";
+import { AVATARS } from "./lib/avatarConfig";
 import { useAudioSession } from "./hooks/useAudioSession";
 import { useConversationMemory } from "./hooks/useConversationMemory";
 import { useAIConversation } from "./hooks/useAIConversation";
-import { ConversationVault } from "./components/ConversationVault";
-import { VideoService } from "./lib/VideoService";
-import { ScreenCaptureService } from "./lib/ScreenCaptureService";
 import { Header } from "./components/layout/Header";
 import { useBrowserControl } from "./hooks/useBrowserControl";
 import { BrowserControlPanel } from "./components/BrowserControlPanel";
 import { BrowserWindow } from "./components/BrowserWindow";
-import { DebugPanel } from "./components/DebugPanel";
-import { AgentChat } from "./components/AgentChat";
-import { DatabaseInspector } from "./components/DatabaseInspector";
-import { parseAssistantResponse } from "./lib/commandParser";
+import { RuntimeProvider, useRuntime } from "./runtime/RuntimeProvider";
+import { useVisionController } from "./runtime/VisionController";
+import { useSessionController } from "./runtime/SessionController";
 
-import { EmotionEngine } from "./lib/EmotionEngine";
-
+const ConversationVault = lazy(() =>
+  import("./components/ConversationVault").then((module) => ({ default: module.ConversationVault }))
+);
+const DatabaseInspector = lazy(() =>
+  import("./components/DatabaseInspector").then((module) => ({ default: module.DatabaseInspector }))
+);
+const DebugPanel = lazy(() =>
+  import("./components/DebugPanel").then((module) => ({ default: module.DebugPanel }))
+);
+const AgentChat = lazy(() =>
+  import("./components/AgentChat").then((module) => ({ default: module.AgentChat }))
+);
 
 export default function App() {
+  return (
+    <RuntimeProvider>
+      <AppContent />
+    </RuntimeProvider>
+  );
+}
+
+function AppContent() {
   // Les tests du CommandParser sont désormais lancés manuellement depuis le DebugPanel si besoin
 
-  const [avatarId, setAvatarId] = useState<AvatarId>("robot");
-  const [currentTranscript, setCurrentTranscript] = useState<string>("");
-  const [cameraActive, setCameraActive] = useState(false);
-  const [screenShareActive, setScreenShareActive] = useState(false);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
-  const videoServiceRef = useRef<VideoService | null>(null);
-  const screenCaptureServiceRef = useRef<ScreenCaptureService | null>(null);
-  const videoPreviewRef = useRef<HTMLVideoElement>(null);
-  const cameraPreviewRef = useRef<HTMLVideoElement>(null);
+  const {
+    avatarId,
+    setCurrentTranscript,
+    showDatabase,
+    setShowDatabase,
+    pipExpanded,
+    setPipExpanded,
+    emotionEngineRef,
+  } = useRuntime();
   const sendInputRef = useRef<((base64: string, type: 'audio' | 'video') => void) | null>(null);
-  
-  const [visualActivity, setVisualActivity] = useState(false);
-  const [showDatabase, setShowDatabase] = useState(false);
-  const [pipExpanded, setPipExpanded] = useState(false);
-  const emotionEngineRef = useRef(new EmotionEngine());
-  
-  const lastVisionNudgeTimeRef = useRef<number>(0);
-  
-  const triggerVisualActivity = (intensity = 0.5) => {
-    setVisualActivity(true);
-    emotionEngineRef.current.addMotionSignal(intensity);
-    emotionEngineRef.current.setStagnation(false); // Reset stagnation on activity
-    setTimeout(() => setVisualActivity(false), 800);
-    
-    // Proactive AI reaction logic
-    const now = Date.now();
-    const COOLDOWN_MS = 60000; // 60 seconds minimum between vision checks
-    
-    if (status === "listening" && !isSpeaking && (now - lastVisionNudgeTimeRef.current > COOLDOWN_MS)) {
-      console.log("👁️ [App] Envoi signal [VISION_NUDGE]...");
-      lastVisionNudgeTimeRef.current = now;
-      sendTextMessage("[VISION_NUDGE] Un changement majeur a été détecté. Regarde l'image : si l'utilisateur te présente un objet, un document ou semble vouloir te montrer quelque chose, interviens avec curiosité. Sinon, reste discret et n'interviens que si c'est vraiment pertinent.");
-    }
-  };
-
-  const triggerStagnationNudge = (type: "camera" | "screen") => {
-    emotionEngineRef.current.setStagnation(true);
-    
-    if (status === "listening" && !isSpeaking) {
-      console.log(`👁️ [App] Envoi signal [STAGNATION_NUDGE] (${type})...`);
-      if (type === "screen") {
-        sendTextMessage("[STAGNATION_NUDGE] L'écran est resté statique depuis plus de 3 minutes. Analyse le contenu (code, document, erreur) et demande gentiment à l'utilisateur s'il a besoin d'aide ou s'il est bloqué sur une tâche complexe.");
-      } else {
-        sendTextMessage("[STAGNATION_NUDGE] L'utilisateur semble inactif ou fixe devant la caméra depuis un moment. Interviens avec douceur pour vérifier s'il va bien ou s'il fait une pause contemplative.");
-      }
-    }
-  };
 
   const avatar = AVATARS[avatarId];
 
@@ -102,7 +78,7 @@ export default function App() {
     if (status === "listening") {
       emotionEngineRef.current.addAudioSignal(audioLevel);
     }
-  }, [audioLevel, status]);
+  }, [audioLevel, emotionEngineRef, status]);
 
   const {
     userName,
@@ -115,6 +91,9 @@ export default function App() {
     memoryData,
     selectedSession,
     setSelectedSessionId,
+    updateTurn,
+    deleteTurn,
+    deleteSession,
     addTurn
   } = useConversationMemory();
 
@@ -129,265 +108,54 @@ export default function App() {
     toggleBrowserControl,
     executeAction,
     respondToConfirmation,
-    getPageContext,
     closeBrowserWindow,
     navigateInBrowser,
   } = useBrowserControl();
 
-  const handleStartSession = async () => {
-    // Accumulateurs pour les textes fragmentés (streaming)
-    const aiTextAccumulator: string[] = [];
-    const userTranscriptParts: string[] = [];
+  const {
+    cameraActive,
+    setCameraActive,
+    screenShareActive,
+    facingMode,
+    videoStream,
+    videoPreviewRef,
+    cameraPreviewRef,
+    videoServiceRef,
+    visualActivity,
+    handleToggleScreenShare,
+    toggleCameraFacingMode,
+    stopVisionServices,
+  } = useVisionController({
+    status,
+    isSpeaking,
+    sendTextMessage,
+    setErrorMsg,
+    sendInputRef,
+    emotionEngineRef,
+  });
 
-    await startSession({
-      avatarId,
-      userName,
-      enableVideo: cameraActive,
-      browserControlEnabled,
-      userState: emotionEngineRef.current.getSystemContext(),
-      onAudioResponse: async (base64, aiText) => {
-        if (base64) playAudio(base64);
-        // Accumule les fragments de transcription IA (outputTranscription)
-        if (aiText) {
-          console.log("🤖 [App] Réponse IA reçue:", aiText);
-          aiTextAccumulator.push(aiText);
-          
-          // NE PAS parser ici - attendre le texte complet dans onTurnComplete
-        }
-      },
-      onTranscription: (text, finished) => {
-        setCurrentTranscript(text);
-        // Accumule tous les fragments (l'API envoie la phrase mot par mot)
-        if (text.trim()) {
-          userTranscriptParts.push(text);
-        }
-        // Sauvegarde immédiate si finished: true
-        if (finished && userName) {
-          const fullText = userTranscriptParts.join(" ").trim();
-          if (fullText) {
-            console.log(`💾 Sauvegarde tour utilisateur (finished): "${fullText.slice(0, 60)}"`);
-            addTurn(userName, "user", fullText);
-          }
-          userTranscriptParts.length = 0;
-        }
-      },
-      onTurnComplete: async () => {
-        // Sauvegarde la transcription utilisateur si elle n'a pas été sauvegardée via finished
-        if (userName && userTranscriptParts.length > 0) {
-          const fullText = userTranscriptParts.join(" ").trim();
-          if (fullText) {
-            console.log(`💾 Sauvegarde tour utilisateur (turnComplete): "${fullText.slice(0, 60)}"`);
-            addTurn(userName, "user", fullText);
-          }
-          userTranscriptParts.length = 0;
-        }
-        
-        // Sauvegarde le tour IA complet
-        if (userName && aiTextAccumulator.length > 0) {
-          const fullText = aiTextAccumulator.join("").trim();
-          if (fullText) {
-            console.log(`💾 Sauvegarde tour IA: "${fullText.slice(0, 60)}"`);
-            addTurn(userName, "assistant", fullText);
-          }
-          
-          // DÉTECTION MULTI-AGENT
-          if (fullText && fullText.toLowerCase().includes("tool:")) {
-             const taskMatch = fullText.match(/tool:\s*(.*)/i);
-             if (taskMatch && taskMatch[1]) {
-                const task = taskMatch[1].trim();
-                console.log(`🤖 [App] Lancement de l'orchestrateur agentique avec la tâche: ${task}`);
-                runAgentTask(task, `live-${Date.now()}`, userName).then(result => {
-                    sendTextMessage(`[SYSTEM] L'agent a terminé la tâche demandée. Voici le résultat final : ${result.answer}. Informe brièvement l'utilisateur du succès.`);
-                }).catch(err => {
-                    console.error("Erreur agent:", err);
-                    sendTextMessage(`[SYSTEM] L'agent a échoué avec l'erreur: ${err.message || err}. Dis-le à l'utilisateur.`);
-                });
-             }
-          }
-          
-          // PARSER ICI avec le texte complet
-          if (browserControlEnabled && fullText) {
-            console.log("🌐 [App] Contrôle du navigateur activé, analyse du texte complet...");
-            const parsed = parseAssistantResponse(fullText);
-            
-            if (parsed.actions.length > 0) {
-              console.log(`🎯 [App] ${parsed.actions.length} commande(s) détectée(s)`);
-              
-              // Exécuter les commandes séquentiellement
-              for (const action of parsed.actions) {
-                try {
-                  console.log("🚀 [App] Exécution de:", action.type);
-                  const result = await executeAction(action);
-                  if (result.success) {
-                    console.log(`✅ [App] Commande ${action.type} exécutée avec succès`);
-                    
-                    // Retourner le résultat à l'IA pour qu'elle le "voie" réellement
-                    if (action.type === "pickWorkdir") {
-                      sendTextMessage(`[SYSTEM] SUCCESS: Dossier sélectionné : ${result.data?.path}. Tu DOIS maintenant utiliser list_files pour voir son contenu.`);
-                    } else if (action.type === "listDir") {
-                      const files = Array.isArray((result.data as any)?.files) ? (result.data as any).files as Array<{name?: string}> : [];
-                      const fileNames = files.map((f) => f.name ?? "").filter(Boolean).join(", ");
-                      sendTextMessage(`[SYSTEM] SUCCESS: Résultats de list_files dans ${result.data?.path}.\nFichiers trouvés (${files.length}) : ${fileNames || "Dossier vide"}\n\nACTION REQUIRED: Analyse cette liste et réponds vocalement à l'utilisateur maintenant.`);
-                    } else if (action.type === "readFile") {
-                      sendTextMessage(`[SYSTEM] Contenu de ${result.data?.path} :\n${result.data?.content}`);
-                    } else if (action.type === "extract") {
-                      sendTextMessage(`[SYSTEM] Contenu de la page extrait avec succès.`);
-                    }
-                  } else {
-                    console.error(`❌ [App] Échec de la commande ${action.type}:`, result.error);
-                    sendTextMessage(`[SYSTEM] Erreur lors de l'action ${action.type} : ${result.error}`);
-                  }
-                } catch (error) {
-                  console.error(`💥 [App] Erreur lors de l'exécution de ${action.type}:`, error);
-                }
-              }
-            } else {
-              console.log("ℹ️ [App] Aucune commande détectée dans le texte complet");
-            }
-          }
-          
-          aiTextAccumulator.length = 0;
-        }
-      },
-      onInterrupted: () => {
-        // Dynamic threshold: higher when AI is speaking to avoid echo triggering barge-in
-        const threshold = isSpeaking ? 0.15 : 0.08;
-        if (audioLevel > threshold) {
-          console.log(`🗣️ Interruption détectée (${audioLevel.toFixed(2)} > ${threshold})`);
-          stopAudio();
-        } else {
-          console.log(`🔇 Bruit ignoré (${audioLevel.toFixed(2)} <= ${threshold})`);
-        }
-      },
-      onRecordingStart: (sendInput) => {
-        sendInputRef.current = sendInput;
-        startRecording((audioBase64) => sendInput(audioBase64, 'audio'));
-      },
-      onStopRecording: () => {
-        stopRecording();
-        sendInputRef.current = null;
-        if (videoServiceRef.current) {
-          videoServiceRef.current.stop();
-          videoServiceRef.current = null;
-        }
-        if (screenCaptureServiceRef.current) {
-          screenCaptureServiceRef.current.stop();
-          screenCaptureServiceRef.current = null;
-        }
-        setScreenShareActive(false);
-        setVideoStream(null);
-      }
-    });
-  };
-
-  const handleStopSession = () => {
-    stopSession(() => {
-      stopRecording();
-      if (videoServiceRef.current) {
-        videoServiceRef.current.stop();
-        videoServiceRef.current = null;
-      }
-      if (screenCaptureServiceRef.current) {
-        screenCaptureServiceRef.current.stop();
-        screenCaptureServiceRef.current = null;
-      }
-      setScreenShareActive(false);
-      setVideoStream(null);
-    }, userName ?? undefined);
-    stopAudio();
-    sendInputRef.current = null;
-  };
-
-  const handleToggleScreenShare = async () => {
-    if (screenShareActive) {
-      screenCaptureServiceRef.current?.stop();
-      screenCaptureServiceRef.current = null;
-      setScreenShareActive(false);
-      setVideoStream(videoServiceRef.current?.getStream() ?? null);
-      return;
-    }
-    if (status !== "listening" || !sendInputRef.current) {
-      setErrorMsg("Démarre une conversation avant de partager l’écran.");
-      return;
-    }
-    // Camera keeps running in parallel — both streams are sent to the AI
-    try {
-      const svc = new ScreenCaptureService(
-        (videoBase64) => sendInputRef.current?.(videoBase64, "video"),
-        () => {
-          screenCaptureServiceRef.current = null;
-          setScreenShareActive(false);
-          setVideoStream(videoServiceRef.current?.getStream() ?? null);
-        },
-        triggerVisualActivity,
-        () => triggerStagnationNudge("screen")
-      );
-      await svc.start();
-      screenCaptureServiceRef.current = svc;
-      setScreenShareActive(true);
-      setVideoStream(svc.getStream());
-    } catch (err: unknown) {
-      const name = err && typeof err === "object" && "name" in err ? String((err as { name: string }).name) : "";
-      if (name !== "NotAllowedError" && name !== "AbortError") {
-        setErrorMsg("Impossible de partager l’écran.");
-      }
-      console.error("Partage d’écran:", err);
-    }
-  };
-
-  const toggleCameraFacingMode = async () => {
-    const nextMode = facingMode === "user" ? "environment" : "user";
-    setFacingMode(nextMode);
-    
-    if (videoServiceRef.current && cameraActive) {
-      videoServiceRef.current.stop();
-      try {
-        await videoServiceRef.current.start(nextMode);
-        setVideoStream(videoServiceRef.current.getStream() || null);
-      } catch (err) {
-        console.error("Erreur lors du changement de caméra:", err);
-      }
-    }
-  };
-
-  // Manage VideoService reactively based on cameraActive and session status (caméra uniquement)
-  useEffect(() => {
-    // Allow camera even when screen share is active (dual-stream)
-    if (status === "listening" && cameraActive && !videoServiceRef.current && sendInputRef.current) {
-      console.log("🎥 Activation de la caméra...");
-      videoServiceRef.current = new VideoService((videoBase64) => {
-        sendInputRef.current?.(videoBase64, 'video');
-      }, triggerVisualActivity, () => triggerStagnationNudge("camera"));
-
-      videoServiceRef.current.start(facingMode)
-        .then(() => {
-          setVideoStream(videoServiceRef.current?.getStream() || null);
-        })
-        .catch(err => {
-          console.error("Erreur caméra:", err);
-          setErrorMsg("Impossible d'accéder à la caméra.");
-          setCameraActive(false);
-        });
-    } else if ((!cameraActive || status !== "listening") && videoServiceRef.current) {
-      console.log("🛑 Désactivation de la caméra...");
-      videoServiceRef.current.stop();
-      videoServiceRef.current = null;
-      setVideoStream(null);
-    }
-  }, [cameraActive, status, screenShareActive]);
-
-  useEffect(() => {
-    if (videoPreviewRef.current && videoStream) {
-      videoPreviewRef.current.srcObject = videoStream;
-    }
-  }, [videoStream]);
-
-  // Sync camera preview when both streams are active
-  useEffect(() => {
-    if (cameraPreviewRef.current && cameraActive && screenShareActive && videoServiceRef.current) {
-      cameraPreviewRef.current.srcObject = videoServiceRef.current.getStream();
-    }
-  }, [cameraActive, screenShareActive]);
+  const { handleStartSession, handleStopSession } = useSessionController({
+    avatarId,
+    userName,
+    cameraActive,
+    browserControlEnabled,
+    emotionEngineRef,
+    isSpeaking,
+    audioLevel,
+    sendInputRef,
+    startSession,
+    stopSession,
+    sendTextMessage,
+    playAudio,
+    stopAudio,
+    startRecording,
+    stopRecording,
+    setCurrentTranscript,
+    addTurn,
+    executeAction,
+    runAgentTask,
+    stopVisionServices,
+  });
 
   return (
     <div className="min-h-screen bg-[#020408] text-white flex flex-col font-sans relative overflow-hidden">
@@ -470,16 +238,23 @@ export default function App() {
       </AnimatePresence>
 
       {/* Memory Vault (Advanced) */}
-      <ConversationVault
-        isOpen={showMemoryModal}
-        onClose={() => setShowMemoryModal(false)}
-        userName={userName}
-        memoryData={memoryData}
-        selectedSession={selectedSession}
-        onSelectSession={setSelectedSessionId}
-        onClearMemory={handleClearMemory}
-        accentColor={avatar.colors[0]}
-      />
+      {showMemoryModal && (
+        <Suspense fallback={null}>
+          <ConversationVault
+            isOpen={showMemoryModal}
+            onClose={() => setShowMemoryModal(false)}
+            userName={userName}
+            memoryData={memoryData}
+            selectedSession={selectedSession}
+            onSelectSession={setSelectedSessionId}
+            onClearMemory={handleClearMemory}
+            onUpdateTurn={updateTurn}
+            onDeleteTurn={deleteTurn}
+            onDeleteSession={deleteSession}
+            accentColor={avatar.colors[0]}
+          />
+        </Suspense>
+      )}
 
       {/* Background Atmosphere — colors adapt to avatar */}
       <div className="absolute inset-0 pointer-events-none">
@@ -497,11 +272,15 @@ export default function App() {
         onShowDatabase={() => setShowDatabase(true)}
       />
 
-      <DatabaseInspector 
-        isOpen={showDatabase} 
-        onClose={() => setShowDatabase(false)} 
-        userId={userName}
-      />
+      {showDatabase && (
+        <Suspense fallback={null}>
+          <DatabaseInspector
+            isOpen={showDatabase}
+            onClose={() => setShowDatabase(false)}
+            userId={userName}
+          />
+        </Suspense>
+      )}
 
       {/* Browser Control Panel */}
       <BrowserControlPanel
@@ -524,7 +303,9 @@ export default function App() {
       />
 
       {/* Debug Panel */}
-      <DebugPanel />
+      <Suspense fallback={null}>
+        <DebugPanel />
+      </Suspense>
 
 
       {/* Main Interaction Area */}
@@ -832,7 +613,11 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <AgentChat events={agentEvents} />
+      {agentEvents.length > 0 && (
+        <Suspense fallback={null}>
+          <AgentChat events={agentEvents} />
+        </Suspense>
+      )}
     </div>
   );
 }

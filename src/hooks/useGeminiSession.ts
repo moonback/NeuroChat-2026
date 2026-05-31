@@ -1,17 +1,14 @@
 import { useState, useRef, useCallback } from "react";
-import { GoogleGenAI, Modality } from "@google/genai";
-import { buildSystemPrompt } from "../lib/systemPrompt";
+import { buildSystemPromptAsync } from "../lib/systemPrompt";
 import { AvatarId } from "../lib/avatarConfig";
 import { retrieveRelevantContext } from "../lib/ragSearch";
 import {
   loadAllSessions,
-  getOrCreateCurrentSession,
 } from "../lib/conversationMemory";
 import {
   getOrGenerateCurrentWeekSummary,
   generateSessionSummary,
   formatWeeklySummaryForPrompt,
-  loadWeeklySummaries,
 } from "../lib/conversationSummary";
 
 interface SessionOptions {
@@ -31,52 +28,37 @@ interface SessionOptions {
 export function useGeminiSession() {
   const [status, setStatus] = useState<"idle" | "connecting" | "listening">("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const sessionRef = useRef<any>(null);
   const isManualStopRef = useRef(false);
   const retryCountRef = useRef(0);
   const maxRetries = 3;
 
   const stopSession = useCallback(async (onStopRecording?: () => void, userName?: string) => {
     isManualStopRef.current = true;
-    if (sessionRef.current) {
-      try {
-        sessionRef.current.close();
-      } catch (e) {
-        console.warn("Attempted to close an already closed session", e);
-      }
-      sessionRef.current = null;
+    
+    if (window.neurochatElectron?.ai?.gemini) {
+      window.neurochatElectron.ai.gemini.close();
+      window.neurochatElectron.ai.gemini.removeAllListeners();
     }
+
     if (onStopRecording) onStopRecording();
     setStatus("idle");
 
-    // Fire-and-forget: generate session summary and refresh weekly summary
     if (userName) {
-      const sessions = (await loadAllSessions()).filter((s) => s.userName === userName);
-      const currentSession = sessions[sessions.length - 1];
+      try {
+        const sessions = (await loadAllSessions()).filter((s) => s.userName === userName);
+        const currentSession = sessions[sessions.length - 1];
 
-      if (currentSession) {
-        generateSessionSummary(currentSession, userName)
-          .then(async (summary) => {
-            if (summary) {
-              // Persist summary back onto the session in localStorage
-              const allSessions = await loadAllSessions();
-              const idx = allSessions.findIndex((s) => s.id === currentSession.id);
-              if (idx >= 0) {
-                allSessions[idx].summary = summary;
-                try {
-                  // session save handled by conversation memory backend
-                } catch { }
-              }
-              // Regenerate weekly summary with the new session data
-              return getOrGenerateCurrentWeekSummary(
-                (await loadAllSessions()).filter((s) => s.userName === userName),
-                userName
-              );
-            }
-          })
-          .catch((err) =>
-            console.warn("[Summary] Post-session summary failed:", err)
-          );
+        if (currentSession) {
+          const summary = await generateSessionSummary(currentSession, userName);
+          if (summary) {
+            await getOrGenerateCurrentWeekSummary(
+              (await loadAllSessions()).filter((s) => s.userName === userName),
+              userName
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[Summary] Post-session summary failed:", err);
       }
     }
   }, []);
@@ -84,17 +66,24 @@ export function useGeminiSession() {
   const startSession = useCallback(async (options: SessionOptions) => {
     const { avatarId, userName, onAudioResponse, onTranscription, onTurnComplete, onInterrupted, onRecordingStart, onStopRecording, enableVideo, browserControlEnabled, userState } = options;
 
+    if (!window.neurochatElectron?.ai?.gemini) {
+      setErrorMsg("Environnement Electron non détecté ou bridge absent.");
+      return false;
+    }
+
     setStatus("connecting");
     setErrorMsg("");
     isManualStopRef.current = false;
     retryCountRef.current = 0;
 
+    const gemini = window.neurochatElectron.ai.gemini;
+
     return new Promise<boolean>(async (resolve) => {
       const attemptConnection = async (): Promise<void> => {
         try {
-          console.log("🚀 Démarrage de la session...");
+          console.log("🚀 Démarrage de la session via bridge...");
 
-          // Request microphone permission FIRST
+          // Request microphone permission FIRST (renderer side)
           const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
@@ -104,12 +93,10 @@ export function useGeminiSession() {
           });
           stream.getTracks().forEach(track => track.stop());
 
-          // ── RAG: retrieve semantically relevant context from full history ──
           let ragContext: string | undefined;
           let weeklySummary: string | undefined;
 
           if (userName) {
-            // Run RAG retrieval and weekly summary fetch in parallel
             const [ragResult, weeklyResult] = await Promise.allSettled([
               retrieveRelevantContext(
                 "résumé de nos conversations précédentes, sujets importants, préférences",
@@ -125,137 +112,112 @@ export function useGeminiSession() {
 
             if (ragResult.status === "fulfilled" && ragResult.value.hasContext) {
               ragContext = ragResult.value.contextBlock;
-              console.log(`🔍 RAG: ${ragResult.value.entries.length} entrées pertinentes injectées.`);
             }
 
             if (weeklyResult.status === "fulfilled" && weeklyResult.value) {
               weeklySummary = formatWeeklySummaryForPrompt(weeklyResult.value);
-              console.log(`📋 Synthèse hebdomadaire injectée (${weeklyResult.value.weekId}).`);
             }
           }
 
-          const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+          const systemPrompt = await buildSystemPromptAsync(avatarId, {
+            userName: userName ?? undefined,
+            ragContext,
+            weeklySummary,
+            browserControlEnabled,
+            visionEnabled: enableVideo,
+            userState,
+          });
 
-          const session = await ai.live.connect({
-            model: "gemini-3.1-flash-live-preview",
-            callbacks: {
-              onopen: () => {
-                console.log("✅ Session ouverte !");
-                setStatus("listening");
-                retryCountRef.current = 0;
-                onRecordingStart((base64Data: string, type: 'audio' | 'video' = 'audio') => {
-                  if (sessionRef.current) {
-                    if (type === 'audio') {
-                      sessionRef.current.sendRealtimeInput({
-                        audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" },
-                      });
-                    } else {
-                      sessionRef.current.sendRealtimeInput({
-                        video: { data: base64Data, mimeType: "image/jpeg" },
-                      });
-                    }
-                  }
+          // Configuration du bridge
+          gemini.removeAllListeners();
+          
+          gemini.onopen(() => {
+            console.log("✅ Session ouverte (bridge) !");
+            setStatus("listening");
+            retryCountRef.current = 0;
+            onRecordingStart((base64Data: string, type: 'audio' | 'video' = 'audio') => {
+              if (type === 'audio') {
+                gemini.sendRealtimeInput({
+                  audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" },
                 });
-              },
-              onmessage: (message: any) => {
-                const serverContent = message.serverContent;
-                const modelTurn = serverContent?.modelTurn;
-                const parts = modelTurn?.parts;
-
-                // Log COMPLET du message brut pour identifier la structure exacte
-                if (serverContent?.inputTranscription || serverContent?.outputTranscription || serverContent?.turnComplete) {
-                  // console.log("📨 Message clé — structure complète:", JSON.stringify(message, (key, value) => {
-                  //   // Tronquer les données binaires (audio base64)
-                  //   if (key === 'data' && typeof value === 'string' && value.length > 100) return `[base64 ${value.length} chars]`;
-                  //   return value;
-                  // }, 2));
-                }
-
-                // Transcription utilisateur (entrée) — fragments accumulés dans App.tsx
-                if (serverContent?.inputTranscription?.text) {
-                  const transcriptText = serverContent.inputTranscription.text;
-                  const isFinished = serverContent.inputTranscription.finished ?? false;
-                  // console.log(`📝 Transcription utilisateur: "${transcriptText}" (finished: ${isFinished})`);
-                  onTranscription(transcriptText, isFinished);
-                }
-
-                // Transcription IA (sortie) — plusieurs noms possibles selon la version du SDK
-                const aiTranscriptText =
-                  serverContent?.outputTranscription?.text ??
-                  serverContent?.modelTurn?.transcription?.text ??
-                  null;
-
-                if (aiTranscriptText) {
-                  // console.log(`🤖 Transcription IA: "${aiTranscriptText.slice(0, 80)}"`);
-                  onAudioResponse("", aiTranscriptText);
-                }
-
-                // Audio IA
-                const base64Audio = parts?.find((p: any) => p.inlineData)?.inlineData?.data;
-                if (base64Audio) {
-                  onAudioResponse(base64Audio, undefined);
-                }
-
-                if (serverContent?.turnComplete) {
-                  console.log("✅ Tour IA terminé (turnComplete)");
-                  onTurnComplete();
-                }
-
-                if (serverContent?.interrupted) {
-                  console.log("⚡ Interruption détectée");
-                  onInterrupted();
-                }
-              },
-              onerror: (error: any) => {
-                console.error("❌ Erreur de session:", error);
-                setStatus("idle");
-                if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
-                  retryCountRef.current++;
-                  console.log(`🔄 Tentative de reconnexion après erreur (${retryCountRef.current}/${maxRetries})...`);
-                  setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
-                } else {
-                  setErrorMsg("Oups ! Une erreur de connexion s'est produite.");
-                }
-              },
-              onclose: (event: any) => {
-                console.log("🚪 Session fermée", event);
-                setStatus("idle");
-                onStopRecording();
-                sessionRef.current = null;
-                if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
-                  retryCountRef.current++;
-                  console.log(`🔄 Reconnexion automatique (${retryCountRef.current}/${maxRetries})...`);
-                  setTimeout(() => attemptConnection(), 1500 * retryCountRef.current);
-                }
+              } else {
+                gemini.sendRealtimeInput({
+                  video: { data: base64Data, mimeType: "image/jpeg" },
+                });
               }
-            },
+            });
+            resolve(true);
+          });
+
+          gemini.onmessage((message: any) => {
+            const serverContent = message.serverContent;
+            const modelTurn = serverContent?.modelTurn;
+            const parts = modelTurn?.parts;
+
+            if (serverContent?.inputTranscription?.text) {
+              onTranscription(serverContent.inputTranscription.text, serverContent.inputTranscription.finished ?? false);
+            }
+
+            const aiTranscriptText =
+              serverContent?.outputTranscription?.text ??
+              serverContent?.modelTurn?.transcription?.text ??
+              null;
+
+            if (aiTranscriptText) {
+              onAudioResponse("", aiTranscriptText);
+            }
+
+            const base64Audio = parts?.find((p: any) => p.inlineData)?.inlineData?.data;
+            if (base64Audio) {
+              onAudioResponse(base64Audio, undefined);
+            }
+
+            if (serverContent?.turnComplete) {
+              onTurnComplete();
+            }
+
+            if (serverContent?.interrupted) {
+              onInterrupted();
+            }
+          });
+
+          gemini.onerror((error: string) => {
+            console.error("❌ Erreur bridge Gemini:", error);
+            if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
+              retryCountRef.current++;
+              setTimeout(() => attemptConnection(), 2000 * retryCountRef.current);
+            } else {
+              setErrorMsg("Oups ! Une erreur de connexion s'est produite.");
+              setStatus("idle");
+            }
+          });
+
+          gemini.onclose(() => {
+            console.log("🚪 Session fermée (bridge)");
+            setStatus("idle");
+            onStopRecording();
+            if (!isManualStopRef.current && retryCountRef.current < maxRetries) {
+              retryCountRef.current++;
+              setTimeout(() => attemptConnection(), 1500 * retryCountRef.current);
+            }
+          });
+
+          const result = await gemini.connect({
             config: {
-              systemInstruction: {
-                parts: [{
-                  text: buildSystemPrompt(avatarId, {
-                    userName: userName ?? undefined,
-                    ragContext,
-                    weeklySummary,
-                    browserControlEnabled,
-                    visionEnabled: enableVideo,
-                    userState,
-                  }),
-                }],
-              },
-              responseModalities: [Modality.AUDIO],
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              responseModalities: ["AUDIO"],
               speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
               },
-              // Active la transcription de la réponse IA pour la sauvegarder en mémoire
               outputAudioTranscription: {},
             },
           });
 
-          sessionRef.current = session;
-          retryCountRef.current = 0;
-          resolve(true);
+          if (!result.success) {
+            throw new Error(result.error || "Échec de connexion bridge");
+          }
         } catch (err: any) {
-          console.error("💥 Failed to start session:", err);
+          console.error("💥 Failed to start session via bridge:", err);
           if (err.name === "NotAllowedError") {
             setErrorMsg("Je n'ai pas la permission d'utiliser le microphone !");
             setStatus("idle");
@@ -276,18 +238,10 @@ export function useGeminiSession() {
   }, []);
 
   const sendTextMessage = useCallback((text: string) => {
-    if (sessionRef.current) {
-      console.log(`📤 Envoi texte à la session: "${text.slice(0, 50)}..."`);
-      // sendClientContent() est la méthode du SDK Gemini Live pour injecter
-      // du texte dans le contexte de la conversation. Avec turnComplete: true,
-      // le modèle traite le contenu et génère une réponse.
-      sessionRef.current.sendClientContent({
-        turns: [
-          {
-            role: "user",
-            parts: [{ text }]
-          }
-        ],
+    if (window.neurochatElectron?.ai?.gemini) {
+      console.log(`📤 Envoi texte via bridge: "${text.slice(0, 50)}..."`);
+      window.neurochatElectron.ai.gemini.sendClientContent({
+        turns: [{ role: "user", parts: [{ text }] }],
         turnComplete: true
       });
     }

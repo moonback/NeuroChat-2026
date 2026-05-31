@@ -1,5 +1,5 @@
 import { loadAllSessions } from '../conversationMemory';
-import { buildSystemPrompt } from '../systemPrompt';
+import { buildSystemPromptAsync } from '../systemPrompt';
 import { logAutoImprovement } from './autoImprovementLog';
 import { LearningCycleOrchestrator } from './learningCycleOrchestrator';
 import { PerformanceAnalyzer } from './performanceAnalyzer';
@@ -187,7 +187,7 @@ export async function runLearningCycleForUser(
     userId,
     turns,
     proposals,
-    currentPrompt: options.currentPrompt ?? buildSystemPrompt('robot', { userName: userId }),
+    currentPrompt: options.currentPrompt ?? await buildSystemPromptAsync('robot', { userName: userId }),
   });
   logAutoImprovement("Cycle", "Fin runLearningCycleForUser", {
     userId,

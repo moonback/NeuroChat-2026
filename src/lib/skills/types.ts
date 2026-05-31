@@ -34,6 +34,11 @@ export interface SkillContext {
   metadata?: Record<string, unknown>;
 }
 
+export interface SkillRollbackContext extends SkillContext {
+  reason: string;
+  originalTimestamp: number;
+}
+
 export interface SkillDefinition<TParams = unknown, TResult = unknown> {
   name: string;
   description: string;
@@ -48,6 +53,7 @@ export interface SkillDefinition<TParams = unknown, TResult = unknown> {
   cooldownMs?: number;
   requiresConfirmation?: boolean;
   execute: (params: TParams, context: SkillContext) => Promise<TResult>;
+  rollback?: (params: TParams, result: TResult, context: SkillRollbackContext) => Promise<unknown>;
 }
 
 export interface SkillExecutionResult<TResult = unknown> {

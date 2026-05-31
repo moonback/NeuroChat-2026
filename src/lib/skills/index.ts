@@ -5,6 +5,7 @@ import { openWebsiteSkill } from "./browser/openWebsiteSkill";
 import { getDesktopInfoSkill } from "./desktop/getDesktopInfoSkill";
 import { retrieveContextSkill } from "./memory/retrieveContextSkill";
 import { saveMemoryNoteSkill } from "./memory/saveMemoryNoteSkill";
+import { callMcpToolSkill } from "./mcp/callMcpToolSkill";
 import { defaultConfirmationHandler, defaultPermissionAuthorizer } from "./policies";
 
 import {
@@ -29,6 +30,7 @@ export function createDefaultSkillRegistry(): SkillRegistry {
     readFileSkill,
     writeFileSkill,
     deleteItemSkill,
+    callMcpToolSkill,
   ]);
   return registry;
 }

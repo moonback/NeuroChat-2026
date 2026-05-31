@@ -17,7 +17,8 @@ export type AgentStatus =
   | "REFLECTING" 
   | "RESPONDING" 
   | "FAILED" 
-  | "RECOVERING";
+  | "RECOVERING"
+  | "CANCELLED";
 
 export interface WorkingMemory {
   currentGoal: string;
@@ -37,6 +38,14 @@ export interface AgentStep {
   thought: string;
   toolCall?: ToolCall;
   finalAnswer?: string;
+}
+
+export interface AgentRollbackEntry {
+  skill: string;
+  arguments: Record<string, unknown>;
+  data: unknown;
+  iteration: number;
+  timestamp: number;
 }
 
 export interface AgentExecutionState {
@@ -64,20 +73,28 @@ export type AgentEvent =
   | { type: "iteration_start"; iteration: number; agentId?: string; agentName?: string }
   | { type: "model_response"; iteration: number; raw: string; agentId?: string; agentName?: string }
   | { type: "tool_result"; iteration: number; result: SkillExecutionResult; agentId?: string; agentName?: string }
+  | { type: "rollback_result"; iteration: number; result: SkillExecutionResult; agentId?: string; agentName?: string }
   | { type: "loop_error"; iteration: number; message: string; agentId?: string; agentName?: string }
   | { type: "delegation_start"; iteration: number; targetAgentId: string; targetAgentName: string; task: string; agentId?: string; agentName?: string }
   | { type: "completed"; iteration: number; completed: boolean; answer: string; agentId?: string; agentName?: string };
 
 export interface AgentRunOptions {
+  runId?: string;
+  resumeFromRunId?: string;
   maxIterations?: number;
   maxConsecutiveFailures?: number;
   initialPolicies?: string[];
   signal?: AbortSignal;
+  deadlineMs?: number;
+  maxToolCalls?: number;
+  dryRun?: boolean;
+  rollbackOnFailure?: boolean;
   onEvent?: (event: AgentEvent) => void;
   activeProfile?: AgentProfile;
 }
 
 export interface AgentRunResult {
+  runId?: string;
   answer: string;
   toolResults: SkillExecutionResult[];
   iterations: number;

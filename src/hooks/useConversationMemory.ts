@@ -3,7 +3,10 @@ import { loadUserName, saveUserName } from "../lib/avatarConfig";
 import { 
   addConversationTurn, 
   clearConversationHistory, 
-  getConversationStats
+  getConversationStats,
+  updateConversationTurn,
+  deleteConversationTurn,
+  deleteConversationSession
 } from "../lib/conversationMemory";
 
 export function useConversationMemory() {
@@ -66,6 +69,27 @@ void saveUserName(name);
     }
   }, [selectedSessionId, selectedSession]);
 
+
+  const refreshMemory = useCallback(() => {
+    setMemoryRevision((revision) => revision + 1);
+  }, []);
+
+  const handleUpdateTurn = useCallback(async (sessionId: string, timestamp: number, message: string) => {
+    await updateConversationTurn(sessionId, timestamp, message);
+    refreshMemory();
+  }, [refreshMemory]);
+
+  const handleDeleteTurn = useCallback(async (sessionId: string, timestamp: number) => {
+    await deleteConversationTurn(sessionId, timestamp);
+    refreshMemory();
+  }, [refreshMemory]);
+
+  const handleDeleteSession = useCallback(async (sessionId: string) => {
+    await deleteConversationSession(sessionId);
+    setSelectedSessionId(null);
+    refreshMemory();
+  }, [refreshMemory]);
+
   const addTurn = useCallback(
     (name: string, speaker: "user" | "assistant" | "child" | "companion", message: string) => {
       void addConversationTurn(name, speaker, message);
@@ -85,6 +109,9 @@ void saveUserName(name);
     memoryData,
     selectedSession,
     setSelectedSessionId,
+    updateTurn: handleUpdateTurn,
+    deleteTurn: handleDeleteTurn,
+    deleteSession: handleDeleteSession,
     addTurn
   };
 }

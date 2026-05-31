@@ -1,0 +1,113 @@
+import { fireEvent, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { defaultSecurityLogger } from "../lib/learning/securityLogger";
+import { defaultConfirmationHandler } from "../lib/skills/policies";
+import type { SkillDefinition } from "../lib/skills/types";
+
+const sensitiveSkill: SkillDefinition = {
+  name: "write-file",
+  description: "write a file",
+  category: "system",
+  parameters: { type: "object", properties: {}, additionalProperties: false },
+  permissions: [{ resource: "filesystem", level: "write" }],
+  riskLevel: "high",
+  requiresConfirmation: true,
+  async execute() {
+    return { ok: true };
+  },
+};
+
+describe("defaultConfirmationHandler", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  it("renders an audited risk modal and resolves accepted confirmations", async () => {
+    const auditSpy = vi.spyOn(defaultSecurityLogger, "logModificationAttempt").mockResolvedValue({
+      id: "security_1",
+      type: "modification_attempt",
+      timestamp: 1,
+      message: "Skill confirmation accepted",
+    });
+
+    const confirmation = defaultConfirmationHandler(sensitiveSkill, {
+      sessionId: "session-1",
+      userId: "user-1",
+      metadata: { reason: "contains a sensitive path", ticketId: "T-1" },
+    }, {});
+
+    const dialog = await screen.findByRole("dialog", { name: "Autoriser une action sensible ?" });
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveAttribute("aria-describedby", expect.stringContaining("skill-confirmation-description-"));
+    expect(dialog).toHaveAttribute("aria-describedby", expect.stringContaining("skill-confirmation-permissions-"));
+    expect(dialog).toHaveAttribute("aria-describedby", expect.stringContaining("skill-confirmation-reason-"));
+    expect(screen.getByText("Risque élevé")).toBeInTheDocument();
+    expect(screen.getByText("Permissions: filesystem:write")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refuser" })).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Autoriser" })).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Refuser" })).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(screen.getByRole("button", { name: "Autoriser" })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: "Autoriser" }));
+
+    await expect(confirmation).resolves.toBe(true);
+    expect(auditSpy).toHaveBeenCalledWith("skill_confirmation", "Skill confirmation accepted", {
+      skillName: "write-file",
+      permissions: "filesystem:write",
+      accepted: true,
+      riskLevel: "high",
+      reasonPresent: true,
+      metadataKeys: ["reason", "ticketId"],
+    });
+    expect(auditSpy.mock.calls[0][2]).not.toHaveProperty("reason");
+  });
+
+  it("truncates long confirmation reasons before rendering", async () => {
+    vi.spyOn(defaultSecurityLogger, "logModificationAttempt").mockRejectedValue(new Error("storage unavailable"));
+    const longReason = `${"A".repeat(320)} hidden suffix`;
+
+    const confirmation = defaultConfirmationHandler(sensitiveSkill, {
+      sessionId: "session-1",
+      userId: "user-1",
+      metadata: { reason: longReason },
+    }, {});
+
+    expect(await screen.findByText(`Contexte: ${"A".repeat(280)}…`)).toBeInTheDocument();
+    expect(screen.queryByText(/hidden suffix/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refuser" }));
+    await expect(confirmation).resolves.toBe(false);
+  });
+
+  it("resolves rejected confirmations from Escape", async () => {
+    const auditSpy = vi.spyOn(defaultSecurityLogger, "logModificationAttempt").mockResolvedValue({
+      id: "security_2",
+      type: "modification_attempt",
+      timestamp: 2,
+      message: "Skill confirmation rejected",
+    });
+
+    const confirmation = defaultConfirmationHandler(sensitiveSkill, {
+      sessionId: "session-1",
+      userId: "user-1",
+    }, {});
+
+    expect(await screen.findByRole("dialog", { name: "Autoriser une action sensible ?" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await expect(confirmation).resolves.toBe(false);
+    expect(auditSpy).toHaveBeenCalledWith("skill_confirmation", "Skill confirmation rejected", expect.objectContaining({
+      accepted: false,
+      reasonPresent: false,
+      metadataKeys: [],
+    }));
+  });
+});

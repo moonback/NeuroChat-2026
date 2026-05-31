@@ -1,4 +1,5 @@
 import { SemanticSnapshot } from "./VideoService";
+import { analyzeScreenSemantics, formatScreenSemanticSummary } from "./screenSemanticLayer";
 
 /**
  * Capture d'écran pour le live Gemini : même canal que la caméra (frames JPEG).
@@ -15,6 +16,7 @@ export class ScreenCaptureService {
   // Motion detection state
   private lastImageData: ImageData | null = null;
   private lastFrameTime: number = 0;
+  private lastFrameSentTime: number = 0;
   private readonly MOTION_THRESHOLD = 0.02; // 2% for screen
   private readonly FORCE_SEND_MS = 15000;
   
@@ -109,19 +111,22 @@ export class ScreenCaptureService {
     }
 
     // 2. Semantic Analysis
-    const signature = this.generateScreenSignature(currentImageData);
+    const screenSummary = analyzeScreenSemantics(currentImageData);
+    const signature = `${this.generateScreenSignature(currentImageData)}:${formatScreenSemanticSummary(screenSummary)}`;
     const snapshot: SemanticSnapshot = {
       timestamp: now,
       signature,
-      hasMotion
+      hasMotion,
+      screenSummary
     };
 
     this.updateSemanticHistory(snapshot);
 
     // 3. Conditional Send
-    if (hasMotion || !this.lastImageData || (now - this.lastFrameTime > this.FORCE_SEND_MS)) {
+    if (hasMotion || !this.lastImageData || (now - this.lastFrameSentTime > this.FORCE_SEND_MS)) {
       const base64 = this.canvas.toDataURL("image/jpeg", 0.55).split(",")[1];
       this.onFrame(base64);
+      this.lastFrameSentTime = now;
     }
 
     this.lastImageData = currentImageData;
@@ -186,6 +191,7 @@ export class ScreenCaptureService {
       this.animationFrameId = null;
     }
     this.lastImageData = null;
+    this.lastFrameSentTime = 0;
     this.semanticHistory = [];
 
     if (this.stream) {

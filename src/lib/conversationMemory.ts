@@ -3,7 +3,7 @@
  */
 console.log("[ConversationMemory] 🔧 Initialisation du module...");
 
-import { embedAndStore, clearAllVectors } from "./vectorStore";
+import { embedAndStore, clearAllVectors, clearUserVectors } from "./vectorStore";
 import { clearWeeklySummaries } from "./conversationSummary";
 import { FeedbackCollector } from "./learning/feedbackCollector";
 import { getLearningStorage } from "./learning/storage";
@@ -109,6 +109,69 @@ export async function addConversationTurn(userName: string, speaker: "user" | "a
   await saveAllSessions(sessions);
   const learningTurnCount = await incrementLearningTurnCount(userName);
   void maybeTriggerAutomaticLearning(userName, learningTurnCount);
+}
+
+
+async function reindexUserVectorsFromSessions(sessions: ConversationSession[], userName: string): Promise<void> {
+  await clearUserVectors(userName);
+  for (const session of sessions.filter((s) => s.userName === userName)) {
+    for (const turn of session.turns) {
+      await embedAndStore(turn.message, {
+        sessionId: session.id,
+        userName,
+        speaker: turn.speaker === "child" ? "user" : turn.speaker === "companion" ? "assistant" : turn.speaker,
+        timestamp: turn.timestamp,
+      });
+    }
+  }
+}
+
+export async function updateConversationTurn(sessionId: string, timestamp: number, message: string): Promise<void> {
+  const trimmed = message.trim();
+  if (!trimmed) throw new Error("Le message ne peut pas être vide.");
+
+  const sessions = await loadAllSessions();
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) throw new Error("Session introuvable.");
+
+  const turn = session.turns.find((t) => t.timestamp === timestamp);
+  if (!turn) throw new Error("Message introuvable.");
+
+  turn.message = trimmed;
+  if ((turn.speaker === "user" || turn.speaker === "child") && session.turns[0]?.timestamp === timestamp) {
+    session.topic = trimmed.slice(0, 40) + (trimmed.length > 40 ? "..." : "");
+  }
+  session.endTime = Date.now();
+  await saveAllSessions(sessions);
+  await reindexUserVectorsFromSessions(sessions, session.userName);
+}
+
+export async function deleteConversationTurn(sessionId: string, timestamp: number): Promise<void> {
+  const sessions = await loadAllSessions();
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) throw new Error("Session introuvable.");
+
+  session.turns = session.turns.filter((turn) => turn.timestamp !== timestamp);
+  if (session.turns.length === 0) {
+    await deleteConversationSession(sessionId);
+    return;
+  }
+
+  const firstUserTurn = session.turns.find((turn) => turn.speaker === "user" || turn.speaker === "child");
+  session.topic = firstUserTurn ? firstUserTurn.message.slice(0, 40) + (firstUserTurn.message.length > 40 ? "..." : "") : session.topic;
+  session.endTime = Date.now();
+  await saveAllSessions(sessions);
+  await reindexUserVectorsFromSessions(sessions, session.userName);
+}
+
+export async function deleteConversationSession(sessionId: string): Promise<void> {
+  const sessions = await loadAllSessions();
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session) return;
+
+  const remaining = sessions.filter((s) => s.id !== sessionId);
+  await saveAllSessions(remaining);
+  await reindexUserVectorsFromSessions(remaining, session.userName);
 }
 
 export async function buildMemoryContext(userName: string): Promise<string> {

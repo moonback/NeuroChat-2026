@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { chatWithOpenRouter, type OpenRouterMessage } from "../OpenRouterService";
+import { chatWithOpenRouter, completeOpenRouterStepWithTools, type OpenRouterMessage } from "../OpenRouterService";
 import type { AgentModelGateway, AgentStep } from "./types";
 
 export interface OpenRouterGatewayOptions {
@@ -27,31 +27,11 @@ export class OpenRouterAgentGateway implements AgentModelGateway, NativeToolCall
   }
 
   async completeStepWithTools(prompt: string, tools: Array<{ name: string; description: string; parameters: object }>): Promise<AgentStep> {
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-    if (!apiKey) throw new Error("OpenRouter API Key missing");
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://neurochatia.vercel.app",
-        "X-Title": "NeuroChat",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        tools: tools.map((tool) => ({ type: "function", function: tool })),
-        tool_choice: "auto",
-      }),
-    });
-    if (!response.ok) throw new Error(`OpenRouter tools call failed: ${response.status}`);
-    const data = await response.json();
-    const message = data.choices?.[0]?.message;
-    const call = message?.tool_calls?.[0];
-    if (call?.function?.name) {
-      return { thought: "Tool selected by provider", toolCall: { name: call.function.name, arguments: JSON.parse(call.function.arguments ?? "{}") } };
+    const result = await completeOpenRouterStepWithTools(prompt, tools);
+    if (result.name) {
+      return { thought: "Tool selected by provider", toolCall: { name: result.name, arguments: JSON.parse(result.arguments ?? "{}") } };
     }
-    return { thought: "Final answer by provider", finalAnswer: message?.content ?? "" };
+    return { thought: "Final answer by provider", finalAnswer: result.finalAnswer ?? "" };
   }
 }
 
@@ -97,6 +77,48 @@ export class GeminiAgentGateway implements AgentModelGateway, NativeToolCallingG
       return { thought: "Tool selected by provider", toolCall: { name: call.name, arguments: (call.args as Record<string, unknown>) ?? {} } };
     }
     return { thought: "Final answer by provider", finalAnswer: resp.text ?? "" };
+  }
+}
+
+
+export interface OllamaGatewayOptions {
+  baseUrl?: string;
+  model?: string;
+  systemPrompt?: string;
+}
+
+export class OllamaAgentGateway implements AgentModelGateway {
+  private readonly baseUrl: string;
+  private readonly model: string;
+  private readonly systemPrompt: string;
+
+  constructor(options: OllamaGatewayOptions = {}) {
+    this.baseUrl = (options.baseUrl ?? import.meta.env.VITE_OLLAMA_BASE_URL ?? "http://127.0.0.1:11434").replace(/\/$/, "");
+    this.model = options.model ?? import.meta.env.VITE_OLLAMA_MODEL ?? "llama3.1";
+    this.systemPrompt = options.systemPrompt ?? "You are a strict JSON planner. Output only JSON.";
+  }
+
+  async complete(prompt: string, signal?: AbortSignal): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.model,
+        stream: false,
+        messages: [
+          { role: "system", content: this.systemPrompt },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama request failed: ${response.status}`);
+    }
+
+    const data = await response.json() as { message?: { content?: string }; response?: string };
+    return data.message?.content ?? data.response ?? "";
   }
 }
 

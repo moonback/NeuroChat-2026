@@ -97,6 +97,21 @@ function asBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
+
+function isAbsolutePath(value: string): boolean {
+  return /^[A-Z]:/i.test(value) || value.startsWith("/") || value.startsWith("\\");
+}
+
+function joinWorkdirPath(workdir: string, relativePath: string): string {
+  const base = workdir.replace(/[\\/]+$/, "");
+  const child = relativePath.replace(/^[\\/]+/, "");
+  return `${base}/${child}`;
+}
+
+function resolveAgainstWorkdir(filePath: string, workdir: string | null): string {
+  return isAbsolutePath(filePath) || !workdir ? filePath : joinWorkdirPath(workdir, filePath);
+}
+
 function asRecordString(value: unknown): Record<string, string> | undefined {
   if (!value || typeof value !== "object") return undefined;
   const out: Record<string, string> = {};
@@ -865,7 +880,7 @@ export class BrowserController {
   private async listDir(path?: string): Promise<BrowserActionResult> {
     if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
     
-    const targetPath = path || this.currentWorkdir;
+    const targetPath = path ? resolveAgainstWorkdir(path, this.currentWorkdir) : this.currentWorkdir;
     console.log(`📂 [BrowserController] listing dir: ${targetPath}`);
     if (!targetPath) return { success: false, error: "Aucun dossier sélectionné. Utilisez 'pickWorkdir' d'abord." };
 
@@ -890,8 +905,7 @@ export class BrowserController {
     if (!path) return { success: false, error: "Chemin de fichier manquant" };
 
     // Résoudre les chemins relatifs par rapport au dossier de travail
-    const isAbsolute = /^[A-Z]:/i.test(path) || path.startsWith("/") || path.startsWith("\\");
-    const resolvedPath = isAbsolute ? path : (this.currentWorkdir ? `${this.currentWorkdir}\\${path}` : path);
+    const resolvedPath = resolveAgainstWorkdir(path, this.currentWorkdir);
     console.log(`📄 [BrowserController] reading file: ${resolvedPath}`);
 
     try {
@@ -915,8 +929,7 @@ export class BrowserController {
     if (!path) return { success: false, error: "Chemin de fichier manquant" };
     if (content === undefined) return { success: false, error: "Contenu manquant" };
 
-    const isAbsolute = /^[A-Z]:/i.test(path) || path.startsWith("/") || path.startsWith("\\");
-    const resolvedPath = isAbsolute ? path : (this.currentWorkdir ? `${this.currentWorkdir}\\${path}` : path);
+    const resolvedPath = resolveAgainstWorkdir(path, this.currentWorkdir);
     console.log(`📝 [BrowserController] writing to file: ${resolvedPath}`);
 
     try {
@@ -936,8 +949,7 @@ export class BrowserController {
     if (!window.neurochatElectron) return { success: false, error: "Mode Desktop requis" };
     if (!path) return { success: false, error: "Chemin manquant" };
 
-    const isAbsolute = /^[A-Z]:/i.test(path) || path.startsWith("/") || path.startsWith("\\");
-    const resolvedPath = isAbsolute ? path : (this.currentWorkdir ? `${this.currentWorkdir}\\${path}` : path);
+    const resolvedPath = resolveAgainstWorkdir(path, this.currentWorkdir);
     console.log(`🗑️ [BrowserController] deleting: ${resolvedPath}`);
 
     try {

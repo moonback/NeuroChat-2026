@@ -1,4 +1,4 @@
-import { executeToolCall } from "./executor";
+import { executeToolCall, rollbackExecutedToolCalls } from "./executor";
 import { parseAgentStep } from "./parser";
 import { buildPlannerPrompt } from "./planner";
 import { ExecutionCritic } from "./critic";
@@ -8,6 +8,7 @@ import type { AgentModelGateway, AgentRunOptions, AgentRunResult, AgentExecution
 
 import { SkillRetriever } from "../skills/retriever";
 import { AgentReflector } from "./reflector";
+import { cancelDurableAgentRun, loadDurableAgentRun, saveDurableAgentRun } from "./runStore";
 
 export class AgentOrchestrator {
   private critic = new ExecutionCritic();
@@ -31,7 +32,10 @@ export class AgentOrchestrator {
     await this.ensureSkillsIndexed();
     const relevantSkills = await this.retriever.retrieve(input);
     
-    const state: AgentExecutionState = {
+    const runId = options.runId ?? options.resumeFromRunId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const deadlineAt = options.deadlineMs ? Date.now() + options.deadlineMs : undefined;
+    const persisted = options.resumeFromRunId ? await loadDurableAgentRun(options.resumeFromRunId) : null;
+    const state: AgentExecutionState = persisted?.state ?? {
       sessionId,
       userId,
       input,
@@ -52,12 +56,39 @@ export class AgentOrchestrator {
       activeAgentName: options.activeProfile?.name,
       activeProfile: options.activeProfile,
     };
+    state.status = persisted?.status === "CANCELLED" ? "CANCELLED" : state.status;
+    state.maxIterations = options.maxIterations ?? state.maxIterations;
+    state.activeProfile = options.activeProfile ?? state.activeProfile;
     const maxConsecutiveFailures = options.maxConsecutiveFailures ?? 3;
     let consecutiveFailures = 0;
+    const persistState = async () => {
+      await saveDurableAgentRun({ runId, sessionId, userId, input, status: state.status, updatedAt: Date.now(), state });
+    };
+    const failWithRollback = async (answer: string, reason: string): Promise<AgentRunResult> => {
+      state.status = reason === "cancelled" ? "CANCELLED" : "FAILED";
+      if (options.rollbackOnFailure !== false && !options.dryRun) {
+        const rollbackResults = await rollbackExecutedToolCalls(this.registry, state, reason, options.signal);
+        rollbackResults.forEach((result) => options.onEvent?.({ type: "rollback_result", iteration: state.iteration, result }));
+      }
+      await persistState();
+      return { runId, answer, toolResults: state.toolResults, iterations: state.iteration, completed: false };
+    };
+    await persistState();
 
     while (state.iteration < state.maxIterations) {
+      if (options.signal?.aborted || state.status === "CANCELLED") {
+        await cancelDurableAgentRun(runId);
+        return failWithRollback("Tâche agent annulée.", "cancelled");
+      }
+      if (deadlineAt && Date.now() > deadlineAt) {
+        return failWithRollback("Budget temps dépassé avant la fin de la tâche.", "deadline_exceeded");
+      }
+      if (options.maxToolCalls !== undefined && state.toolResults.length >= options.maxToolCalls) {
+        return failWithRollback("Budget outils dépassé avant la fin de la tâche.", "tool_budget_exceeded");
+      }
       state.iteration += 1;
       state.status = "PLANNING";
+      await persistState();
       options.onEvent?.({ type: "iteration_start", iteration: state.iteration });
       
       try {
@@ -81,6 +112,7 @@ export class AgentOrchestrator {
           options.onEvent?.({ type: "completed", iteration: state.iteration, completed: true, answer: step.finalAnswer });
           
           const result: AgentRunResult = { 
+            runId,
             answer: step.finalAnswer, 
             toolResults: state.toolResults, 
             iterations: state.iteration, 
@@ -92,6 +124,7 @@ export class AgentOrchestrator {
             if (reflection) state.transcript.push(`REFLECTION: ${JSON.stringify(reflection)}`);
           } catch {}
           
+          await persistState();
           return result;
         }
 
@@ -101,7 +134,7 @@ export class AgentOrchestrator {
 
         // 3. EXECUTING
         state.status = "EXECUTING";
-        await executeToolCall(this.registry, state, step.toolCall, options.signal);
+        await executeToolCall(this.registry, state, step.toolCall, options.signal, options.dryRun);
         
         const lastResult = state.toolResults[state.toolResults.length - 1];
         if (lastResult) options.onEvent?.({ type: "tool_result", iteration: state.iteration, result: lastResult });
@@ -112,8 +145,7 @@ export class AgentOrchestrator {
         state.transcript.push(`CRITIC ${state.iteration}: ${criticism.message} [Action: ${criticism.action}]`);
 
         if (criticism.action === "abort") {
-          state.status = "FAILED";
-          break;
+          return failWithRollback(criticism.message, "critic_abort");
         }
 
         if (criticism.action === "retry" || criticism.action === "adjust_plan") {
@@ -132,11 +164,12 @@ export class AgentOrchestrator {
         state.status = "RECOVERING";
       }
 
+      await persistState();
+
       if (consecutiveFailures > maxConsecutiveFailures) {
-        state.status = "FAILED";
         const answer = "Désolé, je rencontre trop de difficultés techniques pour finaliser cette tâche.";
         options.onEvent?.({ type: "completed", iteration: state.iteration, completed: false, answer });
-        return { answer, toolResults: state.toolResults, iterations: state.iteration, completed: false };
+        return failWithRollback(answer, "too_many_failures");
       }
     }
 
@@ -145,6 +178,7 @@ export class AgentOrchestrator {
     options.onEvent?.({ type: "completed", iteration: state.iteration, completed: false, answer });
 
     const finalResult: AgentRunResult = { 
+      runId,
       answer, 
       toolResults: state.toolResults, 
       iterations: state.iteration, 
@@ -164,6 +198,13 @@ export class AgentOrchestrator {
       console.warn("[Orchestrator] Reflection failed:", e);
     }
 
+    if (options.rollbackOnFailure !== false && !options.dryRun) {
+      const rollbackResults = await rollbackExecutedToolCalls(this.registry, state, "max_iterations_exceeded", options.signal);
+      rollbackResults.forEach((result) => options.onEvent?.({ type: "rollback_result", iteration: state.iteration, result }));
+      finalResult.toolResults = state.toolResults;
+    }
+
+    await persistState();
     return finalResult;
   }
 }

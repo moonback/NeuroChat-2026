@@ -1,6 +1,7 @@
 import { createDefaultAgentRuntime } from "./createAgentRuntime";
 import type { AgentEvent, AgentRunOptions, AgentRunResult } from "./types";
 import { saveAgentTrace } from "./traceStore";
+import { cancelDurableAgentRun, loadDurableAgentRuns } from "./runStore";
 
 export interface AgentServiceRequest {
   input: string;
@@ -45,6 +46,15 @@ export class AgentService {
       events,
     });
     return result;
+  }
+
+  async cancel(runId: string): Promise<void> {
+    assertNonEmpty(runId, "runId");
+    await cancelDurableAgentRun(runId);
+  }
+
+  async listRuns() {
+    return loadDurableAgentRuns();
   }
 }
 

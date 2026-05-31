@@ -4,6 +4,7 @@ export type UserMoodInference = "calme" | "joyeux" | "stressé" | "triste" | "ne
 
 export interface EmotionMetrics {
   energy: UserEnergyState;
+  energyLevel: number; // 0-1
   mood: UserMoodInference;
   confidence: number; // 0-1
   trend: "stable" | "increasing" | "decreasing";
@@ -56,6 +57,9 @@ export class EmotionEngine {
     else if (avgAudio > 0.12) energy = "élevée";
     else if (avgAudio < 0.02) energy = "calme";
 
+    // energyLevel (0-1) - normalize against expected max (roughly 0.5 for audio/motion)
+    const energyLevel = Math.min(1, (avgAudio * 2) * 0.7 + (avgMotion * 2) * 0.3);
+
     // 2. Inférence de l'humeur avec logique de "Focus"
     let mood: UserMoodInference = "neutre";
     if (this.isStagnated && avgAudio < 0.05) mood = "focus";
@@ -70,6 +74,7 @@ export class EmotionEngine {
 
     const metrics: EmotionMetrics = {
       energy,
+      energyLevel,
       mood,
       confidence,
       trend: audioTrend,
