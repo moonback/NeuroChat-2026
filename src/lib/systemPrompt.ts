@@ -10,6 +10,8 @@ export interface PromptContextOptions {
   userName?: string;
   emotion?: EmotionState;
   mode?: ConversationMode;
+  /** Optional pre-resolved recent memory context. Required for sync prompt building. */
+  memoryContext?: string;
   /** Optional RAG context block from semanticSearch (injected by useGeminiSession) */
   userState?: string;
   ragContext?: string;
@@ -68,9 +70,9 @@ function getModeInstruction(mode: ConversationMode): string {
  */
 export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOptions | string = {}): string {
   const normalizedOptions: PromptContextOptions = typeof options === "string" ? { userName: options } : options;
-  const { userName = "", emotion = "professional", mode = "general", userState = "", ragContext, weeklySummary, browserControlEnabled = false, visionEnabled = false } = normalizedOptions;
+  const { userName = "", emotion = "professional", mode = "general", memoryContext, userState = "", ragContext, weeklySummary, browserControlEnabled = false, visionEnabled = false } = normalizedOptions;
   const avatar = AVATARS[avatarId];
-  const memoryContext = buildMemoryContext(userName);
+  const resolvedMemoryContext = memoryContext ?? "Mémoire récente non chargée pour ce prompt synchrone.";
   const temporalContext = buildDateTimeContext(new Date());
 
   const markdownSkillsSection = buildMarkdownSkillsPromptSection();
@@ -96,7 +98,7 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
     "   - [STAGNATION_NUDGE] : L'interaction semble calme ou sans mouvement depuis longtemps. Propose une idée stimulante ou demande simplement si tout va bien.",
 
     "### CONTEXTUAL MEMORY",
-    `Mémoire récente:\n${memoryContext || "Pas d'historique récent disponible."}`,
+    `Mémoire récente:\n${resolvedMemoryContext || "Pas d'historique récent disponible."}`,
     
     "### TEMPORAL CONTEXT",
     temporalContext,
@@ -128,6 +130,13 @@ export function buildSystemPrompt(avatarId: AvatarId, options: PromptContextOpti
   );
 
   return sections.filter(Boolean).join("\n\n");
+}
+
+export async function buildSystemPromptAsync(avatarId: AvatarId, options: PromptContextOptions | string = {}): Promise<string> {
+  const normalizedOptions: PromptContextOptions = typeof options === "string" ? { userName: options } : options;
+  const userName = normalizedOptions.userName ?? "";
+  const memoryContext = normalizedOptions.memoryContext ?? (userName ? await buildMemoryContext(userName) : "C'est votre première conversation avec l'utilisateur aujourd'hui.");
+  return buildSystemPrompt(avatarId, { ...normalizedOptions, memoryContext });
 }
 
 export function getDefaultSystemPrompt(): string {
